@@ -60,6 +60,12 @@ func runWhoami(cmd *cobra.Command) error {
 	// Print the user email
 	cmd.Printf("Logged in as: %s\n", verifyResp.Email)
 
+	// Try to get and display the default organization
+	orgID, orgName, err := mjrToken.GetDefaultOrg()
+	if err == nil && orgID != "" && orgName != "" {
+		cmd.Printf("Default organization: %s (%s)\n", orgName, orgID)
+	}
+
 	return nil
 }
 

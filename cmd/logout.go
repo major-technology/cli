@@ -59,6 +59,12 @@ func runLogout(cmd *cobra.Command) error {
 		return fmt.Errorf("failed to delete local token: %w", err)
 	}
 
+	// Delete the default organization from local keyring (if it exists)
+	err = mjrToken.DeleteDefaultOrg()
+	if err != nil {
+		return fmt.Errorf("failed to delete default organization: %w", err)
+	}
+
 	cmd.Println("Successfully logged out!")
 	return nil
 }

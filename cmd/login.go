@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/charmbracelet/huh"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -52,6 +53,16 @@ type ErrorResponse struct {
 	Message string `json:"message"`
 }
 
+// Organization represents an organization from the API
+type Organization struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+type OrganizationsResponse struct {
+	Organizations []Organization `json:"organizations"`
+}
+
 // loginCmd represents the login command
 var loginCmd = &cobra.Command{
 	Use:   "login",
@@ -88,6 +99,26 @@ func runLogin(cmd *cobra.Command) error {
 
 	if err := mjrToken.StoreToken(token); err != nil {
 		return fmt.Errorf("failed to store token: %w", err)
+	}
+
+	// Fetch organizations
+	orgsResp, err := fetchOrganizations(apiURL, token)
+	if err != nil {
+		return fmt.Errorf("failed to fetch organizations: %w", err)
+	}
+
+	// Let user select default organization
+	if len(orgsResp.Organizations) > 0 {
+		selectedOrg, err := selectOrganization(cmd, orgsResp.Organizations)
+		if err != nil {
+			return fmt.Errorf("failed to select organization: %w", err)
+		}
+
+		if err := mjrToken.StoreDefaultOrg(selectedOrg.ID, selectedOrg.Name); err != nil {
+			return fmt.Errorf("failed to store default organization: %w", err)
+		}
+
+		cmd.Printf("Default organization set to: %s\n", selectedOrg.Name)
 	}
 
 	cmd.Println("Successfully authenticated!")
@@ -211,4 +242,88 @@ func pollForToken(cmd *cobra.Command, apiURL string, deviceCode string, interval
 			return "", fmt.Errorf("unexpected response: %s", string(body))
 		}
 	}
+}
+
+// fetchOrganizations calls GET /organizations to retrieve the user's organizations
+func fetchOrganizations(apiURL string, token string) (*OrganizationsResponse, error) {
+	url := apiURL + "/organizations"
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create request")
+	}
+
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to make request")
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to read response")
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		var errResp ErrorResponse
+		if err := json.Unmarshal(body, &errResp); err == nil {
+			return nil, fmt.Errorf("server error: %s", errResp.Message)
+		}
+		return nil, fmt.Errorf("server returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var orgsResp *OrganizationsResponse
+	if err := json.Unmarshal(body, &orgsResp); err != nil {
+		return nil, errors.Wrap(err, "failed to parse response")
+	}
+
+	return orgsResp, nil
+}
+
+// selectOrganization prompts the user to select an organization from the list
+func selectOrganization(cmd *cobra.Command, orgs []Organization) (*Organization, error) {
+	if len(orgs) == 0 {
+		return nil, fmt.Errorf("no organizations available")
+	}
+
+	// If only one organization, automatically select it
+	if len(orgs) == 1 {
+		cmd.Printf("Only one organization available. Automatically selecting it.\n")
+		return &orgs[0], nil
+	}
+
+	// Create options for huh select
+	options := make([]huh.Option[string], len(orgs))
+	for i, org := range orgs {
+		options[i] = huh.NewOption(org.Name, org.ID)
+	}
+
+	var selectedID string
+
+	// Create and run the select form
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewSelect[string]().
+				Title("Select a default organization").
+				Options(options...).
+				Value(&selectedID),
+		),
+	)
+
+	err := form.Run()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get selection: %w", err)
+	}
+
+	// Find the selected organization
+	for i, org := range orgs {
+		if org.ID == selectedID {
+			return &orgs[i], nil
+		}
+	}
+
+	return nil, fmt.Errorf("selected organization not found")
 }
