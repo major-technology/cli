@@ -7,7 +7,7 @@ before:
 
 builds:
   - id: major
-    main: ./main
+    main: .
     binary: major
     env: [CGO_ENABLED=0]
     flags: [-trimpath]
