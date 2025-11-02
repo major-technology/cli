@@ -1,11 +1,13 @@
-project_name: cli
+version: 2
+
+project_name: major
 
 before:
   hooks:
     - go mod tidy
 
 builds:
-  - id: cli
+  - id: major
     main: ./main
     binary: major
     env: [CGO_ENABLED=0]
@@ -43,7 +45,7 @@ brews:
 release:
   github:
     owner: major-technology
-    name: cli
+    name: major
   draft: false
   prerelease: false
 
