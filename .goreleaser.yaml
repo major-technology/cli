@@ -3,8 +3,7 @@ version: 2
 project_name: major
 
 before:
-  hooks:
-    - go mod tidy
+  hooks: [go mod tidy]
 
 builds:
   - id: major
@@ -15,28 +14,27 @@ builds:
     ldflags:
       - -s -w
       - -X github.com/major-technology/cli/cmd.version={{.Version}}
-      # If you want prod builds to default to prod config:
       - -X github.com/major-technology/cli/cmd.defaultConfig=configs/prod.json
     goos: [darwin, linux]
     goarch: [amd64, arm64]
 
 archives:
-  - format: tar.gz
+  - formats: [tar.gz]     # <- v2 syntax
     files:
       - LICENSE
       - README.md
 
-brews:
+brews:                     # <- still deprecated but works
   - name: major
-    tap:
+    description: "Major CLI"
+    homepage: "https://github.com/major-technology/major"
+    license: "MIT"
+    repository:
       owner: major-technology
       name: homebrew-tap
     commit_author:
       name: goreleaser
       email: goreleaser@users.noreply.github.com
-    description: "Major CLI"
-    homepage: "https://github.com/major-technology/cli"
-    license: "MIT"
     test: |
       system "#{bin}/major", "--version"
     install: |
@@ -46,8 +44,3 @@ release:
   github:
     owner: major-technology
     name: major
-  draft: false
-  prerelease: false
-
-changelog:
-  sort: asc
