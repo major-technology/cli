@@ -1,0 +1,51 @@
+project_name: cli
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: cli
+    main: ./main
+    binary: major
+    env: [CGO_ENABLED=0]
+    flags: [-trimpath]
+    ldflags:
+      - -s -w
+      - -X github.com/major-technology/cli/cmd.version={{.Version}}
+      # If you want prod builds to default to prod config:
+      - -X github.com/major-technology/cli/cmd.defaultConfig=configs/prod.json
+    goos: [darwin, linux]
+    goarch: [amd64, arm64]
+
+archives:
+  - format: tar.gz
+    files:
+      - LICENSE
+      - README.md
+
+brews:
+  - name: major
+    tap:
+      owner: major-technology
+      name: homebrew-tap
+    commit_author:
+      name: goreleaser
+      email: goreleaser@users.noreply.github.com
+    description: "Major CLI"
+    homepage: "https://github.com/major-technology/cli"
+    license: "MIT"
+    test: |
+      system "#{bin}/major", "--version"
+    install: |
+      bin.install "major"
+
+release:
+  github:
+    owner: major-technology
+    name: cli
+  draft: false
+  prerelease: false
+
+changelog:
+  sort: asc
