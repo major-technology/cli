@@ -22,7 +22,7 @@ jobs:
           app_id: ${{ secrets.APP_ID }}
           private_key: ${{ secrets.APP_PRIVATE_KEY }}
           # Optionally restrict to just the tap repo
-          repositories: 'homebrew-tap'
+          repositories: '["homebrew-tap"]'
       - name: GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:
