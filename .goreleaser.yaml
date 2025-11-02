@@ -43,4 +43,4 @@ brews:                     # <- still deprecated but works
 release:
   github:
     owner: major-technology
-    name: major
+    name: cli
