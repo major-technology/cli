@@ -32,6 +32,7 @@ brews:                     # <- still deprecated but works
     repository:
       owner: major-technology
       name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
     commit_author:
       name: goreleaser
       email: goreleaser@users.noreply.github.com
