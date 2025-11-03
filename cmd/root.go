@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	"encoding/json"
 	"os"
 
+	"github.com/major-technology/cli/configs"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -39,14 +41,33 @@ func init() {
 }
 
 func initConfig() {
-	if cfgFile != "" {
-		viper.SetConfigFile(cfgFile)
+	// Use embedded config based on defaultConfig variable
+	var configData []byte
+	if defaultConfig == "configs/prod.json" {
+		configData = configs.ProdConfig
 	} else {
-		home, err := os.UserHomeDir()
-		cobra.CheckErr(err)
-		viper.AddConfigPath(home)
-		viper.SetConfigType("yaml")
-		viper.SetConfigName(".cli")
+		configData = configs.LocalConfig
 	}
-	cobra.CheckErr(viper.ReadInConfig())
+
+	// Parse embedded config into viper
+	var config map[string]interface{}
+	if err := json.Unmarshal(configData, &config); err != nil {
+		cobra.CheckErr(err)
+	}
+
+	for key, value := range config {
+		viper.Set(key, value)
+	}
+
+	// Allow user to override with custom config file if specified
+	if cfgFile != "" && cfgFile != defaultConfig {
+		if _, err := os.Stat(cfgFile); err == nil {
+			viper.SetConfigFile(cfgFile)
+			// Don't exit on error, just use embedded defaults
+			_ = viper.MergeInConfig()
+		}
+	}
+
+	viper.SetEnvPrefix("MAJOR")
+	viper.AutomaticEnv()
 }
