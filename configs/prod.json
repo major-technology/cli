@@ -1,4 +1,4 @@
 {
     "api_url": "https://api.prod.major.build/cli",
-    "frontend_uri": "https://app.major.build/device"
+    "frontend_uri": "https://app.major.build"
 }

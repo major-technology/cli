@@ -2,14 +2,13 @@ package user
 
 import (
 	"fmt"
-	"os/exec"
-	"runtime"
 	"time"
 
 	"github.com/charmbracelet/huh"
 	apiClient "github.com/major-technology/cli/clients/api"
 	mjrToken "github.com/major-technology/cli/clients/token"
 	"github.com/major-technology/cli/singletons"
+	"github.com/major-technology/cli/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -31,7 +30,7 @@ func runLogin(cobraCmd *cobra.Command) error {
 		return fmt.Errorf("failed to start login: %w", err)
 	}
 
-	if err := openBrowser(startResp.VerificationURI); err != nil {
+	if err := utils.OpenBrowser(startResp.VerificationURI); err != nil {
 		// ignore, failed to open browser
 	}
 	cobraCmd.Println("Attempting to automatically open the SSO authorization page in your default browser.")
@@ -69,24 +68,6 @@ func runLogin(cobraCmd *cobra.Command) error {
 	cobraCmd.Println("Successfully authenticated!")
 
 	return nil
-}
-
-// openBrowser opens the specified URL in the default browser
-func openBrowser(url string) error {
-	var execCmd *exec.Cmd
-
-	switch runtime.GOOS {
-	case "linux":
-		execCmd = exec.Command("xdg-open", url)
-	case "windows":
-		execCmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
-	case "darwin":
-		execCmd = exec.Command("open", url)
-	default:
-		return fmt.Errorf("unsupported platform")
-	}
-
-	return execCmd.Start()
 }
 
 // pollForToken polls POST /cli/login/poll until authenticated or timeout
