@@ -19,4 +19,5 @@ func init() {
 	Cmd.AddCommand(generateResourcesCmd)
 	Cmd.AddCommand(startCmd)
 	Cmd.AddCommand(deployCmd)
+	Cmd.AddCommand(editCmd)
 }

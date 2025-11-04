@@ -1,4 +1,4 @@
 {
     "api_url": "http://localhost:3001/cli",
-    "frontend_uri": "http://localhost:3000/device"
+    "frontend_uri": "http://localhost:3000"
 }
