@@ -18,4 +18,5 @@ func init() {
 	Cmd.AddCommand(generateEnvCmd)
 	Cmd.AddCommand(generateResourcesCmd)
 	Cmd.AddCommand(startCmd)
+	Cmd.AddCommand(deployCmd)
 }

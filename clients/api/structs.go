@@ -99,3 +99,13 @@ type ResourceItem struct {
 type GetApplicationResourcesResponse struct {
 	Resources []ResourceItem `json:"resources"`
 }
+
+// CreateApplicationVersionRequest represents the request body for POST /applications/versions
+type CreateApplicationVersionRequest struct {
+	ApplicationID string `json:"applicationId"`
+}
+
+// CreateApplicationVersionResponse represents the response from POST /applications/versions
+type CreateApplicationVersionResponse struct {
+	VersionID string `json:"versionId"`
+}

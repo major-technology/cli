@@ -108,3 +108,46 @@ func GetRepoRoot() (string, error) {
 
 	return strings.TrimSpace(string(output)), nil
 }
+
+// IsGitRepository checks if the current directory is a git repository
+func IsGitRepository() bool {
+	cmd := exec.Command("git", "rev-parse", "--git-dir")
+	err := cmd.Run()
+	return err == nil
+}
+
+// HasUncommittedChanges checks if there are uncommitted changes in the repository
+func HasUncommittedChanges() (bool, error) {
+	// Check for staged and unstaged changes
+	cmd := exec.Command("git", "status", "--porcelain")
+	output, err := cmd.Output()
+	if err != nil {
+		return false, err
+	}
+
+	return len(strings.TrimSpace(string(output))) > 0, nil
+}
+
+// Add stages all changes
+func Add() error {
+	cmd := exec.Command("git", "add", ".")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
+// Commit commits staged changes with the given message
+func Commit(message string) error {
+	cmd := exec.Command("git", "commit", "-m", message)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
+// PushToMain pushes commits to the remote repository on main branch
+func PushToMain() error {
+	cmd := exec.Command("git", "push")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
