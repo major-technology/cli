@@ -88,3 +88,14 @@ func ParseRemoteURL(remoteURL string) (*RemoteInfo, error) {
 
 	return nil, fmt.Errorf("unsupported remote URL format: %s", remoteURL)
 }
+
+// GetRepoRoot returns the root directory of the git repository
+func GetRepoRoot() (string, error) {
+	cmd := exec.Command("git", "rev-parse", "--show-toplevel")
+	output, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+
+	return strings.TrimSpace(string(output)), nil
+}

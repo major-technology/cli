@@ -3,7 +3,6 @@ package app
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -65,7 +64,7 @@ func runGenerateEnv(cmd *cobra.Command) error {
 	}
 
 	// Get git repository root
-	gitRoot, err := getGitRepoRoot()
+	gitRoot, err := git.GetRepoRoot()
 	if err != nil {
 		return fmt.Errorf("failed to get git repository root: %w", err)
 	}
@@ -90,15 +89,3 @@ func runGenerateEnv(cmd *cobra.Command) error {
 
 	return nil
 }
-
-// getGitRepoRoot returns the root directory of the git repository
-func getGitRepoRoot() (string, error) {
-	cmd := exec.Command("git", "rev-parse", "--show-toplevel")
-	output, err := cmd.Output()
-	if err != nil {
-		return "", err
-	}
-
-	return strings.TrimSpace(string(output)), nil
-}
-
