@@ -146,6 +146,26 @@ func runCreate(cobraCmd *cobra.Command) error {
 	cobraCmd.Printf("\n✓ Application '%s' successfully created in ./%s\n", appName, appName)
 	cobraCmd.Printf("  Clone URL: %s\n", cloneURL)
 
+	// Generate .env file
+	cobraCmd.Println("\nGenerating .env file...")
+	envFilePath, numVars, err := generateEnvFile(targetDir)
+	if err != nil {
+		cobraCmd.Printf("Warning: Failed to generate .env file: %v\n", err)
+	} else {
+		cobraCmd.Printf("✓ Generated .env file at: %s\n", envFilePath)
+		cobraCmd.Printf("  Environment variables written: %d\n", numVars)
+	}
+
+	// Generate RESOURCES.md file
+	cobraCmd.Println("\nGenerating RESOURCES.md file...")
+	resourcesFilePath, numResources, err := generateResourcesFile(targetDir)
+	if err != nil {
+		cobraCmd.Printf("Warning: Failed to generate RESOURCES.md file: %v\n", err)
+	} else {
+		cobraCmd.Printf("✓ Generated RESOURCES.md file at: %s\n", resourcesFilePath)
+		cobraCmd.Printf("  Resources written: %d\n", numResources)
+	}
+
 	return nil
 }
 

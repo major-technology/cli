@@ -23,50 +23,52 @@ var generateEnvCmd = &cobra.Command{
 }
 
 func runGenerateEnv(cmd *cobra.Command) error {
+	envFilePath, numVars, err := generateEnvFile("")
+	if err != nil {
+		return err
+	}
+
+	cmd.Printf("Successfully generated .env file at: %s\n", envFilePath)
+	cmd.Printf("Environment variables written: %d\n", numVars)
+
+	return nil
+}
+
+// generateEnvFile generates a .env file for the application in the specified directory.
+// If targetDir is empty, it uses the current git repository root.
+// Returns the path to the generated file and the number of variables written.
+func generateEnvFile(targetDir string) (string, int, error) {
 	// Get the default organization ID from keyring
 	orgID, _, err := token.GetDefaultOrg()
 	if err != nil {
-		return fmt.Errorf("failed to get default organization: %w\nPlease run 'major org select' to set a default organization", err)
+		return "", 0, fmt.Errorf("failed to get default organization: %w\nPlease run 'major org select' to set a default organization", err)
 	}
 
-	// Get the git remote URL from the current directory
-	remoteURL, err := git.GetRemoteURL()
+	// Get application ID from the specified directory (or current if empty)
+	applicationID, err := getApplicationIDFromDir(targetDir)
 	if err != nil {
-		return fmt.Errorf("failed to get git remote: %w", err)
-	}
-
-	if remoteURL == "" {
-		return fmt.Errorf("no git remote found in current directory")
-	}
-
-	// Parse the remote URL to extract owner and repo
-	remoteInfo, err := git.ParseRemoteURL(remoteURL)
-	if err != nil {
-		return fmt.Errorf("failed to parse git remote URL: %w", err)
+		return "", 0, err
 	}
 
 	// Get API client
 	apiClient := singletons.GetAPIClient()
 	if apiClient == nil {
-		return fmt.Errorf("API client not initialized")
-	}
-
-	// Get application by repository
-	appResp, err := apiClient.GetApplicationByRepo(remoteInfo.Owner, remoteInfo.Repo)
-	if err != nil {
-		return fmt.Errorf("failed to get application: %w", err)
+		return "", 0, fmt.Errorf("API client not initialized")
 	}
 
 	// Get environment variables
-	envVars, err := apiClient.GetApplicationEnv(orgID, appResp.ApplicationID)
+	envVars, err := apiClient.GetApplicationEnv(orgID, applicationID)
 	if err != nil {
-		return fmt.Errorf("failed to get environment variables: %w", err)
+		return "", 0, fmt.Errorf("failed to get environment variables: %w", err)
 	}
 
-	// Get git repository root
-	gitRoot, err := git.GetRepoRoot()
-	if err != nil {
-		return fmt.Errorf("failed to get git repository root: %w", err)
+	// Determine the target directory
+	gitRoot := targetDir
+	if gitRoot == "" {
+		gitRoot, err = git.GetRepoRoot()
+		if err != nil {
+			return "", 0, fmt.Errorf("failed to get git repository root: %w", err)
+		}
 	}
 
 	// Create .env file path
@@ -81,11 +83,8 @@ func runGenerateEnv(cmd *cobra.Command) error {
 	// Write to .env file
 	err = os.WriteFile(envFilePath, []byte(envContent.String()), 0644)
 	if err != nil {
-		return fmt.Errorf("failed to write .env file: %w", err)
+		return "", 0, fmt.Errorf("failed to write .env file: %w", err)
 	}
 
-	cmd.Printf("Successfully generated .env file at: %s\n", envFilePath)
-	cmd.Printf("Environment variables written: %d\n", len(envVars))
-
-	return nil
+	return envFilePath, len(envVars), nil
 }
