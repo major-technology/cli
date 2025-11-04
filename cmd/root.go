@@ -1,12 +1,15 @@
 package cmd
 
 import (
-	"encoding/json"
 	"os"
 
-	"github.com/major-technology/cli/configs"
+	apiClient "github.com/major-technology/cli/clients/api"
+	"github.com/major-technology/cli/clients/config"
+	"github.com/major-technology/cli/cmd/app"
+	"github.com/major-technology/cli/cmd/org"
+	"github.com/major-technology/cli/cmd/user"
+	"github.com/major-technology/cli/singletons"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 var (
@@ -16,15 +19,13 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:     "cli",
+	Use:     "major",
 	Short:   "The major CLI",
 	Long:    `The major CLI is a tool to help you create and manage major applications`,
-	Version: version, // you can set here OR in Execute(); here is simpler
+	Version: version,
 }
 
 func Execute() {
-	// If you prefer, you can keep this:
-	// rootCmd.Version = version
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}
@@ -33,41 +34,27 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 
+	// Disable the completion command
+	rootCmd.CompletionOptions.DisableDefaultCmd = true
+
 	// default comes from variable (override-able via ldflags)
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", defaultConfig, "config file")
 
-	viper.SetEnvPrefix("MAJOR")
-	viper.AutomaticEnv()
+	// Register subcommands
+	rootCmd.AddCommand(user.Cmd)
+	rootCmd.AddCommand(org.Cmd)
+	rootCmd.AddCommand(app.Cmd)
 }
 
 func initConfig() {
-	// Use embedded config based on defaultConfig variable
-	var configData []byte
-	if defaultConfig == "configs/prod.json" {
-		configData = configs.ProdConfig
-	} else {
-		configData = configs.LocalConfig
-	}
+	var err error
+	cfg, err := config.Load(cfgFile, defaultConfig)
+	cobra.CheckErr(err)
 
-	// Parse embedded config into viper
-	var config map[string]interface{}
-	if err := json.Unmarshal(configData, &config); err != nil {
-		cobra.CheckErr(err)
-	}
+	// Set config in singletons package
+	singletons.SetConfig(cfg)
 
-	for key, value := range config {
-		viper.Set(key, value)
-	}
-
-	// Allow user to override with custom config file if specified
-	if cfgFile != "" && cfgFile != defaultConfig {
-		if _, err := os.Stat(cfgFile); err == nil {
-			viper.SetConfigFile(cfgFile)
-			// Don't exit on error, just use embedded defaults
-			_ = viper.MergeInConfig()
-		}
-	}
-
-	viper.SetEnvPrefix("MAJOR")
-	viper.AutomaticEnv()
+	// Initialize API client with base URL (token will be fetched automatically per-request)
+	client := apiClient.NewClient(cfg.APIURL)
+	singletons.SetAPIClient(client)
 }
