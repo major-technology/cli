@@ -10,8 +10,9 @@ import (
 
 // ErrorResponse represents an error response from the API
 type ErrorResponse struct {
-	Error   string `json:"error"`
-	Message string `json:"message"`
+	Error            string `json:"error"`
+	ErrorDescription string `json:"error_description"`
+	Message          string `json:"message"`
 }
 
 // APIError represents an API error with status code and message
@@ -86,11 +87,8 @@ func CheckErr(cmd *cobra.Command, err error) bool {
 	// Check if it's an API error
 	var apiErr *APIError
 	if errors.As(err, &apiErr) {
-		cmd.Printf("Error: Failed to make request (status %d)\n", apiErr.StatusCode)
-		if apiErr.ErrorType != "" {
-			cmd.Printf("  Type: %s\n", apiErr.ErrorType)
-		}
-		cmd.Printf("  Message: %s\n", apiErr.Message)
+		// Just print the error description/message, nothing else
+		cmd.Printf("Error: %s\n", apiErr.Message)
 		return false
 	}
 

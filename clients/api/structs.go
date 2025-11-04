@@ -87,3 +87,15 @@ type GetApplicationEnvRequest struct {
 type GetApplicationEnvResponse struct {
 	EnvVars map[string]string `json:"envVars"`
 }
+
+// ResourceItem represents a single resource
+type ResourceItem struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+}
+
+// GetApplicationResourcesResponse represents the response from GET /applications/:applicationId/resources
+type GetApplicationResourcesResponse struct {
+	Resources []ResourceItem `json:"resources"`
+}

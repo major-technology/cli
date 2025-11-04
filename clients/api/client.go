@@ -85,10 +85,18 @@ func (c *Client) doRequestInternal(method, path string, body interface{}, respon
 	// Handle error responses
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		var errResp ErrorResponse
-		if err := json.Unmarshal(respBody, &errResp); err == nil && errResp.Message != "" {
+		if err := json.Unmarshal(respBody, &errResp); err == nil {
+			// Prefer error_description if available, otherwise use message
+			message := errResp.ErrorDescription
+			if message == "" {
+				message = errResp.Message
+			}
+			if message == "" {
+				message = string(respBody)
+			}
 			return &APIError{
 				StatusCode: resp.StatusCode,
-				Message:    errResp.Message,
+				Message:    message,
 				ErrorType:  errResp.Error,
 			}
 		}
@@ -218,4 +226,16 @@ func (c *Client) GetApplicationEnv(organizationID, applicationID string) (map[st
 		return nil, err
 	}
 	return resp.EnvVars, nil
+}
+
+// GetApplicationResources retrieves resources for an application
+func (c *Client) GetApplicationResources(applicationID string) (*GetApplicationResourcesResponse, error) {
+	path := fmt.Sprintf("/applications/%s/resources", applicationID)
+
+	var resp GetApplicationResourcesResponse
+	err := c.doRequest("GET", path, nil, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
 }

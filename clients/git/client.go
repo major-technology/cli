@@ -16,7 +16,16 @@ type RemoteInfo struct {
 
 // GetRemoteURL retrieves the git remote URL from the current directory
 func GetRemoteURL() (string, error) {
+	return GetRemoteURLFromDir("")
+}
+
+// GetRemoteURLFromDir retrieves the git remote URL from the specified directory.
+// If dir is empty, it uses the current directory.
+func GetRemoteURLFromDir(dir string) (string, error) {
 	cmd := exec.Command("git", "remote", "get-url", "origin")
+	if dir != "" {
+		cmd.Dir = dir
+	}
 	output, err := cmd.Output()
 	if err != nil {
 		return "", err
