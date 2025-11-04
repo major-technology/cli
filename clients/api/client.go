@@ -239,3 +239,17 @@ func (c *Client) GetApplicationResources(applicationID string) (*GetApplicationR
 	}
 	return &resp, nil
 }
+
+// CreateApplicationVersion creates a new version of an application
+func (c *Client) CreateApplicationVersion(applicationID string) (*CreateApplicationVersionResponse, error) {
+	req := CreateApplicationVersionRequest{
+		ApplicationID: applicationID,
+	}
+
+	var resp CreateApplicationVersionResponse
+	err := c.doRequest("POST", "/applications/versions", req, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
