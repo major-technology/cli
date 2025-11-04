@@ -43,7 +43,7 @@ mv cli /usr/local/bin/
 To authenticate with Major:
 
 ```bash
-cli login
+cli user login
 ```
 
 This will open your browser to complete the authentication flow. Once authenticated, your credentials are securely stored in your system keychain.
@@ -53,7 +53,7 @@ This will open your browser to complete the authentication flow. Once authentica
 To verify you're logged in and see your user information:
 
 ```bash
-cli whoami
+cli user whoami
 ```
 
 ### Logout
@@ -61,25 +61,7 @@ cli whoami
 To revoke your CLI token and logout:
 
 ```bash
-cli logout
-```
-
-## Usage
-
-### Available Commands
-
-- `cli login` - Authenticate with Major
-- `cli logout` - Revoke your CLI token and logout
-- `cli whoami` - Display the current authenticated user
-- `cli help` - Get help for any command
-- `cli version` - Display the CLI version
-
-### Configuration
-
-By default, the CLI uses a configuration file located at `configs/local.json`. You can specify a different config file using the `--config` flag:
-
-```bash
-cli --config /path/to/config.json <command>
+cli user logout
 ```
 
 ## License
