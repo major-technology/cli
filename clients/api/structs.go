@@ -115,6 +115,8 @@ type ApplicationItem struct {
 	ID                   string `json:"id"`
 	Name                 string `json:"name"`
 	GithubRepositoryName string `json:"githubRepositoryName"`
+	CloneURLSSH          string `json:"cloneUrlSsh"`
+	CloneURLHTTPS        string `json:"cloneUrlHttps"`
 }
 
 // GetOrganizationApplicationsRequest represents the request body for POST /organizations/applications
