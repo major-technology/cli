@@ -256,10 +256,12 @@ func (c *Client) CreateApplicationVersion(applicationID string) (*CreateApplicat
 
 // GetOrganizationApplications retrieves all applications for an organization
 func (c *Client) GetOrganizationApplications(organizationID string) (*GetOrganizationApplicationsResponse, error) {
-	path := fmt.Sprintf("/organizations/applications?organizationId=%s", organizationID)
+	req := GetOrganizationApplicationsRequest{
+		OrganizationID: organizationID,
+	}
 
 	var resp GetOrganizationApplicationsResponse
-	err := c.doRequest("GET", path, nil, &resp)
+	err := c.doRequest("POST", "/organizations/applications", req, &resp)
 	if err != nil {
 		return nil, err
 	}
