@@ -7,6 +7,7 @@ import (
 	"github.com/major-technology/cli/clients/config"
 	"github.com/major-technology/cli/cmd/app"
 	"github.com/major-technology/cli/cmd/org"
+	"github.com/major-technology/cli/cmd/resource"
 	"github.com/major-technology/cli/cmd/user"
 	"github.com/major-technology/cli/singletons"
 	"github.com/spf13/cobra"
@@ -44,6 +45,7 @@ func init() {
 	rootCmd.AddCommand(user.Cmd)
 	rootCmd.AddCommand(org.Cmd)
 	rootCmd.AddCommand(app.Cmd)
+	rootCmd.AddCommand(resource.Cmd)
 }
 
 func initConfig() {
