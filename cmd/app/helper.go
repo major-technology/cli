@@ -18,7 +18,7 @@ func getApplicationIDFromDir(dir string) (string, error) {
 	// Get the git remote URL from the specified directory
 	remoteURL, err := git.GetRemoteURLFromDir(dir)
 	if err != nil {
-		return "", fmt.Errorf("failed to get git remote: %w", err)
+		return "", err
 	}
 
 	if remoteURL == "" {

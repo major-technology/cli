@@ -28,6 +28,13 @@ func GetRemoteURLFromDir(dir string) (string, error) {
 	}
 	output, err := cmd.Output()
 	if err != nil {
+		// Check if this is a "not a git repository" error
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			stderr := string(exitErr.Stderr)
+			if strings.Contains(stderr, "not a git repository") {
+				return "", fmt.Errorf("you currently are not in a git repo")
+			}
+		}
 		return "", err
 	}
 

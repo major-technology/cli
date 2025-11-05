@@ -11,7 +11,7 @@ import (
 // startCmd represents the start command
 var startCmd = &cobra.Command{
 	Use:   "start",
-	Short: "Start the application development server",
+	Short: "Start the application locally",
 	Long:  `Runs pnpm install and pnpm dev to set up dependencies and start the development server.`,
 	Run: func(cobraCmd *cobra.Command, args []string) {
 		cobra.CheckErr(runStart(cobraCmd))
@@ -50,4 +50,3 @@ func runStart(cobraCmd *cobra.Command) error {
 
 	return nil
 }
-
