@@ -71,7 +71,15 @@ func runPull(cmd *cobra.Command) error {
 
 		cmd.Println("Successfully pulled latest changes")
 	} else if os.IsNotExist(err) {
-		return fmt.Errorf("directory '%s' does not exist. Please clone the repository first", targetDir)
+		// Directory doesn't exist, clone it
+		cmd.Printf("Directory '%s' does not exist. Cloning repository...\n", targetDir)
+
+		cloneMethod, err := cloneRepository(selectedApp.CloneURLSSH, selectedApp.CloneURLHTTPS, targetDir)
+		if err != nil {
+			return fmt.Errorf("failed to clone repository: %w", err)
+		}
+
+		cmd.Printf("✓ Successfully cloned repository using %s\n", cloneMethod)
 	} else {
 		return fmt.Errorf("failed to check directory: %w", err)
 	}

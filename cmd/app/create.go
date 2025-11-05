@@ -3,7 +3,6 @@ package app
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 
 	"github.com/charmbracelet/huh"
@@ -167,12 +166,4 @@ func runCreate(cobraCmd *cobra.Command) error {
 	}
 
 	return nil
-}
-
-// canUseSSH checks if SSH is available and configured for git
-func canUseSSH() bool {
-	// Check if ssh-agent is running and has keys
-	cmd := exec.Command("ssh-add", "-l")
-	err := cmd.Run()
-	return err == nil
 }
