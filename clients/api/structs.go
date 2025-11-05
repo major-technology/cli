@@ -109,3 +109,15 @@ type CreateApplicationVersionRequest struct {
 type CreateApplicationVersionResponse struct {
 	VersionID string `json:"versionId"`
 }
+
+// ApplicationItem represents a single application in the list
+type ApplicationItem struct {
+	ID                   string `json:"id"`
+	Name                 string `json:"name"`
+	GithubRepositoryName string `json:"githubRepositoryName"`
+}
+
+// GetOrganizationApplicationsResponse represents the response from GET /organizations/applications
+type GetOrganizationApplicationsResponse struct {
+	Applications []ApplicationItem `json:"applications"`
+}
