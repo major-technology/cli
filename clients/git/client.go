@@ -158,3 +158,14 @@ func PushToMain() error {
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
 }
+
+// Pull pulls the latest changes from the remote repository
+func Pull(repoDir string) error {
+	cmd := exec.Command("git", "pull")
+	if repoDir != "" {
+		cmd.Dir = repoDir
+	}
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}

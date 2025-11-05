@@ -253,3 +253,15 @@ func (c *Client) CreateApplicationVersion(applicationID string) (*CreateApplicat
 	}
 	return &resp, nil
 }
+
+// GetOrganizationApplications retrieves all applications for an organization
+func (c *Client) GetOrganizationApplications(organizationID string) (*GetOrganizationApplicationsResponse, error) {
+	path := fmt.Sprintf("/organizations/applications?organizationId=%s", organizationID)
+
+	var resp GetOrganizationApplicationsResponse
+	err := c.doRequest("GET", path, nil, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
