@@ -117,7 +117,12 @@ type ApplicationItem struct {
 	GithubRepositoryName string `json:"githubRepositoryName"`
 }
 
-// GetOrganizationApplicationsResponse represents the response from GET /organizations/applications
+// GetOrganizationApplicationsRequest represents the request body for POST /organizations/applications
+type GetOrganizationApplicationsRequest struct {
+	OrganizationID string `json:"organizationId"`
+}
+
+// GetOrganizationApplicationsResponse represents the response from POST /organizations/applications
 type GetOrganizationApplicationsResponse struct {
 	Applications []ApplicationItem `json:"applications"`
 }
