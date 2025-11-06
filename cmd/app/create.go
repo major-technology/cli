@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/charmbracelet/huh"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/major-technology/cli/clients/api"
 	"github.com/major-technology/cli/clients/git"
 	mjrToken "github.com/major-technology/cli/clients/token"
@@ -165,5 +166,77 @@ func runCreate(cobraCmd *cobra.Command) error {
 		cobraCmd.Printf("  Resources written: %d\n", numResources)
 	}
 
+	printSuccessMessage(cobraCmd, appName)
+
 	return nil
+}
+
+// printSuccessMessage displays a nicely formatted success message with next steps
+func printSuccessMessage(cobraCmd *cobra.Command, appName string) {
+	// Define styles
+	successStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("10")). // Green
+		MarginTop(1).
+		MarginBottom(1)
+
+	titleStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("12")). // Blue
+		MarginTop(1)
+
+	commandStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("14")). // Cyan
+		Bold(true)
+
+	descriptionStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("8")) // Gray
+
+	boxStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("12")). // Blue
+		Padding(1, 2).
+		MarginTop(1).
+		MarginBottom(1)
+
+	cdStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("11")). // Yellow
+		Bold(true).
+		MarginTop(1).
+		MarginBottom(1)
+
+	// Build the message
+	successMsg := successStyle.Render("🎉 Congrats on setting up your app!")
+
+	// CD instruction
+	cdInstruction := cdStyle.Render(fmt.Sprintf("First, navigate to your app directory:\n  cd %s", appName))
+
+	nextStepsTitle := titleStyle.Render("What's next?")
+
+	// Commands with improved descriptions
+	startCommand := commandStyle.Render("major app start")
+	startDesc := descriptionStyle.Render("  Start your app locally for development")
+
+	deployCommand := commandStyle.Render("major app deploy")
+	deployDesc := descriptionStyle.Render("  Deploy your app to production when ready")
+
+	editorCommand := commandStyle.Render("major app editor")
+	editorDesc := descriptionStyle.Render("  Open your app in the UI editor")
+
+	content := fmt.Sprintf("%s\n\n%s\n%s\n\n%s\n%s\n\n%s\n%s",
+		nextStepsTitle,
+		startCommand,
+		startDesc,
+		deployCommand,
+		deployDesc,
+		editorCommand,
+		editorDesc,
+	)
+
+	box := boxStyle.Render(content)
+
+	// Print everything
+	cobraCmd.Println(successMsg)
+	cobraCmd.Println(cdInstruction)
+	cobraCmd.Println(box)
 }

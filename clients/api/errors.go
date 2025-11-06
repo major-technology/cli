@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 )
 
@@ -80,7 +81,22 @@ func CheckErr(cmd *cobra.Command, err error) bool {
 
 	// Check if it's a no token error
 	if IsNoToken(err) {
-		cmd.Println("Error: Not logged in. Please run 'major user login' first.")
+		// Create styled error message box
+		errorStyle := lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("#FF5F87")).
+			Padding(1, 2).
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("#FF5F87"))
+
+		commandStyle := lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("#87D7FF"))
+
+		message := fmt.Sprintf("Not logged in!\n\nRun %s to get started.",
+			commandStyle.Render("major user login"))
+
+		cmd.Println(errorStyle.Render(message))
 		return false
 	}
 

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/huh"
+	"github.com/charmbracelet/lipgloss"
 	apiClient "github.com/major-technology/cli/clients/api"
 	mjrToken "github.com/major-technology/cli/clients/token"
 	"github.com/major-technology/cli/singletons"
@@ -65,8 +66,7 @@ func runLogin(cobraCmd *cobra.Command) error {
 		cobraCmd.Printf("Default organization set to: %s\n", selectedOrg.Name)
 	}
 
-	cobraCmd.Println("Successfully authenticated!")
-
+	printSuccessMessage(cobraCmd)
 	return nil
 }
 
@@ -147,4 +147,58 @@ func SelectOrganization(cobraCmd *cobra.Command, orgs []apiClient.Organization) 
 	}
 
 	return nil, fmt.Errorf("selected organization not found")
+}
+
+// printSuccessMessage displays a nicely formatted success message with next steps
+func printSuccessMessage(cobraCmd *cobra.Command) {
+	// Define styles
+	successStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("10")). // Green
+		MarginTop(1).
+		MarginBottom(1)
+
+	titleStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("12")) // Blue
+
+	commandStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("14")). // Cyan
+		Bold(true)
+
+	descriptionStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("8")). // Gray
+		MarginLeft(2)
+
+	boxStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("12")). // Blue
+		Padding(1, 2).
+		MarginTop(1).
+		MarginBottom(1)
+
+	// Build the message
+	successMsg := successStyle.Render("✓ Successfully authenticated!")
+
+	nextStepsTitle := titleStyle.Render("What's next?")
+
+	pullCommand := commandStyle.Render("major app pull")
+	pullDesc := descriptionStyle.Render("Pull an existing app from GitHub")
+
+	createCommand := commandStyle.Render("major app create")
+	createDesc := descriptionStyle.Render("Create a brand new app from a template")
+
+	content := fmt.Sprintf("%s\n\n%s\n%s\n\n%s\n%s",
+		nextStepsTitle,
+		pullCommand,
+		pullDesc,
+		createCommand,
+		createDesc,
+	)
+
+	box := boxStyle.Render(content)
+
+	// Print everything
+	cobraCmd.Println(successMsg)
+	cobraCmd.Println(box)
 }

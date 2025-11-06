@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 	"os/exec"
+	"strings"
 
 	"github.com/major-technology/cli/clients/git"
 	"github.com/major-technology/cli/singletons"
@@ -79,4 +80,78 @@ func cloneRepository(sshURL, httpsURL, targetDir string) (string, error) {
 	}
 
 	return cloneMethod, nil
+}
+
+// isGitAuthError checks if the error is related to git authentication/permission issues
+func isGitAuthError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	errMsg := strings.ToLower(err.Error())
+	// Common git authentication error patterns
+	authErrorPatterns := []string{
+		"authentication failed",
+		"permission denied",
+		"could not read from remote repository",
+		"repository not found",
+		"403",
+		"401",
+		"access denied",
+		"fatal: unable to access",
+	}
+
+	for _, pattern := range authErrorPatterns {
+		if strings.Contains(errMsg, pattern) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// extractGitHubURL extracts the GitHub repository URL from SSH or HTTPS clone URL
+// Returns format: https://github.com/<owner>/<repo>
+func extractGitHubURL(cloneURL string) (string, error) {
+	if cloneURL == "" {
+		return "", fmt.Errorf("clone URL is empty")
+	}
+
+	// Parse the URL to get owner and repo
+	remoteInfo, err := git.ParseRemoteURL(cloneURL)
+	if err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("https://github.com/%s/%s", remoteInfo.Owner, remoteInfo.Repo), nil
+}
+
+// checkRepositoryAccess attempts to check if a repository is accessible via git ls-remote
+// Returns true if accessible, false otherwise
+func checkRepositoryAccess(sshURL, httpsURL string) bool {
+	// Try SSH first if available
+	if canUseSSH() && sshURL != "" {
+		if testGitAccess(sshURL) {
+			return true
+		}
+	}
+
+	// Fall back to HTTPS
+	if httpsURL != "" {
+		if testGitAccess(httpsURL) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// testGitAccess tests if a git repository is accessible using git ls-remote
+func testGitAccess(repoURL string) bool {
+	cmd := exec.Command("git", "ls-remote", "--heads", repoURL)
+	// Suppress output
+	cmd.Stdout = nil
+	cmd.Stderr = nil
+	err := cmd.Run()
+	return err == nil
 }
