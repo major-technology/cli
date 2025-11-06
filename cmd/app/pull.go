@@ -173,6 +173,7 @@ func runPull(cmd *cobra.Command) error {
 
 	cmd.Println("\n✓ Application pull complete!")
 
+	printSuccessMessage(cmd, selectedApp.Name)
 	return nil
 }
 
