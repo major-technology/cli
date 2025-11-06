@@ -267,3 +267,18 @@ func (c *Client) GetOrganizationApplications(organizationID string) (*GetOrganiz
 	}
 	return &resp, nil
 }
+
+// AddGithubCollaborators adds the user as a collaborator to the GitHub repository
+func (c *Client) AddGithubCollaborators(applicationID, githubUsername string) (*AddGithubCollaboratorsResponse, error) {
+	req := AddGithubCollaboratorsRequest{
+		ApplicationID:  applicationID,
+		GithubUsername: githubUsername,
+	}
+
+	var resp AddGithubCollaboratorsResponse
+	err := c.doRequest("POST", "/applications/add-gh-collaborators", req, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}

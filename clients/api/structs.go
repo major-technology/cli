@@ -128,3 +128,15 @@ type GetOrganizationApplicationsRequest struct {
 type GetOrganizationApplicationsResponse struct {
 	Applications []ApplicationItem `json:"applications"`
 }
+
+// AddGithubCollaboratorsRequest represents the request body for POST /applications/add-gh-collaborators
+type AddGithubCollaboratorsRequest struct {
+	ApplicationID  string `json:"application_id"`
+	GithubUsername string `json:"githubUsername"`
+}
+
+// AddGithubCollaboratorsResponse represents the response from POST /applications/add-gh-collaborators
+type AddGithubCollaboratorsResponse struct {
+	Success bool   `json:"success"`
+	Message string `json:"message,omitempty"`
+}
