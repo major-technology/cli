@@ -44,9 +44,14 @@ func GetRemoteURLFromDir(dir string) (string, error) {
 // Clone clones a git repository
 func Clone(url, targetDir string) error {
 	cmd := exec.Command("git", "clone", url, targetDir)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		// Include the git output in the error message
+		return fmt.Errorf("%w: %s", err, string(output))
+	}
+	// Print output on success
+	fmt.Print(string(output))
+	return nil
 }
 
 // RemoveRemote removes a git remote
@@ -165,7 +170,12 @@ func Pull(repoDir string) error {
 	if repoDir != "" {
 		cmd.Dir = repoDir
 	}
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		// Include the git output in the error message
+		return fmt.Errorf("%w: %s", err, string(output))
+	}
+	// Print output on success
+	fmt.Print(string(output))
+	return nil
 }

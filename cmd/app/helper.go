@@ -89,12 +89,13 @@ func isGitAuthError(err error) bool {
 	}
 
 	errMsg := strings.ToLower(err.Error())
+
 	// Common git authentication error patterns
 	authErrorPatterns := []string{
+		"repository not found", // Catches "ERROR: Repository not found."
+		"could not read from remote repository",
 		"authentication failed",
 		"permission denied",
-		"could not read from remote repository",
-		"repository not found",
 		"403",
 		"401",
 		"access denied",
