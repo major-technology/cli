@@ -129,6 +129,11 @@ func runCreate(cobraCmd *cobra.Command) error {
 
 	cobraCmd.Printf("✓ Added new remote: %s\n", cloneURL)
 
+	// Ensure repository access before pushing
+	if err := ensureRepositoryAccess(cobraCmd, createResp.ApplicationID, createResp.CloneURLSSH, createResp.CloneURLHTTPS); err != nil {
+		return fmt.Errorf("failed to ensure repository access: %w", err)
+	}
+
 	// Push to the new remote
 	cobraCmd.Println("\nPushing to new repository...")
 	if err := git.Push(tempDir); err != nil {
