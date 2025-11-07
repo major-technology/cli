@@ -4,9 +4,13 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+	"time"
 
+	"github.com/charmbracelet/huh"
 	"github.com/major-technology/cli/clients/git"
 	"github.com/major-technology/cli/singletons"
+	"github.com/major-technology/cli/utils"
+	"github.com/spf13/cobra"
 )
 
 // getApplicationID retrieves the application ID for the current git repository
@@ -153,4 +157,86 @@ func testGitAccess(repoURL string) bool {
 	cmd.Stderr = nil
 	err := cmd.Run()
 	return err == nil
+}
+
+// ensureRepositoryAccess ensures the user has access to the repository by inviting them as a collaborator
+// This function prompts for GitHub username, sends an invite, and waits for access to be granted
+func ensureRepositoryAccess(cmd *cobra.Command, appID string, sshURL string, httpsURL string) error {
+	// Prompt for GitHub username
+	var githubUsername string
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().
+				Title("What is your GitHub username?").
+				Value(&githubUsername).
+				Validate(func(s string) error {
+					if s == "" {
+						return fmt.Errorf("GitHub username is required")
+					}
+					return nil
+				}),
+		),
+	)
+
+	if err := form.Run(); err != nil {
+		return fmt.Errorf("failed to get GitHub username: %w", err)
+	}
+
+	cmd.Printf("\nAdding @%s as a collaborator to the repository...\n", githubUsername)
+
+	// Get API client
+	apiClient := singletons.GetAPIClient()
+	if apiClient == nil {
+		return fmt.Errorf("API client not initialized")
+	}
+
+	// Add user as GitHub collaborator
+	_, err := apiClient.AddGithubCollaborators(appID, githubUsername)
+	if err != nil {
+		return fmt.Errorf("failed to add GitHub collaborator: %w", err)
+	}
+
+	cmd.Println("✓ Invitation sent!")
+
+	// Try to extract and open the GitHub repository URL
+	cloneURL := httpsURL
+	if cloneURL == "" {
+		cloneURL = sshURL
+	}
+
+	githubURL, urlErr := extractGitHubURL(cloneURL)
+	if urlErr == nil {
+		cmd.Printf("\nPlease accept the invitation at: %s\n", githubURL)
+		_ = utils.OpenBrowser(githubURL)
+		cmd.Printf("You may need to refresh the page to see the invitation.\n")
+	}
+
+	// Poll for repository access
+	if !pollForRepositoryAccess(cmd, sshURL, httpsURL) {
+		return fmt.Errorf("timeout waiting for repository access - please try again after accepting the invitation")
+	}
+
+	cmd.Println("\n✓ Repository access granted!")
+	return nil
+}
+
+// pollForRepositoryAccess polls the repository to check if access has been granted
+// Polls every 2 seconds with a 5 minute timeout
+// Returns true if access is granted, false if timeout
+func pollForRepositoryAccess(cmd *cobra.Command, sshURL, httpsURL string) bool {
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+	timeout := time.After(5 * time.Minute)
+
+	for {
+		select {
+		case <-timeout:
+			return false
+		case <-ticker.C:
+			if checkRepositoryAccess(sshURL, httpsURL) {
+				return true
+			}
+			cmd.Print(".")
+		}
+	}
 }

@@ -1,6 +1,7 @@
 package org
 
 import (
+	"github.com/major-technology/cli/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -9,6 +10,10 @@ var Cmd = &cobra.Command{
 	Use:   "org",
 	Short: "Organization management commands",
 	Long:  `Commands for managing organization selection and information.`,
+	Args:  utils.NoArgs,
+	Run: func(cmd *cobra.Command, args []string) {
+		cmd.Help()
+	},
 }
 
 func init() {

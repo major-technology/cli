@@ -129,6 +129,11 @@ func runCreate(cobraCmd *cobra.Command) error {
 
 	cobraCmd.Printf("✓ Added new remote: %s\n", cloneURL)
 
+	// Ensure repository access before pushing
+	if err := ensureRepositoryAccess(cobraCmd, createResp.ApplicationID, createResp.CloneURLSSH, createResp.CloneURLHTTPS); err != nil {
+		return fmt.Errorf("failed to ensure repository access: %w", err)
+	}
+
 	// Push to the new remote
 	cobraCmd.Println("\nPushing to new repository...")
 	if err := git.Push(tempDir); err != nil {
@@ -148,22 +153,20 @@ func runCreate(cobraCmd *cobra.Command) error {
 
 	// Generate .env file
 	cobraCmd.Println("\nGenerating .env file...")
-	envFilePath, numVars, err := generateEnvFile(targetDir)
+	envFilePath, _, err := generateEnvFile(targetDir)
 	if err != nil {
 		cobraCmd.Printf("Warning: Failed to generate .env file: %v\n", err)
 	} else {
 		cobraCmd.Printf("✓ Generated .env file at: %s\n", envFilePath)
-		cobraCmd.Printf("  Environment variables written: %d\n", numVars)
 	}
 
 	// Generate RESOURCES.md file
 	cobraCmd.Println("\nGenerating RESOURCES.md file...")
-	resourcesFilePath, numResources, err := generateResourcesFile(targetDir)
+	resourcesFilePath, _, err := generateResourcesFile(targetDir)
 	if err != nil {
 		cobraCmd.Printf("Warning: Failed to generate RESOURCES.md file: %v\n", err)
 	} else {
 		cobraCmd.Printf("✓ Generated RESOURCES.md file at: %s\n", resourcesFilePath)
-		cobraCmd.Printf("  Resources written: %d\n", numResources)
 	}
 
 	printSuccessMessage(cobraCmd, appName)
@@ -182,8 +185,7 @@ func printSuccessMessage(cobraCmd *cobra.Command, appName string) {
 
 	titleStyle := lipgloss.NewStyle().
 		Bold(true).
-		Foreground(lipgloss.Color("12")). // Blue
-		MarginTop(1)
+		Foreground(lipgloss.Color("12"))
 
 	commandStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("14")). // Cyan

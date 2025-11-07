@@ -86,8 +86,18 @@ func (c *Client) doRequestInternal(method, path string, body interface{}, respon
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		var errResp ErrorResponse
 		if err := json.Unmarshal(respBody, &errResp); err == nil {
-			// Prefer error_description if available, otherwise use message
-			message := errResp.ErrorDescription
+			// Check for new error format first
+			if errResp.Error != nil {
+				return &APIError{
+					StatusCode:   errResp.Error.StatusCode,
+					InternalCode: errResp.Error.InternalCode,
+					Message:      errResp.Error.ErrorString,
+					ErrorType:    errResp.Error.ErrorString,
+				}
+			}
+
+			// Fall back to legacy format
+			message := errResp.ErrorString
 			if message == "" {
 				message = errResp.Message
 			}
@@ -95,9 +105,10 @@ func (c *Client) doRequestInternal(method, path string, body interface{}, respon
 				message = string(respBody)
 			}
 			return &APIError{
-				StatusCode: resp.StatusCode,
-				Message:    message,
-				ErrorType:  errResp.Error,
+				StatusCode:   resp.StatusCode,
+				Message:      message,
+				ErrorType:    message,
+				InternalCode: 0, // Legacy errors don't have internal codes
 			}
 		}
 		return &APIError{
@@ -129,16 +140,22 @@ func (c *Client) StartLogin() (*LoginStartResponse, error) {
 }
 
 // PollLogin polls the login endpoint to check if the user has authorized the device
+// Returns the response and error. For authorization pending state, returns a specific error.
 func (c *Client) PollLogin(deviceCode string) (*LoginPollResponse, error) {
 	req := LoginPollRequest{DeviceCode: deviceCode}
 
 	var resp LoginPollResponse
 	err := c.doRequestWithoutAuth("POST", "/login/poll", req, &resp)
 	if err != nil {
-		// Check if it's a bad request (expired/invalid codes)
-		if IsBadRequest(err) {
+		// Check if authorization is pending (expected error state)
+		if IsAuthorizationPending(err) {
+			return nil, err // Return the error so caller can check with IsAuthorizationPending
+		}
+		// Check if it's an invalid device code
+		if IsInvalidDeviceCode(err) {
 			return nil, fmt.Errorf("invalid or expired device code")
 		}
+		// Other errors
 		return nil, err
 	}
 
@@ -277,6 +294,19 @@ func (c *Client) AddGithubCollaborators(applicationID, githubUsername string) (*
 
 	var resp AddGithubCollaboratorsResponse
 	err := c.doRequest("POST", "/applications/add-gh-collaborators", req, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+// --- Version Check endpoints ---
+
+// CheckVersion checks if the CLI version is up to date
+func (c *Client) CheckVersion(currentVersion string) (*CheckVersionResponse, error) {
+	req := VersionCheckRequest{Version: currentVersion}
+	var resp CheckVersionResponse
+	err := c.doRequestWithoutAuth("POST", "/version/check", req, &resp)
 	if err != nil {
 		return nil, err
 	}

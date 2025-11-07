@@ -4,14 +4,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/charmbracelet/huh"
 	"github.com/major-technology/cli/clients/api"
 	"github.com/major-technology/cli/clients/git"
 	"github.com/major-technology/cli/clients/token"
 	"github.com/major-technology/cli/singletons"
-	"github.com/major-technology/cli/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -81,57 +79,10 @@ func runPull(cmd *cobra.Command) error {
 	// Handle git authentication errors
 	if gitErr != nil {
 		if isGitAuthError(gitErr) {
-			cmd.Printf("Repository access required.\n\n")
-
-			// Prompt for GitHub username
-			var githubUsername string
-			form := huh.NewForm(
-				huh.NewGroup(
-					huh.NewInput().
-						Title("What is your GitHub username?").
-						Value(&githubUsername).
-						Validate(func(s string) error {
-							if s == "" {
-								return fmt.Errorf("GitHub username is required")
-							}
-							return nil
-						}),
-				),
-			)
-
-			if err := form.Run(); err != nil {
-				return fmt.Errorf("failed to get GitHub username: %w", err)
+			// Ensure repository access
+			if err := ensureRepositoryAccess(cmd, selectedApp.ID, selectedApp.CloneURLSSH, selectedApp.CloneURLHTTPS); err != nil {
+				return fmt.Errorf("failed to ensure repository access: %w", err)
 			}
-
-			cmd.Printf("\nAdding @%s as a collaborator to the repository...\n", githubUsername)
-
-			// Add user as GitHub collaborator
-			_, err := apiClient.AddGithubCollaborators(selectedApp.ID, githubUsername)
-			if err != nil {
-				return fmt.Errorf("failed to add GitHub collaborator: %w", err)
-			}
-
-			cmd.Println("✓ Invitation sent!")
-
-			// Try to extract and open the GitHub repository URL
-			cloneURL := selectedApp.CloneURLHTTPS
-			if cloneURL == "" {
-				cloneURL = selectedApp.CloneURLSSH
-			}
-
-			githubURL, urlErr := extractGitHubURL(cloneURL)
-			if urlErr == nil {
-				cmd.Printf("\nPlease accept the invitation at: %s\n", githubURL)
-				_ = utils.OpenBrowser(githubURL)
-				cmd.Printf("You may need to refresh the page to see the invitation.\n")
-			}
-
-			// Poll for repository access
-			if !pollForRepositoryAccess(cmd, selectedApp.CloneURLSSH, selectedApp.CloneURLHTTPS) {
-				return fmt.Errorf("timeout waiting for repository access - please try again after accepting the invitation")
-			}
-
-			cmd.Println("\n✓ Repository access granted!")
 
 			// Retry the git operation
 			if _, err := os.Stat(targetDir); err == nil {
@@ -155,21 +106,19 @@ func runPull(cmd *cobra.Command) error {
 
 	// Generate env file
 	cmd.Println("\nGenerating .env file...")
-	envFilePath, numVars, err := generateEnvFile(targetDir)
+	envFilePath, _, err := generateEnvFile(targetDir)
 	if err != nil {
 		return fmt.Errorf("failed to generate .env file: %w", err)
 	}
 	cmd.Printf("Successfully generated .env file at: %s\n", envFilePath)
-	cmd.Printf("Environment variables written: %d\n", numVars)
 
 	// Generate resources file
 	cmd.Println("\nGenerating RESOURCES.md file...")
-	resourcesFilePath, numResources, err := generateResourcesFile(targetDir)
+	resourcesFilePath, _, err := generateResourcesFile(targetDir)
 	if err != nil {
 		return fmt.Errorf("failed to generate RESOURCES.md file: %w", err)
 	}
 	cmd.Printf("Successfully generated RESOURCES.md file at: %s\n", resourcesFilePath)
-	cmd.Printf("Resources written: %d\n", numResources)
 
 	cmd.Println("\n✓ Application pull complete!")
 
@@ -220,25 +169,4 @@ func selectApplication(cmd *cobra.Command, apps []api.ApplicationItem) (*api.App
 	}
 
 	return nil, fmt.Errorf("selected application not found")
-}
-
-// pollForRepositoryAccess polls the repository to check if access has been granted
-// Polls every 2 seconds with a 5 minute timeout
-// Returns true if access is granted, false if timeout
-func pollForRepositoryAccess(cmd *cobra.Command, sshURL, httpsURL string) bool {
-	ticker := time.NewTicker(2 * time.Second)
-	defer ticker.Stop()
-	timeout := time.After(5 * time.Minute)
-
-	for {
-		select {
-		case <-timeout:
-			return false
-		case <-ticker.C:
-			if checkRepositoryAccess(sshURL, httpsURL) {
-				return true
-			}
-			cmd.Print(".")
-		}
-	}
 }
