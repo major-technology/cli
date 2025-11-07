@@ -132,9 +132,7 @@ func extractGitHubURL(cloneURL string) (string, error) {
 func checkRepositoryAccess(sshURL, httpsURL string) bool {
 	// Try SSH first if available
 	if canUseSSH() && sshURL != "" {
-		if testGitAccess(sshURL) {
-			return true
-		}
+		return testGitAccess(sshURL)
 	}
 
 	// Fall back to HTTPS
