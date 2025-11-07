@@ -299,3 +299,16 @@ func (c *Client) AddGithubCollaborators(applicationID, githubUsername string) (*
 	}
 	return &resp, nil
 }
+
+// --- Version Check endpoints ---
+
+// CheckVersion checks if the CLI version is up to date
+func (c *Client) CheckVersion(currentVersion string) (*CheckVersionResponse, error) {
+	req := VersionCheckRequest{Version: currentVersion}
+	var resp CheckVersionResponse
+	err := c.doRequestWithoutAuth("POST", "/version/check", req, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}

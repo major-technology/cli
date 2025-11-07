@@ -146,3 +146,17 @@ type AddGithubCollaboratorsResponse struct {
 	Success bool            `json:"success,omitempty"`
 	Message string          `json:"message,omitempty"`
 }
+
+// --- Version Check structs ---
+
+// CheckVersionResponse represents the response from GET /version/check
+type CheckVersionResponse struct {
+	Error         *AppErrorDetail `json:"error,omitempty"`
+	ForceUpgrade  bool            `json:"forceUpgrade,omitempty"`
+	CanUpgrade    bool            `json:"canUpgrade,omitempty"`
+	LatestVersion *string         `json:"latestVersion,omitempty"`
+}
+
+type VersionCheckRequest struct {
+	Version string `json:"version"`
+}

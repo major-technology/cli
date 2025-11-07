@@ -77,6 +77,15 @@ func (e *NoTokenError) Error() string {
 	return fmt.Sprintf("not logged in: %v", e.OriginalError)
 }
 
+// ForceUpgradeError represents an error when the CLI version is too old and must be upgraded
+type ForceUpgradeError struct {
+	LatestVersion string
+}
+
+func (e *ForceUpgradeError) Error() string {
+	return "CLI version is out of date and must be upgraded"
+}
+
 // IsUnauthorized checks if the error is an unauthorized error
 func IsUnauthorized(err error) bool {
 	var apiErr *APIError
@@ -138,11 +147,38 @@ func GetErrorCode(err error) int {
 	return 0
 }
 
+// IsForceUpgrade checks if the error is a force upgrade error
+func IsForceUpgrade(err error) bool {
+	var forceUpgradeErr *ForceUpgradeError
+	return errors.As(err, &forceUpgradeErr)
+}
+
 // CheckErr checks for errors and prints appropriate messages using the command's output
 // Returns true if no error (ok to continue), false if there was an error
 func CheckErr(cmd *cobra.Command, err error) bool {
 	if err == nil {
 		return true
+	}
+
+	// Check if it's a force upgrade error
+	if IsForceUpgrade(err) {
+		// Create styled error message box
+		errorStyle := lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("#FF5F87")).
+			Padding(1, 2).
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("#FF5F87"))
+
+		commandStyle := lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("#87D7FF"))
+
+		message := fmt.Sprintf("Your CLI version is out of date and must be upgraded.\n\nRun:\n%s",
+			commandStyle.Render("brew update && brew upgrade major"))
+
+		cmd.Println(errorStyle.Render(message))
+		return false
 	}
 
 	// Check if it's a no token error

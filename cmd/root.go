@@ -46,11 +46,66 @@ func showLoginPromptIfNeeded(cmd *cobra.Command) bool {
 	return true
 }
 
+// checkVersion checks if the CLI version is up to date and handles upgrade prompts
+func checkVersion(cmd *cobra.Command) error {
+	if version == "dev" {
+		return nil
+	}
+
+	client := singletons.GetAPIClient()
+
+	resp, err := client.CheckVersion(version)
+	if err != nil {
+		fmt.Println(err)
+		// Silently ignore version check errors to not disrupt user workflow
+		return nil
+	}
+
+	// Check for force upgrade
+	if resp.ForceUpgrade {
+		latestVersion := ""
+		if resp.LatestVersion != nil {
+			latestVersion = *resp.LatestVersion
+		}
+		return &apiClient.ForceUpgradeError{LatestVersion: latestVersion}
+	}
+
+	// Check for optional upgrade
+	if resp.CanUpgrade {
+		warningStyle := lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("#FFD700"))
+
+		commandStyle := lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("#87D7FF"))
+
+		message := fmt.Sprintf("%s %s",
+			warningStyle.Render("There's a new version of major available."),
+			fmt.Sprintf("Run %s to get the newest version.",
+				commandStyle.Render("brew update && brew upgrade major")))
+
+		cmd.Println(message)
+		cmd.Println() // Add a blank line for spacing
+	}
+
+	return nil
+}
+
 var rootCmd = &cobra.Command{
 	Use:     "major",
 	Short:   "The major CLI",
 	Long:    `The major CLI is a tool to help you create and manage major applications`,
 	Version: version,
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		// Check version before every command
+		if err := checkVersion(cmd); err != nil {
+			// If there's a force upgrade error, handle it and exit
+			if !apiClient.CheckErr(cmd, err) {
+				os.Exit(1)
+			}
+		}
+	},
 	Run: func(cmd *cobra.Command, args []string) {
 		if ok := showLoginPromptIfNeeded(cmd); ok {
 			cmd.Help()
