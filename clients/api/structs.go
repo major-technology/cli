@@ -131,7 +131,7 @@ type GetOrganizationApplicationsResponse struct {
 
 // AddGithubCollaboratorsRequest represents the request body for POST /applications/add-gh-collaborators
 type AddGithubCollaboratorsRequest struct {
-	ApplicationID  string `json:"application_id"`
+	ApplicationID  string `json:"applicationId"`
 	GithubUsername string `json:"githubUsername"`
 }
 
