@@ -9,18 +9,56 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// Error code constants from @repo/errors
+const (
+	// Authentication & Authorization Errors (2000-2099)
+	ErrorCodeUnauthorized         = 2000
+	ErrorCodeInvalidToken         = 2001
+	ErrorCodeInvalidUserCode      = 2002
+	ErrorCodeTokenNotFound        = 2003
+	ErrorCodeInvalidDeviceCode    = 2004
+	ErrorCodeAuthorizationPending = 2005
+
+	// Organization Errors (3000-3099)
+	ErrorCodeOrganizationNotFound = 3000
+	ErrorCodeNotOrgMember         = 3001
+	ErrorCodeNoCreatePermission   = 3002
+
+	// Application Errors (4000-4099)
+	ErrorCodeApplicationNotFound = 4000
+	ErrorCodeNoApplicationAccess = 4001
+	ErrorCodeDuplicateAppName    = 4002
+
+	// GitHub Integration Errors (5000-5099)
+	ErrorCodeGitHubRepoNotFound          = 5000
+	ErrorCodeGitHubRepoAccessDenied      = 5001
+	ErrorCodeGitHubCollaboratorAddFailed = 5002
+)
+
+// AppErrorDetail represents the error detail from the API (new format)
+type AppErrorDetail struct {
+	InternalCode int    `json:"internal_code"`
+	ErrorString  string `json:"error_string"`
+	StatusCode   int    `json:"status_code"`
+}
+
 // ErrorResponse represents an error response from the API
+// Supports both new format (error object) and legacy format (error string)
 type ErrorResponse struct {
-	Error            string `json:"error"`
-	ErrorDescription string `json:"error_description"`
-	Message          string `json:"message"`
+	// New format
+	Error *AppErrorDetail `json:"error,omitempty"`
+
+	// Legacy format (for backward compatibility)
+	ErrorString string `json:"error_description,omitempty"`
+	Message     string `json:"message,omitempty"`
 }
 
 // APIError represents an API error with status code and message
 type APIError struct {
-	StatusCode int
-	Message    string
-	ErrorType  string
+	StatusCode   int
+	InternalCode int // Internal error code from the API
+	Message      string
+	ErrorType    string
 }
 
 func (e *APIError) Error() string {
@@ -70,6 +108,34 @@ func IsBadRequest(err error) bool {
 func IsNoToken(err error) bool {
 	var noTokenErr *NoTokenError
 	return errors.As(err, &noTokenErr)
+}
+
+// HasErrorCode checks if the error has a specific internal error code
+func HasErrorCode(err error, code int) bool {
+	var apiErr *APIError
+	if errors.As(err, &apiErr) {
+		return apiErr.InternalCode == code
+	}
+	return false
+}
+
+// IsAuthorizationPending checks if the error is an authorization pending error
+func IsAuthorizationPending(err error) bool {
+	return HasErrorCode(err, ErrorCodeAuthorizationPending)
+}
+
+// IsInvalidDeviceCode checks if the error is an invalid device code error
+func IsInvalidDeviceCode(err error) bool {
+	return HasErrorCode(err, ErrorCodeInvalidDeviceCode)
+}
+
+// GetErrorCode returns the internal error code from an error, or 0 if not an APIError
+func GetErrorCode(err error) int {
+	var apiErr *APIError
+	if errors.As(err, &apiErr) {
+		return apiErr.InternalCode
+	}
+	return 0
 }
 
 // CheckErr checks for errors and prints appropriate messages using the command's output

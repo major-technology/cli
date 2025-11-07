@@ -23,13 +23,12 @@ var generateEnvCmd = &cobra.Command{
 }
 
 func runGenerateEnv(cmd *cobra.Command) error {
-	envFilePath, numVars, err := generateEnvFile("")
+	envFilePath, _, err := generateEnvFile("")
 	if err != nil {
 		return err
 	}
 
 	cmd.Printf("Successfully generated .env file at: %s\n", envFilePath)
-	cmd.Printf("Environment variables written: %d\n", numVars)
 
 	return nil
 }

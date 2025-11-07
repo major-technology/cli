@@ -47,11 +47,10 @@ func showLoginPromptIfNeeded(cmd *cobra.Command) bool {
 }
 
 var rootCmd = &cobra.Command{
-	Use:          "major",
-	Short:        "The major CLI",
-	Long:         `The major CLI is a tool to help you create and manage major applications`,
-	Version:      version,
-	SilenceUsage: true,
+	Use:     "major",
+	Short:   "The major CLI",
+	Long:    `The major CLI is a tool to help you create and manage major applications`,
+	Version: version,
 	Run: func(cmd *cobra.Command, args []string) {
 		if ok := showLoginPromptIfNeeded(cmd); ok {
 			cmd.Help()

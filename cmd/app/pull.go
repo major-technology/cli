@@ -155,21 +155,19 @@ func runPull(cmd *cobra.Command) error {
 
 	// Generate env file
 	cmd.Println("\nGenerating .env file...")
-	envFilePath, numVars, err := generateEnvFile(targetDir)
+	envFilePath, _, err := generateEnvFile(targetDir)
 	if err != nil {
 		return fmt.Errorf("failed to generate .env file: %w", err)
 	}
 	cmd.Printf("Successfully generated .env file at: %s\n", envFilePath)
-	cmd.Printf("Environment variables written: %d\n", numVars)
 
 	// Generate resources file
 	cmd.Println("\nGenerating RESOURCES.md file...")
-	resourcesFilePath, numResources, err := generateResourcesFile(targetDir)
+	resourcesFilePath, _, err := generateResourcesFile(targetDir)
 	if err != nil {
 		return fmt.Errorf("failed to generate RESOURCES.md file: %w", err)
 	}
 	cmd.Printf("Successfully generated RESOURCES.md file at: %s\n", resourcesFilePath)
-	cmd.Printf("Resources written: %d\n", numResources)
 
 	cmd.Println("\n✓ Application pull complete!")
 

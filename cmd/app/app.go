@@ -1,6 +1,7 @@
 package app
 
 import (
+	"github.com/major-technology/cli/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -9,6 +10,10 @@ var Cmd = &cobra.Command{
 	Use:   "app",
 	Short: "Application management commands",
 	Long:  `Commands for creating and managing applications.`,
+	Args:  utils.NoArgs,
+	Run: func(cmd *cobra.Command, args []string) {
+		cmd.Help()
+	},
 }
 
 func init() {

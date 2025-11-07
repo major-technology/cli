@@ -22,13 +22,12 @@ var generateResourcesCmd = &cobra.Command{
 }
 
 func runGenerateResources(cmd *cobra.Command) error {
-	resourcesFilePath, numResources, err := generateResourcesFile("")
+	resourcesFilePath, _, err := generateResourcesFile("")
 	if err != nil {
 		return err
 	}
 
 	cmd.Printf("Successfully generated RESOURCES.md file at: %s\n", resourcesFilePath)
-	cmd.Printf("Resources written: %d\n", numResources)
 
 	return nil
 }

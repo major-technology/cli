@@ -4,11 +4,12 @@ package api
 
 // LoginStartResponse represents the response from POST /login/start
 type LoginStartResponse struct {
-	DeviceCode      string `json:"device_code"`
-	UserCode        string `json:"user_code"`
-	VerificationURI string `json:"verification_uri"`
-	ExpiresIn       int    `json:"expires_in"`
-	Interval        int    `json:"interval"`
+	Error           *AppErrorDetail `json:"error,omitempty"`
+	DeviceCode      string          `json:"device_code,omitempty"`
+	UserCode        string          `json:"user_code,omitempty"`
+	VerificationURI string          `json:"verification_uri,omitempty"`
+	ExpiresIn       int             `json:"expires_in,omitempty"`
+	Interval        int             `json:"interval,omitempty"`
 }
 
 // LoginPollRequest represents the request body for POST /login/poll
@@ -18,22 +19,19 @@ type LoginPollRequest struct {
 
 // LoginPollResponse represents the response from POST /login/poll
 type LoginPollResponse struct {
-	// Pending state
-	Error            string `json:"error,omitempty"`
-	ErrorDescription string `json:"error_description,omitempty"`
-
-	// Success state
-	AccessToken string `json:"access_token,omitempty"`
-	TokenType   string `json:"token_type,omitempty"`
-	ExpiresIn   int    `json:"expires_in,omitempty"`
+	Error       *AppErrorDetail `json:"error,omitempty"`
+	AccessToken string          `json:"access_token,omitempty"`
+	TokenType   string          `json:"token_type,omitempty"`
+	ExpiresIn   int             `json:"expires_in,omitempty"`
 }
 
 // VerifyTokenResponse represents the response from GET /verify
 type VerifyTokenResponse struct {
-	Active bool   `json:"active"`
-	UserID string `json:"user_id"`
-	Email  string `json:"email"`
-	Exp    int64  `json:"exp"`
+	Error  *AppErrorDetail `json:"error,omitempty"`
+	Active bool            `json:"active,omitempty"`
+	UserID string          `json:"user_id,omitempty"`
+	Email  string          `json:"email,omitempty"`
+	Exp    int64           `json:"exp,omitempty"`
 }
 
 // --- Organization structs ---
@@ -46,7 +44,8 @@ type Organization struct {
 
 // OrganizationsResponse represents the response from GET /organizations
 type OrganizationsResponse struct {
-	Organizations []Organization `json:"organizations"`
+	Error         *AppErrorDetail `json:"error,omitempty"`
+	Organizations []Organization  `json:"organizations,omitempty"`
 }
 
 // --- Application structs ---
@@ -60,10 +59,11 @@ type CreateApplicationRequest struct {
 
 // CreateApplicationResponse represents the response from POST /applications
 type CreateApplicationResponse struct {
-	ApplicationID  string `json:"applicationId"`
-	RepositoryName string `json:"repositoryName"`
-	CloneURLSSH    string `json:"cloneUrlSsh"`
-	CloneURLHTTPS  string `json:"cloneUrlHttps"`
+	Error          *AppErrorDetail `json:"error,omitempty"`
+	ApplicationID  string          `json:"applicationId,omitempty"`
+	RepositoryName string          `json:"repositoryName,omitempty"`
+	CloneURLSSH    string          `json:"cloneUrlSsh,omitempty"`
+	CloneURLHTTPS  string          `json:"cloneUrlHttps,omitempty"`
 }
 
 // GetApplicationByRepoRequest represents the request body for GET /application/from-repo
@@ -74,7 +74,8 @@ type GetApplicationByRepoRequest struct {
 
 // GetApplicationByRepoResponse represents the response from GET /application/from-repo
 type GetApplicationByRepoResponse struct {
-	ApplicationID string `json:"applicationId"`
+	Error         *AppErrorDetail `json:"error,omitempty"`
+	ApplicationID string          `json:"applicationId,omitempty"`
 }
 
 // GetApplicationEnvRequest represents the request body for POST /application/env
@@ -85,7 +86,8 @@ type GetApplicationEnvRequest struct {
 
 // GetApplicationEnvResponse represents the response from POST /application/env
 type GetApplicationEnvResponse struct {
-	EnvVars map[string]string `json:"envVars"`
+	Error   *AppErrorDetail   `json:"error,omitempty"`
+	EnvVars map[string]string `json:"envVars,omitempty"`
 }
 
 // ResourceItem represents a single resource
@@ -97,7 +99,8 @@ type ResourceItem struct {
 
 // GetApplicationResourcesResponse represents the response from GET /applications/:applicationId/resources
 type GetApplicationResourcesResponse struct {
-	Resources []ResourceItem `json:"resources"`
+	Error     *AppErrorDetail `json:"error,omitempty"`
+	Resources []ResourceItem  `json:"resources,omitempty"`
 }
 
 // CreateApplicationVersionRequest represents the request body for POST /applications/versions
@@ -107,7 +110,8 @@ type CreateApplicationVersionRequest struct {
 
 // CreateApplicationVersionResponse represents the response from POST /applications/versions
 type CreateApplicationVersionResponse struct {
-	VersionID string `json:"versionId"`
+	Error     *AppErrorDetail `json:"error,omitempty"`
+	VersionID string          `json:"versionId,omitempty"`
 }
 
 // ApplicationItem represents a single application in the list
@@ -126,7 +130,8 @@ type GetOrganizationApplicationsRequest struct {
 
 // GetOrganizationApplicationsResponse represents the response from POST /organizations/applications
 type GetOrganizationApplicationsResponse struct {
-	Applications []ApplicationItem `json:"applications"`
+	Error        *AppErrorDetail   `json:"error,omitempty"`
+	Applications []ApplicationItem `json:"applications,omitempty"`
 }
 
 // AddGithubCollaboratorsRequest represents the request body for POST /applications/add-gh-collaborators
@@ -137,6 +142,7 @@ type AddGithubCollaboratorsRequest struct {
 
 // AddGithubCollaboratorsResponse represents the response from POST /applications/add-gh-collaborators
 type AddGithubCollaboratorsResponse struct {
-	Success bool   `json:"success"`
-	Message string `json:"message,omitempty"`
+	Error   *AppErrorDetail `json:"error,omitempty"`
+	Success bool            `json:"success,omitempty"`
+	Message string          `json:"message,omitempty"`
 }

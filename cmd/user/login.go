@@ -83,13 +83,13 @@ func pollForToken(cobraCmd *cobra.Command, client *apiClient.Client, deviceCode 
 		case <-ticker.C:
 			pollResp, err := client.PollLogin(deviceCode)
 			if err != nil {
+				// Check if authorization is still pending - this is an expected state
+				if apiClient.IsAuthorizationPending(err) {
+					cobraCmd.Print(".")
+					continue
+				}
+				// Any other error is unexpected
 				return "", fmt.Errorf("failed to poll: %w", err)
-			}
-
-			// Check if still pending
-			if pollResp.Error == "authorization_pending" {
-				cobraCmd.Print(".")
-				continue
 			}
 
 			// Success - got the token
