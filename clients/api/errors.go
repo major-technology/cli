@@ -13,7 +13,7 @@ import (
 const (
 	// Authentication & Authorization Errors (2000-2099)
 	ErrorCodeUnauthorized         = 2000
-	ErrorCodeInvalidToken         = 2001
+	ErrorCodeInvalidToken         = 2001 // Used for expired tokens
 	ErrorCodeInvalidUserCode      = 2002
 	ErrorCodeTokenNotFound        = 2003
 	ErrorCodeInvalidDeviceCode    = 2004
@@ -42,15 +42,9 @@ type AppErrorDetail struct {
 	StatusCode   int    `json:"status_code"`
 }
 
-// ErrorResponse represents an error response from the API
-// Supports both new format (error object) and legacy format (error string)
+// ErrorResponse represents an error response from the API (new format only)
 type ErrorResponse struct {
-	// New format
 	Error *AppErrorDetail `json:"error,omitempty"`
-
-	// Legacy format (for backward compatibility)
-	ErrorString string `json:"error_description,omitempty"`
-	Message     string `json:"message,omitempty"`
 }
 
 // APIError represents an API error with status code and message
@@ -153,6 +147,11 @@ func IsForceUpgrade(err error) bool {
 	return errors.As(err, &forceUpgradeErr)
 }
 
+// IsTokenExpired checks if the error is a token expiration error
+func IsTokenExpired(err error) bool {
+	return HasErrorCode(err, ErrorCodeInvalidToken)
+}
+
 // CheckErr checks for errors and prints appropriate messages using the command's output
 // Returns true if no error (ok to continue), false if there was an error
 func CheckErr(cmd *cobra.Command, err error) bool {
@@ -176,6 +175,27 @@ func CheckErr(cmd *cobra.Command, err error) bool {
 
 		message := fmt.Sprintf("Your CLI version is out of date and must be upgraded.\n\nRun:\n%s",
 			commandStyle.Render("brew update && brew upgrade major"))
+
+		cmd.Println(errorStyle.Render(message))
+		return false
+	}
+
+	// Check if it's a token expiration error
+	if IsTokenExpired(err) {
+		// Create styled error message box
+		errorStyle := lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("#FF5F87")).
+			Padding(1, 2).
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("#FF5F87"))
+
+		commandStyle := lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("#87D7FF"))
+
+		message := fmt.Sprintf("Your session has expired!\n\nRun %s to login again.",
+			commandStyle.Render("major user login"))
 
 		cmd.Println(errorStyle.Render(message))
 		return false
