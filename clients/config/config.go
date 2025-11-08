@@ -9,8 +9,9 @@ import (
 
 // Config represents the application configuration
 type Config struct {
-	APIURL      string `mapstructure:"api_url"`
-	FrontendURI string `mapstructure:"frontend_uri"`
+	APIURL       string `mapstructure:"api_url"`
+	FrontendURI  string `mapstructure:"frontend_uri"`
+	AppURLSuffix string `mapstructure:"app_url_suffix"`
 }
 
 // Load initializes and returns the application config

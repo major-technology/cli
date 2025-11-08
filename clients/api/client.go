@@ -283,6 +283,22 @@ func (c *Client) AddGithubCollaborators(applicationID, githubUsername string) (*
 	return &resp, nil
 }
 
+// GetVersionStatus retrieves the deployment status of an application version
+func (c *Client) GetVersionStatus(applicationID, organizationID, versionID string) (*GetVersionStatusResponse, error) {
+	req := GetVersionStatusRequest{
+		ApplicationID:  applicationID,
+		OrganizationID: organizationID,
+		VersionID:      versionID,
+	}
+
+	var resp GetVersionStatusResponse
+	err := c.doRequest("POST", "/applications/versions/status", req, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
 // --- Version Check endpoints ---
 
 // CheckVersion checks if the CLI version is up to date
