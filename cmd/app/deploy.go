@@ -117,7 +117,14 @@ func runDeploy(cobraCmd *cobra.Command) error {
 	// Print final status
 	if finalStatus == "DEPLOYED" {
 		cobraCmd.Printf("\n🎉 Deployment successful!\n")
-		cobraCmd.Printf("  Version ID: %s\n", resp.VersionID)
+
+		// Print application URL
+		cfg := singletons.GetConfig()
+		if cfg != nil && cfg.AppURLSuffix != "" {
+			appURL := fmt.Sprintf("https://app-%s.%s", applicationID, cfg.AppURLSuffix)
+			cobraCmd.Printf("\n🌐 Your application is live at:\n")
+			cobraCmd.Printf("  %s\n", appURL)
+		}
 	} else {
 		// Display error message if available
 		if deploymentError != "" {
