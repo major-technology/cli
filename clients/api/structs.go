@@ -147,6 +147,20 @@ type AddGithubCollaboratorsResponse struct {
 	Message string          `json:"message,omitempty"`
 }
 
+// GetVersionStatusRequest represents the request body for POST /applications/versions/status
+type GetVersionStatusRequest struct {
+	ApplicationID  string `json:"applicationId"`
+	OrganizationID string `json:"organizationId"`
+	VersionID      string `json:"versionId"`
+}
+
+// GetVersionStatusResponse represents the response from POST /applications/versions/status
+type GetVersionStatusResponse struct {
+	Error           *AppErrorDetail `json:"error,omitempty"`
+	Status          string          `json:"status,omitempty"`
+	DeploymentError string          `json:"deploymentError,omitempty"`
+}
+
 // --- Version Check structs ---
 
 // CheckVersionResponse represents the response from GET /version/check
