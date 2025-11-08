@@ -85,32 +85,15 @@ func (c *Client) doRequestInternal(method, path string, body interface{}, respon
 	// Handle error responses
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		var errResp ErrorResponse
-		if err := json.Unmarshal(respBody, &errResp); err == nil {
-			// Check for new error format first
-			if errResp.Error != nil {
-				return &APIError{
-					StatusCode:   errResp.Error.StatusCode,
-					InternalCode: errResp.Error.InternalCode,
-					Message:      errResp.Error.ErrorString,
-					ErrorType:    errResp.Error.ErrorString,
-				}
-			}
-
-			// Fall back to legacy format
-			message := errResp.ErrorString
-			if message == "" {
-				message = errResp.Message
-			}
-			if message == "" {
-				message = string(respBody)
-			}
+		if err := json.Unmarshal(respBody, &errResp); err == nil && errResp.Error != nil {
 			return &APIError{
-				StatusCode:   resp.StatusCode,
-				Message:      message,
-				ErrorType:    message,
-				InternalCode: 0, // Legacy errors don't have internal codes
+				StatusCode:   errResp.Error.StatusCode,
+				InternalCode: errResp.Error.InternalCode,
+				Message:      errResp.Error.ErrorString,
+				ErrorType:    errResp.Error.ErrorString,
 			}
 		}
+		// Fallback for unexpected error format
 		return &APIError{
 			StatusCode: resp.StatusCode,
 			Message:    string(respBody),
