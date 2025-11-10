@@ -28,12 +28,12 @@ cd cli
 
 2. Build the CLI:
 ```bash
-go build -o cli
+go build -o major
 ```
 
 3. Move the binary to your PATH:
 ```bash
-mv cli /usr/local/bin/
+mv major /usr/local/bin/
 ```
 
 ## Getting Started
@@ -43,7 +43,7 @@ mv cli /usr/local/bin/
 To authenticate with Major:
 
 ```bash
-cli user login
+major user login
 ```
 
 This will open your browser to complete the authentication flow. Once authenticated, your credentials are securely stored in your system keychain.
@@ -53,7 +53,7 @@ This will open your browser to complete the authentication flow. Once authentica
 To verify you're logged in and see your user information:
 
 ```bash
-cli user whoami
+major user whoami
 ```
 
 ### Logout
@@ -61,8 +61,12 @@ cli user whoami
 To revoke your CLI token and logout:
 
 ```bash
-cli user logout
+major user logout
 ```
+
+### Creating and Working on Applications
+
+
 
 ## License
 

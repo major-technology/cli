@@ -15,17 +15,17 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// pullCmd represents the app pull command
-var pullCmd = &cobra.Command{
-	Use:   "pull",
-	Short: "Pull an application repository",
-	Long:  `Select and pull an application repository from your organization, then generate env and resources.`,
+// cloneCmd represents the app clone command
+var cloneCmd = &cobra.Command{
+	Use:   "clone",
+	Short: "Clone an application repository",
+	Long:  `Select and clone an application repository from your organization, then generate env and resources.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		cobra.CheckErr(runPull(cmd))
+		cobra.CheckErr(runClone(cmd))
 	},
 }
 
-func runPull(cmd *cobra.Command) error {
+func runClone(cmd *cobra.Command) error {
 	// Get the default organization ID from keyring
 	orgID, orgName, err := token.GetDefaultOrg()
 	if err != nil {
@@ -71,12 +71,10 @@ func runPull(cmd *cobra.Command) error {
 
 	// Check if desired directory exists
 	if _, err := os.Stat(desiredDir); err == nil {
-		// Desired directory exists, use it for pulling
 		workingDir = desiredDir
 		cmd.Printf("Directory '%s' already exists. Pulling latest changes...\n", workingDir)
 		gitErr = git.Pull(workingDir)
 	} else if _, err := os.Stat(repoDir); err == nil {
-		// Repository directory exists (old naming), use it for pulling then rename
 		workingDir = repoDir
 		cmd.Printf("Directory '%s' already exists. Pulling latest changes...\n", workingDir)
 		gitErr = git.Pull(workingDir)
@@ -97,7 +95,6 @@ func runPull(cmd *cobra.Command) error {
 
 			// Retry the git operation
 			if _, err := os.Stat(workingDir); err == nil {
-				// Directory exists, pull
 				cmd.Printf("Pulling latest changes...\n")
 				gitErr = git.Pull(workingDir)
 			} else {
@@ -111,7 +108,7 @@ func runPull(cmd *cobra.Command) error {
 				return fmt.Errorf("failed to access repository after accepting invitation: %w", gitErr)
 			}
 		} else {
-			return fmt.Errorf("failed to pull repository: %w", gitErr)
+			return fmt.Errorf("failed to clone repository: %w", gitErr)
 		}
 	}
 
@@ -154,7 +151,7 @@ func runPull(cmd *cobra.Command) error {
 	}
 	cmd.Printf("Successfully generated RESOURCES.md file at: %s\n", resourcesFilePath)
 
-	cmd.Println("\n✓ Application pull complete!")
+	cmd.Println("\n✓ Application clone complete!")
 
 	printSuccessMessage(cmd, finalDir)
 	return nil
@@ -204,7 +201,7 @@ func selectApplication(cmd *cobra.Command, apps []api.ApplicationItem) (*api.App
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewSelect[string]().
-				Title("Select an application to pull").
+				Title("Select an application to clone").
 				Options(options...).
 				Value(&selectedID),
 		),
