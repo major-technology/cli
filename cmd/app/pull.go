@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strings"
 
 	"github.com/charmbracelet/huh"
 	"github.com/major-technology/cli/clients/api"
@@ -57,23 +59,32 @@ func runPull(cmd *cobra.Command) error {
 
 	cmd.Printf("Selected application: %s\n", selectedApp.Name)
 
-	// Determine the target directory (use the repository name)
-	targetDir := filepath.Join(".", selectedApp.GithubRepositoryName)
+	// Determine the desired directory name (based on app name)
+	desiredDir := sanitizeDirName(selectedApp.Name)
 
-	// Check if the directory already exists
+	// Determine the repository directory (use the repository name for git operations)
+	repoDir := filepath.Join(".", selectedApp.GithubRepositoryName)
+
+	// Check if either directory exists
 	var gitErr error
-	if _, err := os.Stat(targetDir); err == nil {
-		// Directory exists, just pull
-		cmd.Printf("Directory '%s' already exists. Pulling latest changes...\n", targetDir)
+	var workingDir string
 
-		gitErr = git.Pull(targetDir)
-	} else if os.IsNotExist(err) {
-		// Directory doesn't exist, clone it
-		cmd.Printf("Directory '%s' does not exist. Cloning repository...\n", targetDir)
-
-		_, gitErr = cloneRepository(selectedApp.CloneURLSSH, selectedApp.CloneURLHTTPS, targetDir)
+	// Check if desired directory exists
+	if _, err := os.Stat(desiredDir); err == nil {
+		// Desired directory exists, use it for pulling
+		workingDir = desiredDir
+		cmd.Printf("Directory '%s' already exists. Pulling latest changes...\n", workingDir)
+		gitErr = git.Pull(workingDir)
+	} else if _, err := os.Stat(repoDir); err == nil {
+		// Repository directory exists (old naming), use it for pulling then rename
+		workingDir = repoDir
+		cmd.Printf("Directory '%s' already exists. Pulling latest changes...\n", workingDir)
+		gitErr = git.Pull(workingDir)
 	} else {
-		return fmt.Errorf("failed to check directory: %w", err)
+		// Neither directory exists, clone directly to desired directory
+		workingDir = desiredDir
+		cmd.Printf("Directory '%s' does not exist. Cloning repository...\n", workingDir)
+		_, gitErr = cloneRepository(selectedApp.CloneURLSSH, selectedApp.CloneURLHTTPS, workingDir)
 	}
 
 	// Handle git authentication errors
@@ -85,14 +96,14 @@ func runPull(cmd *cobra.Command) error {
 			}
 
 			// Retry the git operation
-			if _, err := os.Stat(targetDir); err == nil {
+			if _, err := os.Stat(workingDir); err == nil {
 				// Directory exists, pull
 				cmd.Printf("Pulling latest changes...\n")
-				gitErr = git.Pull(targetDir)
-			} else if os.IsNotExist(err) {
+				gitErr = git.Pull(workingDir)
+			} else {
 				// Directory doesn't exist, clone
 				cmd.Printf("Cloning repository...\n")
-				_, gitErr = cloneRepository(selectedApp.CloneURLSSH, selectedApp.CloneURLHTTPS, targetDir)
+				_, gitErr = cloneRepository(selectedApp.CloneURLSSH, selectedApp.CloneURLHTTPS, workingDir)
 			}
 
 			// Check if retry succeeded
@@ -104,9 +115,32 @@ func runPull(cmd *cobra.Command) error {
 		}
 	}
 
+	// Rename directory if needed
+	finalDir := workingDir
+	if workingDir != desiredDir {
+		// Check if desired directory name is available
+		if _, err := os.Stat(desiredDir); err == nil {
+			// Desired directory already exists, keep using working directory
+			cmd.Printf("\nNote: Directory '%s' already exists, keeping repository in '%s'\n", desiredDir, workingDir)
+		} else if os.IsNotExist(err) {
+			// Rename to desired directory
+			if err := os.Rename(workingDir, desiredDir); err != nil {
+				cmd.Printf("\nWarning: Failed to rename directory to '%s': %v\n", desiredDir, err)
+				cmd.Printf("Continuing with directory '%s'\n", workingDir)
+			} else {
+				cmd.Printf("\nRenamed directory from '%s' to '%s'\n", workingDir, desiredDir)
+				finalDir = desiredDir
+			}
+		} else {
+			// Some other error checking the desired directory
+			cmd.Printf("\nWarning: Could not check directory '%s': %v\n", desiredDir, err)
+			cmd.Printf("Continuing with directory '%s'\n", workingDir)
+		}
+	}
+
 	// Generate env file
 	cmd.Println("\nGenerating .env file...")
-	envFilePath, _, err := generateEnvFile(targetDir)
+	envFilePath, _, err := generateEnvFile(finalDir)
 	if err != nil {
 		return fmt.Errorf("failed to generate .env file: %w", err)
 	}
@@ -114,7 +148,7 @@ func runPull(cmd *cobra.Command) error {
 
 	// Generate resources file
 	cmd.Println("\nGenerating RESOURCES.md file...")
-	resourcesFilePath, _, err := generateResourcesFile(targetDir)
+	resourcesFilePath, _, err := generateResourcesFile(finalDir)
 	if err != nil {
 		return fmt.Errorf("failed to generate RESOURCES.md file: %w", err)
 	}
@@ -124,6 +158,26 @@ func runPull(cmd *cobra.Command) error {
 
 	printSuccessMessage(cmd, selectedApp.Name)
 	return nil
+}
+
+// sanitizeDirName converts an application name to a valid directory name
+func sanitizeDirName(name string) string {
+	// Convert to lowercase
+	dirName := strings.ToLower(name)
+
+	// Replace spaces and special characters with hyphens
+	reg := regexp.MustCompile(`[^a-z0-9]+`)
+	dirName = reg.ReplaceAllString(dirName, "-")
+
+	// Remove leading/trailing hyphens
+	dirName = strings.Trim(dirName, "-")
+
+	// If the result is empty, use a default
+	if dirName == "" {
+		dirName = "app"
+	}
+
+	return dirName
 }
 
 // selectApplication prompts the user to select an application from the list
