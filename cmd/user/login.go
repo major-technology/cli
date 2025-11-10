@@ -182,16 +182,16 @@ func printSuccessMessage(cobraCmd *cobra.Command) {
 
 	nextStepsTitle := titleStyle.Render("What's next?")
 
-	pullCommand := commandStyle.Render("major app pull")
-	pullDesc := descriptionStyle.Render("Pull an existing app from GitHub")
+	cloneCommand := commandStyle.Render("major app clone")
+	cloneDesc := descriptionStyle.Render("Clone an existing app from GitHub")
 
 	createCommand := commandStyle.Render("major app create")
 	createDesc := descriptionStyle.Render("Create a brand new app from a template")
 
 	content := fmt.Sprintf("%s\n\n%s\n%s\n\n%s\n%s",
 		nextStepsTitle,
-		pullCommand,
-		pullDesc,
+		cloneCommand,
+		cloneDesc,
 		createCommand,
 		createDesc,
 	)
