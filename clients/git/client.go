@@ -175,7 +175,5 @@ func Pull(repoDir string) error {
 		// Include the git output in the error message
 		return fmt.Errorf("%w: %s", err, string(output))
 	}
-	// Print output on success
-	fmt.Print(string(output))
 	return nil
 }
