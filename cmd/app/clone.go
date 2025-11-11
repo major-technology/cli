@@ -93,15 +93,8 @@ func runClone(cmd *cobra.Command) error {
 				return fmt.Errorf("failed to ensure repository access: %w", err)
 			}
 
-			// Retry the git operation
-			if _, err := os.Stat(workingDir); err == nil {
-				cmd.Printf("Pulling latest changes...\n")
-				gitErr = git.Pull(workingDir)
-			} else {
-				// Directory doesn't exist, clone
-				cmd.Printf("Cloning repository...\n")
-				_, gitErr = cloneRepository(selectedApp.CloneURLSSH, selectedApp.CloneURLHTTPS, workingDir)
-			}
+			// For some reason, there's a race where the repo is still not available for clones
+			gitErr = retryGitOperation(cmd, workingDir, selectedApp.CloneURLSSH, selectedApp.CloneURLHTTPS)
 
 			// Check if retry succeeded
 			if gitErr != nil {

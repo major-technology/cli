@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -239,4 +240,41 @@ func pollForRepositoryAccess(cmd *cobra.Command, sshURL, httpsURL string) bool {
 			cmd.Print(".")
 		}
 	}
+}
+
+// retryGitOperation retries a git clone or pull operation with exponential backoff
+// This handles race conditions where permissions take a moment to propagate after being granted
+func retryGitOperation(cmd *cobra.Command, workingDir, sshURL, httpsURL string) error {
+	maxRetries := 3
+	baseDelay := 200 * time.Millisecond
+
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		if attempt > 0 {
+			delay := baseDelay * time.Duration(1<<uint(attempt-1)) // Exponential backoff: 200ms, 400ms, 800ms
+			time.Sleep(delay)
+		}
+
+		var err error
+		if _, statErr := os.Stat(workingDir); statErr == nil {
+			// Directory exists, pull
+			cmd.Printf("Pulling latest changes...\n")
+			err = git.Pull(workingDir)
+		} else {
+			// Directory doesn't exist, clone
+			cmd.Printf("Cloning repository...\n")
+			_, err = cloneRepository(sshURL, httpsURL, workingDir)
+		}
+
+		if err == nil {
+			return nil
+		}
+
+		// If it's still an auth error, continue retrying
+		if !isGitAuthError(err) {
+			// Different error type, return immediately
+			return err
+		}
+	}
+
+	return fmt.Errorf("repository access not available after %d attempts", maxRetries)
 }
