@@ -9,6 +9,7 @@ import (
 	"github.com/major-technology/cli/clients/config"
 	mjrToken "github.com/major-technology/cli/clients/token"
 	"github.com/major-technology/cli/cmd/app"
+	"github.com/major-technology/cli/cmd/git"
 	"github.com/major-technology/cli/cmd/org"
 	"github.com/major-technology/cli/cmd/resource"
 	"github.com/major-technology/cli/cmd/user"
@@ -142,6 +143,7 @@ func init() {
 	rootCmd.AddCommand(org.Cmd)
 	rootCmd.AddCommand(app.Cmd)
 	rootCmd.AddCommand(resource.Cmd)
+	rootCmd.AddCommand(git.GitCmd)
 }
 
 func initConfig() {

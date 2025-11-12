@@ -161,6 +161,32 @@ type GetVersionStatusResponse struct {
 	DeploymentError string          `json:"deploymentError,omitempty"`
 }
 
+// --- Resource structs ---
+
+// GetResourcesRequest represents the request body for POST /resources
+type GetResourcesRequest struct {
+	OrganizationID string `json:"organizationId"`
+}
+
+// GetResourcesResponse represents the response from POST /resources
+type GetResourcesResponse struct {
+	Error     *AppErrorDetail `json:"error,omitempty"`
+	Resources []ResourceItem  `json:"resources,omitempty"`
+}
+
+// SaveApplicationResourcesRequest represents the request body for POST /application-resources
+type SaveApplicationResourcesRequest struct {
+	OrganizationID string   `json:"organizationId"`
+	ApplicationID  string   `json:"applicationId"`
+	ResourceIDs    []string `json:"resourceIds"`
+}
+
+// SaveApplicationResourcesResponse represents the response from POST /application-resources
+type SaveApplicationResourcesResponse struct {
+	Error   *AppErrorDetail `json:"error,omitempty"`
+	Success bool            `json:"success,omitempty"`
+}
+
 // --- Version Check structs ---
 
 // CheckVersionResponse represents the response from GET /version/check

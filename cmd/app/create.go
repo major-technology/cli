@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/major-technology/cli/clients/api"
@@ -134,6 +135,13 @@ func runCreate(cobraCmd *cobra.Command) error {
 		return fmt.Errorf("failed to ensure repository access: %w", err)
 	}
 
+	// Select resources for the application
+	cobraCmd.Println("\nSelecting resources for your application...")
+	if err := selectApplicationResources(cobraCmd, orgID, createResp.ApplicationID); err != nil {
+		errorStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("9")) // Red
+		cobraCmd.Println(errorStyle.Render("Failed to configure resources. Please run 'major app resources' to configure them later."))
+	}
+
 	// Push to the new remote
 	cobraCmd.Println("\nPushing to new repository...")
 	if err := git.Push(tempDir); err != nil {
@@ -241,4 +249,81 @@ func printSuccessMessage(cobraCmd *cobra.Command, appName string) {
 	cobraCmd.Println(successMsg)
 	cobraCmd.Println(cdInstruction)
 	cobraCmd.Println(box)
+}
+
+// selectApplicationResources prompts the user to select resources for the application
+func selectApplicationResources(cobraCmd *cobra.Command, orgID, appID string) error {
+	// Get the API client
+	apiClient := singletons.GetAPIClient()
+
+	// Fetch available resources
+	resourcesResp, err := apiClient.GetResources(orgID)
+	if ok := api.CheckErr(cobraCmd, err); !ok {
+		return err
+	}
+
+	// Check if there are any resources available
+	if len(resourcesResp.Resources) == 0 {
+		cobraCmd.Println("No resources available in this organization.")
+		return nil
+	}
+
+	// Create options for the multiselect
+	options := make([]huh.Option[string], len(resourcesResp.Resources))
+	for i, resource := range resourcesResp.Resources {
+		// Format: "Name - Description"
+		label := resource.Name
+		if resource.Description != "" {
+			label = fmt.Sprintf("%s - %s", resource.Name, resource.Description)
+		}
+		options[i] = huh.NewOption(label, resource.ID)
+	}
+
+	// Create custom keymap where 'n' submits instead of enter
+	customKeyMap := huh.NewDefaultKeyMap()
+	customKeyMap.MultiSelect.Toggle = key.NewBinding(
+		key.WithKeys(" ", "enter"),
+		key.WithHelp("space/enter", "toggle"),
+	)
+	customKeyMap.MultiSelect.Submit = key.NewBinding(
+		key.WithKeys("n"),
+		key.WithHelp("n", "continue"),
+	)
+	// Disable the default next/prev behavior on enter
+	customKeyMap.MultiSelect.Next = key.NewBinding(
+		key.WithKeys("tab"),
+		key.WithHelp("tab", "next field"),
+	)
+
+	// Prompt user to select resources
+	var selectedResourceIDs []string
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewMultiSelect[string]().
+				Title("Select resources for your application").
+				Description("Use space/enter to select, 'n' to continue").
+				Options(options...).
+				Value(&selectedResourceIDs),
+		),
+	).WithKeyMap(customKeyMap)
+
+	if err := form.Run(); err != nil {
+		return fmt.Errorf("failed to collect resource selection: %w", err)
+	}
+
+	// If no resources selected, just return
+	if len(selectedResourceIDs) == 0 {
+		cobraCmd.Println("No resources selected.")
+		return nil
+	}
+
+	// Save the selected resources
+	cobraCmd.Printf("Saving %d selected resource(s)...\n", len(selectedResourceIDs))
+	_, err = apiClient.SaveApplicationResources(orgID, appID, selectedResourceIDs)
+	if ok := api.CheckErr(cobraCmd, err); !ok {
+		return err
+	}
+
+	cobraCmd.Printf("✓ Resources configured successfully\n")
+	return nil
 }
