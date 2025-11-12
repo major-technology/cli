@@ -15,6 +15,8 @@ const (
 	keyringOrgUser = "default-org"
 	// keyringOrgName is the name for storing the default organization name in the system keyring
 	keyringOrgName = "default-org-name"
+	// keyringGithubUsername is the key for storing the GitHub username in the system keyring
+	keyringGithubUsername = "github-username"
 )
 
 // storeToken saves the access token to the system keyring
@@ -79,6 +81,42 @@ func DeleteDefaultOrg() error {
 	err = keyring.Delete(keyringService, keyringOrgName)
 	if err != nil {
 		return fmt.Errorf("failed to delete default org name from keyring: %w", err)
+	}
+	return nil
+}
+
+// StoreGithubUsername saves the GitHub username to the system keyring
+func StoreGithubUsername(username string) error {
+	err := keyring.Set(keyringService, keyringGithubUsername, username)
+	if err != nil {
+		return fmt.Errorf("failed to store GitHub username in keyring: %w", err)
+	}
+	return nil
+}
+
+// GetGithubUsername retrieves the GitHub username from the system keyring
+// Returns empty string and nil error if not found
+func GetGithubUsername() (string, error) {
+	username, err := keyring.Get(keyringService, keyringGithubUsername)
+	if err != nil {
+		// Check if it's a "not found" error
+		if err == keyring.ErrNotFound {
+			return "", nil
+		}
+		return "", fmt.Errorf("failed to get GitHub username from keyring: %w", err)
+	}
+	return username, nil
+}
+
+// DeleteGithubUsername removes the GitHub username from the system keyring
+func DeleteGithubUsername() error {
+	err := keyring.Delete(keyringService, keyringGithubUsername)
+	if err != nil {
+		// Ignore "not found" errors
+		if err == keyring.ErrNotFound {
+			return nil
+		}
+		return fmt.Errorf("failed to delete GitHub username from keyring: %w", err)
 	}
 	return nil
 }

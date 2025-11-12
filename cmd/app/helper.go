@@ -9,6 +9,7 @@ import (
 
 	"github.com/charmbracelet/huh"
 	"github.com/major-technology/cli/clients/git"
+	mjrToken "github.com/major-technology/cli/clients/token"
 	"github.com/major-technology/cli/singletons"
 	"github.com/major-technology/cli/utils"
 	"github.com/spf13/cobra"
@@ -163,24 +164,60 @@ func testGitAccess(repoURL string) bool {
 // ensureRepositoryAccess ensures the user has access to the repository by inviting them as a collaborator
 // This function prompts for GitHub username, sends an invite, and waits for access to be granted
 func ensureRepositoryAccess(cmd *cobra.Command, appID string, sshURL string, httpsURL string) error {
-	// Prompt for GitHub username
-	var githubUsername string
-	form := huh.NewForm(
-		huh.NewGroup(
-			huh.NewInput().
-				Title("What is your GitHub username?").
-				Value(&githubUsername).
-				Validate(func(s string) error {
-					if s == "" {
-						return fmt.Errorf("GitHub username is required")
-					}
-					return nil
-				}),
-		),
-	)
+	// Check if GitHub username is stored in keychain
+	storedUsername, err := mjrToken.GetGithubUsername()
+	if err != nil {
+		return fmt.Errorf("failed to check stored GitHub username: %w", err)
+	}
 
-	if err := form.Run(); err != nil {
-		return fmt.Errorf("failed to get GitHub username: %w", err)
+	var githubUsername string
+	
+	// If we have a stored username, confirm with the user
+	if storedUsername != "" {
+		var useStored bool
+		confirmForm := huh.NewForm(
+			huh.NewGroup(
+				huh.NewConfirm().
+					Title(fmt.Sprintf("Use GitHub username: %s?", storedUsername)).
+					Description("We have your GitHub username saved. Would you like to use it?").
+					Value(&useStored),
+			),
+		)
+
+		if err := confirmForm.Run(); err != nil {
+			return fmt.Errorf("failed to confirm GitHub username: %w", err)
+		}
+
+		if useStored {
+			githubUsername = storedUsername
+		}
+	}
+
+	// If no stored username or user declined to use it, prompt for username
+	if githubUsername == "" {
+		form := huh.NewForm(
+			huh.NewGroup(
+				huh.NewInput().
+					Title("What is your GitHub username?").
+					Value(&githubUsername).
+					Validate(func(s string) error {
+						if s == "" {
+							return fmt.Errorf("GitHub username is required")
+						}
+						return nil
+					}),
+			),
+		)
+
+		if err := form.Run(); err != nil {
+			return fmt.Errorf("failed to get GitHub username: %w", err)
+		}
+
+		// Store the username for future use
+		if err := mjrToken.StoreGithubUsername(githubUsername); err != nil {
+			// Log the error but don't fail the operation
+			cmd.Printf("Warning: Failed to save GitHub username: %v\n", err)
+		}
 	}
 
 	cmd.Printf("\nAdding @%s as a collaborator to the repository...\n", githubUsername)
@@ -192,7 +229,7 @@ func ensureRepositoryAccess(cmd *cobra.Command, appID string, sshURL string, htt
 	}
 
 	// Add user as GitHub collaborator
-	_, err := apiClient.AddGithubCollaborators(appID, githubUsername)
+	_, err = apiClient.AddGithubCollaborators(appID, githubUsername)
 	if err != nil {
 		return fmt.Errorf("failed to add GitHub collaborator: %w", err)
 	}
