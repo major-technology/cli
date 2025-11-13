@@ -299,6 +299,18 @@ func (c *Client) GetVersionStatus(applicationID, organizationID, versionID strin
 	return &resp, nil
 }
 
+// --- Template endpoints ---
+
+// GetTemplates retrieves all available templates
+func (c *Client) GetTemplates() (*GetTemplatesResponse, error) {
+	var resp GetTemplatesResponse
+	err := c.doRequest("GET", "/templates", nil, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
 // --- Resource endpoints ---
 
 // GetResources retrieves all resources for an organization

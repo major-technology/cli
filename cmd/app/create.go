@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 
 	"github.com/charmbracelet/bubbles/key"
@@ -14,8 +15,6 @@ import (
 	"github.com/major-technology/cli/singletons"
 	"github.com/spf13/cobra"
 )
-
-const templateRepoURL = "https://github.com/major-technology/basic-template.git"
 
 // createCmd represents the create command
 var createCmd = &cobra.Command{
@@ -68,10 +67,17 @@ func runCreate(cobraCmd *cobra.Command) error {
 		return fmt.Errorf("failed to collect application details: %w", err)
 	}
 
-	cobraCmd.Printf("\nCreating application '%s'...\n", appName)
-
 	// Get the API client
 	apiClient := singletons.GetAPIClient()
+
+	// Fetch and select template
+	cobraCmd.Println("\nFetching available templates...")
+	templateURL, templateName, err := selectTemplate(cobraCmd, apiClient)
+	if err != nil {
+		return fmt.Errorf("failed to select template: %w", err)
+	}
+
+	cobraCmd.Printf("\nCreating application '%s'...\n", appName)
 
 	// Call POST /applications (token will be fetched automatically)
 	createResp, err := apiClient.CreateApplication(appName, appDescription, orgID)
@@ -110,7 +116,7 @@ func runCreate(cobraCmd *cobra.Command) error {
 	cobraCmd.Printf("\nCloning template repository...\n")
 
 	// Clone the template repository
-	if err := git.Clone(templateRepoURL, tempDir); err != nil {
+	if err := git.Clone(templateURL, tempDir); err != nil {
 		return fmt.Errorf("failed to clone template repository: %w", err)
 	}
 
@@ -137,7 +143,8 @@ func runCreate(cobraCmd *cobra.Command) error {
 
 	// Select resources for the application
 	cobraCmd.Println("\nSelecting resources for your application...")
-	if err := selectApplicationResources(cobraCmd, orgID, createResp.ApplicationID); err != nil {
+	selectedResources, err := selectApplicationResources(cobraCmd, orgID, createResp.ApplicationID)
+	if err != nil {
 		errorStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("9")) // Red
 		cobraCmd.Println(errorStyle.Render("Failed to configure resources. Please run 'major app resources' to configure them later."))
 	}
@@ -159,6 +166,15 @@ func runCreate(cobraCmd *cobra.Command) error {
 	cobraCmd.Printf("\n✓ Application '%s' successfully created in ./%s\n", appName, appName)
 	cobraCmd.Printf("  Clone URL: %s\n", cloneURL)
 
+	// If Vite template and resources were selected, add them using major-client
+	if templateName == "Vite" && len(selectedResources) > 0 {
+		cobraCmd.Println("\nAdding resources to Vite project...")
+		if err := addResourcesToViteProject(cobraCmd, targetDir, selectedResources, createResp.ApplicationID); err != nil {
+			cobraCmd.Printf("Warning: Failed to add resources to project: %v\n", err)
+			cobraCmd.Println("You can manually add them later using 'pnpm clients:add'")
+		}
+	}
+
 	// Generate .env file
 	cobraCmd.Println("\nGenerating .env file...")
 	envFilePath, _, err := generateEnvFile(targetDir)
@@ -166,15 +182,6 @@ func runCreate(cobraCmd *cobra.Command) error {
 		cobraCmd.Printf("Warning: Failed to generate .env file: %v\n", err)
 	} else {
 		cobraCmd.Printf("✓ Generated .env file at: %s\n", envFilePath)
-	}
-
-	// Generate RESOURCES.md file
-	cobraCmd.Println("\nGenerating RESOURCES.md file...")
-	resourcesFilePath, _, err := generateResourcesFile(targetDir)
-	if err != nil {
-		cobraCmd.Printf("Warning: Failed to generate RESOURCES.md file: %v\n", err)
-	} else {
-		cobraCmd.Printf("✓ Generated RESOURCES.md file at: %s\n", resourcesFilePath)
 	}
 
 	printSuccessMessage(cobraCmd, appName)
@@ -251,21 +258,68 @@ func printSuccessMessage(cobraCmd *cobra.Command, appName string) {
 	cobraCmd.Println(box)
 }
 
+// addResourcesToViteProject adds selected resources to a Vite project using pnpm clients:add
+func addResourcesToViteProject(cobraCmd *cobra.Command, projectDir string, resources []api.ResourceItem, applicationID string) error {
+	// First, install dependencies to make major-client available
+	cobraCmd.Println("  Installing dependencies...")
+	installCmd := exec.Command("pnpm", "install")
+	installCmd.Dir = projectDir
+	installCmd.Stdout = os.Stdout
+	installCmd.Stderr = os.Stderr
+
+	if err := installCmd.Run(); err != nil {
+		return fmt.Errorf("failed to install dependencies: %w", err)
+	}
+
+	successCount := 0
+	for _, resource := range resources {
+		// Convert resource name to a valid client name (kebab-case)
+		// The major-client tool will convert it to camelCase for the actual client
+		clientName := resource.Name
+
+		cobraCmd.Printf("  Adding resource: %s (%s)...\n", resource.Name, resource.Type)
+
+		// Run: pnpm clients:add <resource_id> <name> <type> <description> <application_id>
+		cmd := exec.Command("pnpm", "clients:add", resource.ID, clientName, resource.Type, resource.Description, applicationID)
+		cmd.Dir = projectDir
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+
+		if err := cmd.Run(); err != nil {
+			cobraCmd.Printf("  ⚠ Failed to add resource %s: %v\n", resource.Name, err)
+			continue
+		}
+
+		successCount++
+	}
+
+	if successCount > 0 {
+		cobraCmd.Printf("✓ Successfully added %d/%d resource(s) to the project\n", successCount, len(resources))
+	}
+
+	if successCount < len(resources) {
+		return fmt.Errorf("failed to add %d resource(s)", len(resources)-successCount)
+	}
+
+	return nil
+}
+
 // selectApplicationResources prompts the user to select resources for the application
-func selectApplicationResources(cobraCmd *cobra.Command, orgID, appID string) error {
+// Returns the selected resources with their full details
+func selectApplicationResources(cobraCmd *cobra.Command, orgID, appID string) ([]api.ResourceItem, error) {
 	// Get the API client
 	apiClient := singletons.GetAPIClient()
 
 	// Fetch available resources
 	resourcesResp, err := apiClient.GetResources(orgID)
 	if ok := api.CheckErr(cobraCmd, err); !ok {
-		return err
+		return nil, err
 	}
 
 	// Check if there are any resources available
 	if len(resourcesResp.Resources) == 0 {
 		cobraCmd.Println("No resources available in this organization.")
-		return nil
+		return nil, nil
 	}
 
 	// Create options for the multiselect
@@ -308,22 +362,89 @@ func selectApplicationResources(cobraCmd *cobra.Command, orgID, appID string) er
 	).WithKeyMap(customKeyMap)
 
 	if err := form.Run(); err != nil {
-		return fmt.Errorf("failed to collect resource selection: %w", err)
+		return nil, fmt.Errorf("failed to collect resource selection: %w", err)
 	}
 
 	// If no resources selected, just return
 	if len(selectedResourceIDs) == 0 {
 		cobraCmd.Println("No resources selected.")
-		return nil
+		return nil, nil
 	}
 
 	// Save the selected resources
 	cobraCmd.Printf("Saving %d selected resource(s)...\n", len(selectedResourceIDs))
 	_, err = apiClient.SaveApplicationResources(orgID, appID, selectedResourceIDs)
 	if ok := api.CheckErr(cobraCmd, err); !ok {
-		return err
+		return nil, err
 	}
 
 	cobraCmd.Printf("✓ Resources configured successfully\n")
-	return nil
+
+	// Build and return the list of selected resources with full details
+	var selectedResources []api.ResourceItem
+	for _, selectedID := range selectedResourceIDs {
+		for _, resource := range resourcesResp.Resources {
+			if resource.ID == selectedID {
+				selectedResources = append(selectedResources, resource)
+				break
+			}
+		}
+	}
+
+	return selectedResources, nil
+}
+
+// selectTemplate prompts the user to select a template for the application
+// Returns the template URL and name
+func selectTemplate(cobraCmd *cobra.Command, apiClient *api.Client) (string, string, error) {
+	// Fetch available templates
+	templatesResp, err := apiClient.GetTemplates()
+	if ok := api.CheckErr(cobraCmd, err); !ok {
+		return "", "", err
+	}
+
+	// Check if there are any templates available
+	if len(templatesResp.Templates) == 0 {
+		return "", "", fmt.Errorf("no templates available")
+	}
+
+	// If only one template, use it automatically
+	if len(templatesResp.Templates) == 1 {
+		template := templatesResp.Templates[0]
+		cobraCmd.Printf("Using template: %s\n", template.Name)
+		return template.TemplateURL, template.Name, nil
+	}
+
+	// Create options for the select
+	options := make([]huh.Option[string], len(templatesResp.Templates))
+	for i, template := range templatesResp.Templates {
+		options[i] = huh.NewOption(template.Name, template.TemplateURL)
+	}
+
+	// Prompt user to select a template
+	var selectedTemplateURL string
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewSelect[string]().
+				Title("Select a template for your application").
+				Description("Choose which template to use as a starting point").
+				Options(options...).
+				Value(&selectedTemplateURL),
+		),
+	)
+
+	if err := form.Run(); err != nil {
+		return "", "", fmt.Errorf("failed to select template: %w", err)
+	}
+
+	// Find the template name for the selected URL
+	var selectedTemplateName string
+	for _, template := range templatesResp.Templates {
+		if template.TemplateURL == selectedTemplateURL {
+			selectedTemplateName = template.Name
+			break
+		}
+	}
+
+	return selectedTemplateURL, selectedTemplateName, nil
 }
