@@ -95,6 +95,7 @@ type ResourceItem struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
+	Type        string `json:"type"`
 }
 
 // GetApplicationResourcesResponse represents the response from GET /applications/:applicationId/resources
@@ -159,6 +160,21 @@ type GetVersionStatusResponse struct {
 	Error           *AppErrorDetail `json:"error,omitempty"`
 	Status          string          `json:"status,omitempty"`
 	DeploymentError string          `json:"deploymentError,omitempty"`
+}
+
+// --- Template structs ---
+
+// TemplateItem represents a single template
+type TemplateItem struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	TemplateURL string `json:"templateUrl"`
+}
+
+// GetTemplatesResponse represents the response from GET /templates
+type GetTemplatesResponse struct {
+	Error     *AppErrorDetail `json:"error,omitempty"`
+	Templates []TemplateItem  `json:"templates,omitempty"`
 }
 
 // --- Resource structs ---
