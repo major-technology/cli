@@ -1,6 +1,7 @@
 package app
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -72,7 +73,7 @@ func runCreate(cobraCmd *cobra.Command) error {
 
 	// Fetch and select template
 	cobraCmd.Println("\nFetching available templates...")
-	templateURL, templateName, err := selectTemplate(cobraCmd, apiClient)
+	templateURL, templateName, templateID, err := selectTemplate(cobraCmd, apiClient)
 	if err != nil {
 		return fmt.Errorf("failed to select template: %w", err)
 	}
@@ -87,6 +88,11 @@ func runCreate(cobraCmd *cobra.Command) error {
 
 	cobraCmd.Printf("✓ Application created with ID: %s\n", createResp.ApplicationID)
 	cobraCmd.Printf("✓ Repository: %s\n", createResp.RepositoryName)
+
+	_, err = apiClient.SetApplicationTemplate(createResp.ApplicationID, templateID)
+	if ok := api.CheckErr(cobraCmd, err); !ok {
+		// Don't fail the entire create if template setting fails
+	}
 
 	// Check if we have permissions to use SSH or HTTPS
 	useSSH := false
@@ -395,24 +401,24 @@ func selectApplicationResources(cobraCmd *cobra.Command, orgID, appID string) ([
 }
 
 // selectTemplate prompts the user to select a template for the application
-// Returns the template URL and name
-func selectTemplate(cobraCmd *cobra.Command, apiClient *api.Client) (string, string, error) {
+// Returns the template URL, name, and ID
+func selectTemplate(cobraCmd *cobra.Command, apiClient *api.Client) (string, string, string, error) {
 	// Fetch available templates
 	templatesResp, err := apiClient.GetTemplates()
 	if ok := api.CheckErr(cobraCmd, err); !ok {
-		return "", "", err
+		return "", "", "", err
 	}
 
 	// Check if there are any templates available
 	if len(templatesResp.Templates) == 0 {
-		return "", "", fmt.Errorf("no templates available")
+		return "", "", "", errors.New("no templates available")
 	}
 
 	// If only one template, use it automatically
 	if len(templatesResp.Templates) == 1 {
 		template := templatesResp.Templates[0]
 		cobraCmd.Printf("Using template: %s\n", template.Name)
-		return template.TemplateURL, template.Name, nil
+		return template.TemplateURL, template.Name, template.ID, nil
 	}
 
 	// Create options for the select
@@ -434,17 +440,18 @@ func selectTemplate(cobraCmd *cobra.Command, apiClient *api.Client) (string, str
 	)
 
 	if err := form.Run(); err != nil {
-		return "", "", fmt.Errorf("failed to select template: %w", err)
+		return "", "", "", fmt.Errorf("failed to select template: %w", err)
 	}
 
-	// Find the template name for the selected URL
-	var selectedTemplateName string
+	// Find the template name and ID for the selected URL
+	var selectedTemplateName, selectedTemplateID string
 	for _, template := range templatesResp.Templates {
 		if template.TemplateURL == selectedTemplateURL {
 			selectedTemplateName = template.Name
+			selectedTemplateID = template.ID
 			break
 		}
 	}
 
-	return selectedTemplateURL, selectedTemplateName, nil
+	return selectedTemplateURL, selectedTemplateName, selectedTemplateID, nil
 }

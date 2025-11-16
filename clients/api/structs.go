@@ -203,6 +203,19 @@ type SaveApplicationResourcesResponse struct {
 	Success bool            `json:"success,omitempty"`
 }
 
+// SetApplicationTemplateRequest represents the request body for POST /applications/template
+type SetApplicationTemplateRequest struct {
+	ApplicationID string `json:"applicationId"`
+	TemplateID    string `json:"templateId"`
+}
+
+// SetApplicationTemplateResponse represents the response from POST /applications/template
+type SetApplicationTemplateResponse struct {
+	Error   *AppErrorDetail `json:"error,omitempty"`
+	Success bool            `json:"success,omitempty"`
+	Message string          `json:"message,omitempty"`
+}
+
 // --- Version Check structs ---
 
 // CheckVersionResponse represents the response from GET /version/check
