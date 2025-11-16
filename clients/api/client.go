@@ -343,6 +343,21 @@ func (c *Client) SaveApplicationResources(organizationID, applicationID string, 
 	return &resp, nil
 }
 
+// SetApplicationTemplate associates a template with an application
+func (c *Client) SetApplicationTemplate(applicationID, templateID string) (*SetApplicationTemplateResponse, error) {
+	req := SetApplicationTemplateRequest{
+		ApplicationID: applicationID,
+		TemplateID:    templateID,
+	}
+
+	var resp SetApplicationTemplateResponse
+	err := c.doRequest("POST", "/applications/template", req, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
 // --- Version Check endpoints ---
 
 // CheckVersion checks if the CLI version is up to date
