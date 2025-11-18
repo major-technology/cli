@@ -13,6 +13,7 @@ import (
 	"github.com/major-technology/cli/clients/api"
 	"github.com/major-technology/cli/clients/git"
 	mjrToken "github.com/major-technology/cli/clients/token"
+	"github.com/major-technology/cli/middleware"
 	"github.com/major-technology/cli/singletons"
 	"github.com/spf13/cobra"
 )
@@ -22,6 +23,9 @@ var createCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Create a new application",
 	Long:  `Create a new application with a GitHub repository and sets up the basic template.`,
+	PreRunE: middleware.Compose(
+		middleware.CheckLogin,
+	),
 	Run: func(cobraCmd *cobra.Command, args []string) {
 		cobra.CheckErr(runCreate(cobraCmd))
 	},

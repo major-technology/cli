@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/charmbracelet/lipgloss"
+	"github.com/major-technology/cli/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -161,64 +161,19 @@ func CheckErr(cmd *cobra.Command, err error) bool {
 
 	// Check if it's a force upgrade error
 	if IsForceUpgrade(err) {
-		// Create styled error message box
-		errorStyle := lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("#FF5F87")).
-			Padding(1, 2).
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("#FF5F87"))
-
-		commandStyle := lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("#87D7FF"))
-
-		message := fmt.Sprintf("Your CLI version is out of date and must be upgraded.\n\nRun:\n%s",
-			commandStyle.Render("brew update && brew upgrade major"))
-
-		cmd.Println(errorStyle.Render(message))
+		ui.PrintError(cmd, "Your CLI version is out of date and must be upgraded.", "brew update && brew upgrade major")
 		return false
 	}
 
 	// Check if it's a token expiration error
 	if IsTokenExpired(err) {
-		// Create styled error message box
-		errorStyle := lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("#FF5F87")).
-			Padding(1, 2).
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("#FF5F87"))
-
-		commandStyle := lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("#87D7FF"))
-
-		message := fmt.Sprintf("Your session has expired!\n\nRun %s to login again.",
-			commandStyle.Render("major user login"))
-
-		cmd.Println(errorStyle.Render(message))
+		ui.PrintError(cmd, "Your session has expired!", "major user login")
 		return false
 	}
 
 	// Check if it's a no token error
 	if IsNoToken(err) {
-		// Create styled error message box
-		errorStyle := lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("#FF5F87")).
-			Padding(1, 2).
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("#FF5F87"))
-
-		commandStyle := lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("#87D7FF"))
-
-		message := fmt.Sprintf("Not logged in!\n\nRun %s to get started.",
-			commandStyle.Render("major user login"))
-
-		cmd.Println(errorStyle.Render(message))
+		ui.PrintError(cmd, "Not logged in!", "major user login")
 		return false
 	}
 
