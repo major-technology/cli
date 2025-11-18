@@ -1,5 +1,6 @@
 {
     "api_url": "https://api.prod.major.build/cli",
     "frontend_uri": "https://app.major.build",
-    "app_url_suffix": "apps.prod.major.build"
+    "app_url_suffix": "apps.prod.major.build",
+    "app_url_fe_only_suffix": "apps2.prod.major.build"
 }

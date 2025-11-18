@@ -160,6 +160,7 @@ type GetVersionStatusResponse struct {
 	Error           *AppErrorDetail `json:"error,omitempty"`
 	Status          string          `json:"status,omitempty"`
 	DeploymentError string          `json:"deploymentError,omitempty"`
+	AppURL          string          `json:"app_url,omitempty"`
 }
 
 // --- Template structs ---
