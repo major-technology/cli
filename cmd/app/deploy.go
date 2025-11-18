@@ -271,7 +271,7 @@ func pollStatus(applicationID, organizationID, versionID string) tea.Cmd {
 }
 
 func tickCmd() tea.Cmd {
-	return tea.Tick(2*time.Second, func(t time.Time) tea.Msg {
+	return tea.Tick(1*time.Second, func(t time.Time) tea.Msg {
 		return tickMsg(t)
 	})
 }
