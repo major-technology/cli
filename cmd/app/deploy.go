@@ -109,7 +109,7 @@ func runDeploy(cobraCmd *cobra.Command) error {
 	cobraCmd.Printf("\n✓ Version created: %s\n", resp.VersionID)
 
 	// Poll deployment status with beautiful UI
-	finalStatus, deploymentError, err := pollDeploymentStatus(applicationID, organizationID, resp.VersionID)
+	finalStatus, deploymentError, appURL, err := pollDeploymentStatus(applicationID, organizationID, resp.VersionID)
 	if err != nil {
 		return fmt.Errorf("failed to track deployment status: %w", err)
 	}
@@ -118,10 +118,8 @@ func runDeploy(cobraCmd *cobra.Command) error {
 	if finalStatus == "DEPLOYED" {
 		cobraCmd.Printf("\n🎉 Deployment successful!\n")
 
-		// Print application URL
-		cfg := singletons.GetConfig()
-		if cfg != nil && cfg.AppURLSuffix != "" {
-			appURL := fmt.Sprintf("https://app-%s.%s", applicationID, cfg.AppURLSuffix)
+		// Print application URL from the API response
+		if appURL != "" {
 			cobraCmd.Printf("\n🌐 Your application is live at:\n")
 			cobraCmd.Printf("  %s\n", appURL)
 		}
@@ -146,6 +144,7 @@ type deploymentStatusModel struct {
 	spinner         spinner.Model
 	status          string
 	deploymentError string
+	appURL          string
 	err             error
 	done            bool
 	dots            int  // Track number of dots (0-4)
@@ -156,6 +155,7 @@ type deploymentStatusModel struct {
 type statusMsg struct {
 	status          string
 	deploymentError string
+	appURL          string
 	err             error
 }
 
@@ -179,6 +179,7 @@ func (m deploymentStatusModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case statusMsg:
 		m.status = msg.status
 		m.deploymentError = msg.deploymentError
+		m.appURL = msg.appURL
 		m.err = msg.err
 
 		// Check if we're in a terminal state
@@ -264,6 +265,7 @@ func pollStatus(applicationID, organizationID, versionID string) tea.Cmd {
 		return statusMsg{
 			status:          resp.Status,
 			deploymentError: resp.DeploymentError,
+			appURL:          resp.AppURL,
 		}
 	}
 }
@@ -310,7 +312,7 @@ func getStatusDisplay(status string) (string, string) {
 	}
 }
 
-func pollDeploymentStatus(applicationID, organizationID, versionID string) (string, string, error) {
+func pollDeploymentStatus(applicationID, organizationID, versionID string) (string, string, string, error) {
 	s := spinner.New()
 	s.Spinner = spinner.Dot
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
@@ -322,6 +324,7 @@ func pollDeploymentStatus(applicationID, organizationID, versionID string) (stri
 		spinner:         s,
 		status:          "",
 		deploymentError: "",
+		appURL:          "",
 		done:            false,
 		dots:            1,
 		dotsIncreasing:  true,
@@ -331,15 +334,15 @@ func pollDeploymentStatus(applicationID, organizationID, versionID string) (stri
 	p := tea.NewProgram(m)
 	finalModel, err := p.Run()
 	if err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
 
 	finalStatusModel := finalModel.(deploymentStatusModel)
 	if finalStatusModel.err != nil {
-		return "", "", finalStatusModel.err
+		return "", "", "", finalStatusModel.err
 	}
 
-	return finalStatusModel.status, finalStatusModel.deploymentError, nil
+	return finalStatusModel.status, finalStatusModel.deploymentError, finalStatusModel.appURL, nil
 }
 
 // formatDeploymentError formats the deployment error message with nice styling
