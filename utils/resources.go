@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -15,6 +16,37 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// LocalResource represents a resource stored in resources.json
+type LocalResource struct {
+	ID            string `json:"id"`
+	Name          string `json:"name"`
+	Type          string `json:"type"`
+	Description   string `json:"description"`
+	ApplicationID string `json:"applicationId"`
+}
+
+// ReadLocalResources reads the resources.json file from the project directory
+func ReadLocalResources(projectDir string) ([]LocalResource, error) {
+	resourcesPath := filepath.Join(projectDir, "resources.json")
+
+	// If file doesn't exist, return empty list (not an error)
+	if _, err := os.Stat(resourcesPath); os.IsNotExist(err) {
+		return []LocalResource{}, nil
+	}
+
+	data, err := os.ReadFile(resourcesPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read resources.json: %w", err)
+	}
+
+	var resources []LocalResource
+	if err := json.Unmarshal(data, &resources); err != nil {
+		return nil, fmt.Errorf("failed to parse resources.json: %w", err)
+	}
+
+	return resources, nil
+}
+
 // SelectApplicationResources prompts the user to select resources for the application
 // Returns the selected resources with their full details
 func SelectApplicationResources(cmd *cobra.Command, apiClient *api.Client, orgID, appID string) ([]api.ResourceItem, error) {
@@ -28,6 +60,25 @@ func SelectApplicationResources(cmd *cobra.Command, apiClient *api.Client, orgID
 	if len(resourcesResp.Resources) == 0 {
 		cmd.Println("No resources available in this organization.")
 		return nil, nil
+	}
+
+	// Try to read existing resources from resources.json
+	existingResources, err := ReadLocalResources(".")
+	if err != nil {
+		cmd.Printf("Warning: Could not read existing resources: %v\n", err)
+		existingResources = []LocalResource{}
+	}
+
+	// Create a set of existing resource IDs for quick lookup
+	existingIDs := make(map[string]bool)
+	for _, res := range existingResources {
+		existingIDs[res.ID] = true
+	}
+
+	// Pre-select existing resources
+	var selectedResourceIDs []string
+	for _, res := range existingResources {
+		selectedResourceIDs = append(selectedResourceIDs, res.ID)
 	}
 
 	// Create options for the multiselect
@@ -57,12 +108,17 @@ func SelectApplicationResources(cmd *cobra.Command, apiClient *api.Client, orgID
 		key.WithHelp("tab", "next field"),
 	)
 
+	// Show count of existing selections if any
+	title := "Select resources for your application"
+	if len(existingResources) > 0 {
+		title = fmt.Sprintf("Select resources for your application (%d currently selected)", len(existingResources))
+	}
+
 	// Prompt user to select resources
-	var selectedResourceIDs []string
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewMultiSelect[string]().
-				Title("Select resources for your application").
+				Title(title).
 				Description("Use space/enter to select, 'n' to continue").
 				Options(options...).
 				Value(&selectedResourceIDs),
@@ -73,20 +129,10 @@ func SelectApplicationResources(cmd *cobra.Command, apiClient *api.Client, orgID
 		return nil, fmt.Errorf("failed to collect resource selection: %w", err)
 	}
 
-	// If no resources selected, just return
-	if len(selectedResourceIDs) == 0 {
-		cmd.Println("No resources selected.")
-		return nil, nil
-	}
-
-	// Save the selected resources
-	cmd.Printf("Saving %d selected resource(s)...\n", len(selectedResourceIDs))
 	_, err = apiClient.SaveApplicationResources(orgID, appID, selectedResourceIDs)
 	if ok := api.CheckErr(cmd, err); !ok {
 		return nil, err
 	}
-
-	cmd.Printf("✓ Resources configured successfully\n")
 
 	// Build and return the list of selected resources with full details
 	var selectedResources []api.ResourceItem
@@ -103,7 +149,48 @@ func SelectApplicationResources(cmd *cobra.Command, apiClient *api.Client, orgID
 }
 
 // AddResourcesToViteProject adds selected resources to a Vite project using pnpm clients:add
+// It handles differential updates: removes resources that are no longer selected and adds new ones
 func AddResourcesToViteProject(cmd *cobra.Command, projectDir string, resources []api.ResourceItem, applicationID string) error {
+	// Read existing resources
+	existingResources, err := ReadLocalResources(projectDir)
+	if err != nil {
+		cmd.Printf("Warning: Could not read existing resources: %v\n", err)
+		existingResources = []LocalResource{}
+	}
+
+	// Build maps for comparison
+	newResourceMap := make(map[string]api.ResourceItem)
+	for _, res := range resources {
+		newResourceMap[res.ID] = res
+	}
+
+	existingResourceMap := make(map[string]LocalResource)
+	for _, res := range existingResources {
+		existingResourceMap[res.ID] = res
+	}
+
+	// Find resources to remove (in old but not in new)
+	var resourcesToRemove []LocalResource
+	for _, existing := range existingResources {
+		if _, found := newResourceMap[existing.ID]; !found {
+			resourcesToRemove = append(resourcesToRemove, existing)
+		}
+	}
+
+	// Find resources to add (in new but not in old)
+	var resourcesToAdd []api.ResourceItem
+	for _, newRes := range resources {
+		if _, found := existingResourceMap[newRes.ID]; !found {
+			resourcesToAdd = append(resourcesToAdd, newRes)
+		}
+	}
+
+	// If nothing to change, return early
+	if len(resourcesToRemove) == 0 && len(resourcesToAdd) == 0 {
+		cmd.Println("No changes to resources.")
+		return nil
+	}
+
 	// First, install dependencies to make major-client available
 	cmd.Println("  Installing dependencies...")
 	installCmd := exec.Command("pnpm", "install")
@@ -115,9 +202,29 @@ func AddResourcesToViteProject(cmd *cobra.Command, projectDir string, resources 
 		return fmt.Errorf("failed to install dependencies: %w", err)
 	}
 
-	successCount := 0
-	for _, resource := range resources {
-		// Convert resource name to a valid client name (kebab-case)
+	// Remove old resources
+	removeSuccessCount := 0
+	for _, resource := range resourcesToRemove {
+		cmd.Printf("  Removing resource: %s (%s)...\n", resource.Name, resource.Type)
+
+		// Run: pnpm clients:remove <name>
+		pnpmCmd := exec.Command("pnpm", "clients:remove", resource.Name)
+		pnpmCmd.Dir = projectDir
+		pnpmCmd.Stdout = os.Stdout
+		pnpmCmd.Stderr = os.Stderr
+
+		if err := pnpmCmd.Run(); err != nil {
+			cmd.Printf("  ⚠ Failed to remove resource %s: %v\n", resource.Name, err)
+			continue
+		}
+
+		removeSuccessCount++
+	}
+
+	// Add new resources
+	addSuccessCount := 0
+	for _, resource := range resourcesToAdd {
+		// Convert resource name to a valid client name
 		// The major-client tool will convert it to camelCase for the actual client
 		clientName := resource.Name
 
@@ -134,15 +241,20 @@ func AddResourcesToViteProject(cmd *cobra.Command, projectDir string, resources 
 			continue
 		}
 
-		successCount++
+		addSuccessCount++
 	}
 
-	if successCount > 0 {
-		cmd.Printf("✓ Successfully added %d/%d resource(s) to the project\n", successCount, len(resources))
+	// Report results
+	if removeSuccessCount > 0 {
+		cmd.Printf("✓ Successfully removed %d/%d resource(s)\n", removeSuccessCount, len(resourcesToRemove))
+	}
+	if addSuccessCount > 0 {
+		cmd.Printf("✓ Successfully added %d/%d resource(s)\n", addSuccessCount, len(resourcesToAdd))
 	}
 
-	if successCount < len(resources) {
-		return fmt.Errorf("failed to add %d resource(s)", len(resources)-successCount)
+	totalErrors := (len(resourcesToRemove) - removeSuccessCount) + (len(resourcesToAdd) - addSuccessCount)
+	if totalErrors > 0 {
+		return fmt.Errorf("failed to process %d resource(s)", totalErrors)
 	}
 
 	return nil

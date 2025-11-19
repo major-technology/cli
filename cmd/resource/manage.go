@@ -2,6 +2,7 @@ package resource
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/major-technology/cli/middleware"
@@ -51,14 +52,24 @@ func runManage(cobraCmd *cobra.Command) error {
 	}
 
 	if templateName == "Vite" {
-		cobraCmd.Println("\nAdding resources to Vite project...")
+		cobraCmd.Println("\nUpdating resources in Vite project...")
 		if err := utils.AddResourcesToViteProject(cobraCmd, ".", selectedResources, appInfo.ApplicationID); err != nil {
-			cobraCmd.Printf("Warning: Failed to add resources to project: %v\n", err)
-			cobraCmd.Println("You can manually add them later using 'pnpm clients:add'")
+			cobraCmd.Printf("Warning: Failed to update resources: %v\n", err)
+			cobraCmd.Println("You can manually manage them using 'pnpm clients:add' and 'pnpm clients:remove'")
 		}
 	} else {
-		// Default/Next.js flow: regenerate RESOURCES.md
+		// Default/Next.js flow: delete and regenerate RESOURCES.md
 		cobraCmd.Println("\nUpdating RESOURCES.md...")
+
+		// Delete existing RESOURCES.md if it exists
+		resourcesPath := "RESOURCES.md"
+		if _, err := os.Stat(resourcesPath); err == nil {
+			if err := os.Remove(resourcesPath); err != nil {
+				cobraCmd.Printf("Warning: Failed to delete old RESOURCES.md: %v\n", err)
+			}
+		}
+
+		// Generate new RESOURCES.md
 		filePath, _, err := utils.GenerateResourcesFile(".")
 		if err != nil {
 			cobraCmd.Printf("Warning: Failed to update RESOURCES.md: %v\n", err)
