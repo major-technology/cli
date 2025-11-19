@@ -171,7 +171,7 @@ func ensureRepositoryAccess(cmd *cobra.Command, appID string, sshURL string, htt
 	}
 
 	var githubUsername string
-	
+
 	// If we have a stored username, confirm with the user
 	if storedUsername != "" {
 		var useStored bool

@@ -12,6 +12,7 @@ import (
 	"github.com/major-technology/cli/clients/git"
 	"github.com/major-technology/cli/clients/token"
 	"github.com/major-technology/cli/singletons"
+	"github.com/major-technology/cli/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -138,7 +139,7 @@ func runClone(cmd *cobra.Command) error {
 
 	// Generate resources file
 	cmd.Println("\nGenerating RESOURCES.md file...")
-	resourcesFilePath, _, err := generateResourcesFile(finalDir)
+	resourcesFilePath, _, err := utils.GenerateResourcesFile(finalDir)
 	if err != nil {
 		return fmt.Errorf("failed to generate RESOURCES.md file: %w", err)
 	}
