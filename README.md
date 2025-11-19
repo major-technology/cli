@@ -1,10 +1,10 @@
 # What is Major?
 
-Major is a platform that lets you easily deploy and manage access to applications you build locally. Major is designed for engineers building internal tools to quickly:
+Major is a platform that lets you deploy and manage access to applications you build locally. Major is designed for engineers building internal tools to quickly:
 
-1. Provision hosted compute for their apps
+1. Deploy their code live on hosted compute
 2. Manage access and permissions to those apps
-3. Connect apps securely, with RBAC, to internal resources (db's, api's, etc.)
+3. Connect apps securely (with RBAC) to internal resources (db's, api's, etc.)
 
 ## Installation
 
