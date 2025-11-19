@@ -1,10 +1,13 @@
-# Major CLI
+# What is Major?
+
+Major is a platform that let's you easily deploy and manage access to applications you build locally. Major is designed for engineers building internal tools to quickly:
+1. Provision hosted compute for their apps
+2. Manage access to those apps
+3. Connect apps securely, with RBAC, to internal resources (db's, api's, etc.)
+
+## Major CLI
 
 `major` is Major on the command line. It brings authentication, app creation, and app deployment directly to your own development environment so that you can create internal apps with ease.
-
-## Documentation
-
-Major CLI is supported for users on macOS, Windows, and Linux.
 
 ## Installation
 
