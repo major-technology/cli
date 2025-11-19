@@ -4,10 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 
-	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/major-technology/cli/clients/api"
@@ -15,6 +13,7 @@ import (
 	mjrToken "github.com/major-technology/cli/clients/token"
 	"github.com/major-technology/cli/middleware"
 	"github.com/major-technology/cli/singletons"
+	"github.com/major-technology/cli/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -153,7 +152,7 @@ func runCreate(cobraCmd *cobra.Command) error {
 
 	// Select resources for the application
 	cobraCmd.Println("\nSelecting resources for your application...")
-	selectedResources, err := selectApplicationResources(cobraCmd, orgID, createResp.ApplicationID)
+	selectedResources, err := utils.SelectApplicationResources(cobraCmd, apiClient, orgID, createResp.ApplicationID)
 	if err != nil {
 		errorStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("9")) // Red
 		cobraCmd.Println(errorStyle.Render("Failed to configure resources. Please run 'major app resources' to configure them later."))
@@ -179,7 +178,7 @@ func runCreate(cobraCmd *cobra.Command) error {
 	// If Vite template and resources were selected, add them using major-client
 	if templateName == "Vite" && len(selectedResources) > 0 {
 		cobraCmd.Println("\nAdding resources to Vite project...")
-		if err := addResourcesToViteProject(cobraCmd, targetDir, selectedResources, createResp.ApplicationID); err != nil {
+		if err := utils.AddResourcesToViteProject(cobraCmd, targetDir, selectedResources, createResp.ApplicationID); err != nil {
 			cobraCmd.Printf("Warning: Failed to add resources to project: %v\n", err)
 			cobraCmd.Println("You can manually add them later using 'pnpm clients:add'")
 		}
@@ -266,142 +265,6 @@ func printSuccessMessage(cobraCmd *cobra.Command, appName string) {
 	cobraCmd.Println(successMsg)
 	cobraCmd.Println(cdInstruction)
 	cobraCmd.Println(box)
-}
-
-// addResourcesToViteProject adds selected resources to a Vite project using pnpm clients:add
-func addResourcesToViteProject(cobraCmd *cobra.Command, projectDir string, resources []api.ResourceItem, applicationID string) error {
-	// First, install dependencies to make major-client available
-	cobraCmd.Println("  Installing dependencies...")
-	installCmd := exec.Command("pnpm", "install")
-	installCmd.Dir = projectDir
-	installCmd.Stdout = os.Stdout
-	installCmd.Stderr = os.Stderr
-
-	if err := installCmd.Run(); err != nil {
-		return fmt.Errorf("failed to install dependencies: %w", err)
-	}
-
-	successCount := 0
-	for _, resource := range resources {
-		// Convert resource name to a valid client name (kebab-case)
-		// The major-client tool will convert it to camelCase for the actual client
-		clientName := resource.Name
-
-		cobraCmd.Printf("  Adding resource: %s (%s)...\n", resource.Name, resource.Type)
-
-		// Run: pnpm clients:add <resource_id> <name> <type> <description> <application_id>
-		cmd := exec.Command("pnpm", "clients:add", resource.ID, clientName, resource.Type, resource.Description, applicationID)
-		cmd.Dir = projectDir
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-
-		if err := cmd.Run(); err != nil {
-			cobraCmd.Printf("  ⚠ Failed to add resource %s: %v\n", resource.Name, err)
-			continue
-		}
-
-		successCount++
-	}
-
-	if successCount > 0 {
-		cobraCmd.Printf("✓ Successfully added %d/%d resource(s) to the project\n", successCount, len(resources))
-	}
-
-	if successCount < len(resources) {
-		return fmt.Errorf("failed to add %d resource(s)", len(resources)-successCount)
-	}
-
-	return nil
-}
-
-// selectApplicationResources prompts the user to select resources for the application
-// Returns the selected resources with their full details
-func selectApplicationResources(cobraCmd *cobra.Command, orgID, appID string) ([]api.ResourceItem, error) {
-	// Get the API client
-	apiClient := singletons.GetAPIClient()
-
-	// Fetch available resources
-	resourcesResp, err := apiClient.GetResources(orgID)
-	if ok := api.CheckErr(cobraCmd, err); !ok {
-		return nil, err
-	}
-
-	// Check if there are any resources available
-	if len(resourcesResp.Resources) == 0 {
-		cobraCmd.Println("No resources available in this organization.")
-		return nil, nil
-	}
-
-	// Create options for the multiselect
-	options := make([]huh.Option[string], len(resourcesResp.Resources))
-	for i, resource := range resourcesResp.Resources {
-		// Format: "Name - Description"
-		label := resource.Name
-		if resource.Description != "" {
-			label = fmt.Sprintf("%s - %s", resource.Name, resource.Description)
-		}
-		options[i] = huh.NewOption(label, resource.ID)
-	}
-
-	// Create custom keymap where 'n' submits instead of enter
-	customKeyMap := huh.NewDefaultKeyMap()
-	customKeyMap.MultiSelect.Toggle = key.NewBinding(
-		key.WithKeys(" ", "enter"),
-		key.WithHelp("space/enter", "toggle"),
-	)
-	customKeyMap.MultiSelect.Submit = key.NewBinding(
-		key.WithKeys("n"),
-		key.WithHelp("n", "continue"),
-	)
-	// Disable the default next/prev behavior on enter
-	customKeyMap.MultiSelect.Next = key.NewBinding(
-		key.WithKeys("tab"),
-		key.WithHelp("tab", "next field"),
-	)
-
-	// Prompt user to select resources
-	var selectedResourceIDs []string
-	form := huh.NewForm(
-		huh.NewGroup(
-			huh.NewMultiSelect[string]().
-				Title("Select resources for your application").
-				Description("Use space/enter to select, 'n' to continue").
-				Options(options...).
-				Value(&selectedResourceIDs),
-		),
-	).WithKeyMap(customKeyMap)
-
-	if err := form.Run(); err != nil {
-		return nil, fmt.Errorf("failed to collect resource selection: %w", err)
-	}
-
-	// If no resources selected, just return
-	if len(selectedResourceIDs) == 0 {
-		cobraCmd.Println("No resources selected.")
-		return nil, nil
-	}
-
-	// Save the selected resources
-	cobraCmd.Printf("Saving %d selected resource(s)...\n", len(selectedResourceIDs))
-	_, err = apiClient.SaveApplicationResources(orgID, appID, selectedResourceIDs)
-	if ok := api.CheckErr(cobraCmd, err); !ok {
-		return nil, err
-	}
-
-	cobraCmd.Printf("✓ Resources configured successfully\n")
-
-	// Build and return the list of selected resources with full details
-	var selectedResources []api.ResourceItem
-	for _, selectedID := range selectedResourceIDs {
-		for _, resource := range resourcesResp.Resources {
-			if resource.ID == selectedID {
-				selectedResources = append(selectedResources, resource)
-				break
-			}
-		}
-	}
-
-	return selectedResources, nil
 }
 
 // selectTemplate prompts the user to select a template for the application

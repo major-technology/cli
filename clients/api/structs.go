@@ -1,7 +1,5 @@
 package api
 
-// --- Authentication / User structs ---
-
 // LoginStartResponse represents the response from POST /login/start
 type LoginStartResponse struct {
 	Error           *AppErrorDetail `json:"error,omitempty"`
@@ -74,8 +72,11 @@ type GetApplicationByRepoRequest struct {
 
 // GetApplicationByRepoResponse represents the response from GET /application/from-repo
 type GetApplicationByRepoResponse struct {
-	Error         *AppErrorDetail `json:"error,omitempty"`
-	ApplicationID string          `json:"applicationId,omitempty"`
+	Error          *AppErrorDetail `json:"error,omitempty"`
+	ApplicationID  string          `json:"applicationId,omitempty"`
+	OrganizationID string          `json:"organizationId,omitempty"`
+	TemplateID     *string         `json:"templateId,omitempty"`
+	TemplateName   *string         `json:"templateName,omitempty"`
 }
 
 // GetApplicationEnvRequest represents the request body for POST /application/env
