@@ -41,10 +41,6 @@ func runManage(cobraCmd *cobra.Command) error {
 		return err
 	}
 
-	if selectedResources == nil {
-		return nil
-	}
-
 	// Handle post-selection logic based on template
 	templateName := ""
 	if appInfo.TemplateName != nil {
