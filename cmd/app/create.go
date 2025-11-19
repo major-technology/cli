@@ -281,9 +281,7 @@ func selectTemplate(cobraCmd *cobra.Command, apiClient *api.Client) (string, str
 	var orderedTemplates []*api.TemplateItem
 
 	for _, t := range templatesResp.Templates {
-		t := t
 		if t.ID == recommendedID {
-			// Make a copy to modify name
 			t.Name = t.Name + " (recommended)"
 			orderedTemplates = append([]*api.TemplateItem{t}, orderedTemplates...)
 		} else {
@@ -292,20 +290,20 @@ func selectTemplate(cobraCmd *cobra.Command, apiClient *api.Client) (string, str
 	}
 
 	// Check if there are any templates available
-	if len(templatesResp.Templates) == 0 {
+	if len(orderedTemplates) == 0 {
 		return "", "", "", errors.New("no templates available")
 	}
 
 	// If only one template, use it automatically
-	if len(templatesResp.Templates) == 1 {
-		template := templatesResp.Templates[0]
+	if len(orderedTemplates) == 1 {
+		template := orderedTemplates[0]
 		cobraCmd.Printf("Using template: %s\n", template.Name)
 		return template.TemplateURL, template.Name, template.ID, nil
 	}
 
 	// Create options for the select
-	options := make([]huh.Option[string], len(templatesResp.Templates))
-	for i, template := range templatesResp.Templates {
+	options := make([]huh.Option[string], len(orderedTemplates))
+	for i, template := range orderedTemplates {
 		options[i] = huh.NewOption(template.Name, template.TemplateURL)
 	}
 
@@ -327,7 +325,7 @@ func selectTemplate(cobraCmd *cobra.Command, apiClient *api.Client) (string, str
 
 	// Find the template name and ID for the selected URL
 	var selectedTemplateName, selectedTemplateID string
-	for _, template := range templatesResp.Templates {
+	for _, template := range orderedTemplates {
 		if template.TemplateURL == selectedTemplateURL {
 			selectedTemplateName = template.Name
 			selectedTemplateID = template.ID
