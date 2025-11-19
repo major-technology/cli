@@ -276,6 +276,21 @@ func selectTemplate(cobraCmd *cobra.Command, apiClient *api.Client) (string, str
 		return "", "", "", err
 	}
 
+	// Prioritize the recommended template (this is the vite template rn)
+	recommendedID := "962add46-30fb-48b6-94a6-7b967cdf0d35"
+	var orderedTemplates []*api.TemplateItem
+
+	for _, t := range templatesResp.Templates {
+		t := t
+		if t.ID == recommendedID {
+			// Make a copy to modify name
+			t.Name = t.Name + " (recommended)"
+			orderedTemplates = append([]*api.TemplateItem{t}, orderedTemplates...)
+		} else {
+			orderedTemplates = append(orderedTemplates, t)
+		}
+	}
+
 	// Check if there are any templates available
 	if len(templatesResp.Templates) == 0 {
 		return "", "", "", errors.New("no templates available")
