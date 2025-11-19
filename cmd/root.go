@@ -84,7 +84,7 @@ func checkVersion(cmd *cobra.Command) error {
 		message := fmt.Sprintf("%s %s",
 			warningStyle.Render("There's a new version of major available."),
 			fmt.Sprintf("Run %s to get the newest version.",
-				commandStyle.Render("brew update && brew upgrade major")))
+				commandStyle.Render("major update")))
 
 		cmd.Println(message)
 		cmd.Println() // Add a blank line for spacing
