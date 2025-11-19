@@ -23,6 +23,11 @@ archives:
     files:
       - LICENSE
       - README.md
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- .Version }}_
+      {{- .Os }}_
+      {{- .Arch }}
 
 brews:                     # <- still deprecated but works
   - name: major
