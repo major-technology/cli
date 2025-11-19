@@ -1,77 +1,86 @@
 # What is Major?
 
-Major is a platform that let's you easily deploy and manage access to applications you build locally. Major is designed for engineers building internal tools to quickly:
+Major is a platform that lets you easily deploy and manage access to applications you build locally. Major is designed for engineers building internal tools to quickly:
+
 1. Provision hosted compute for their apps
-2. Manage access to those apps
+2. Manage access and permissions to those apps
 3. Connect apps securely, with RBAC, to internal resources (db's, api's, etc.)
-
-## Major CLI
-
-`major` is Major on the command line. It brings authentication, app creation, and app deployment directly to your own development environment so that you can create internal apps with ease.
 
 ## Installation
 
-`major` is available via Homebrew:
-
+### Homebrew
 ```bash
 brew tap major-technology/tap
 brew install major-technology/tap/major
 ```
 
-### Build from source
-
-Prerequisites:
-- Go 1.24 or higher
-
-1. Clone the repository:
+### Direct Install
 ```bash
-git clone https://github.com/major-technology/cli.git
-cd cli
+curl -fsSL https://raw.githubusercontent.com/major-technology/cli/main/install.sh | bash
 ```
 
-2. Build the CLI:
+### Updating
+Update to the latest version automatically, regardless of install method:
 ```bash
-go build -o major
+major update
 ```
 
-3. Move the binary to your PATH:
-```bash
-mv major /usr/local/bin/
-```
+## Quick Start
 
-## Getting Started
-
-### Authentication
-
-To authenticate with Major:
-
+**1. Authenticate**
+Log in to your Major account. This stores your credentials securely in your system keychain.
 ```bash
 major user login
 ```
 
-This will open your browser to complete the authentication flow. Once authenticated, your credentials are securely stored in your system keychain.
-
-### Check authentication status
-
-To verify you're logged in and see your user information:
-
+**2. Create a new App**
+Scaffolds a new Major application in your current directory. You'll be prompted to choose a template.
 ```bash
-major user whoami
+major app create
 ```
 
-### Logout
-
-To revoke your CLI token and logout:
-
+**3. Start Development**
+Installs dependencies (`pnpm install`) and starts the local development server (`pnpm dev`).
 ```bash
-major user logout
+major app start
 ```
 
-### Creating and Working on Applications
+## Development Workflow
 
+### Cloud & Deployment
+*   **`major app deploy`**
+    Commits changes, pushes to your repository, and triggers a deployment to the Major cloud.
 
+*   **`major app info`**
+    Displays the ID of the current application.
+
+*   **`major app clone`**
+    Interactively select an existing application from your organization to clone locally.
+
+*   **`major app editor`**
+    Opens the visual application editor in your browser for the current app.
+
+### Resources & Environment
+*   **`major resource create`**
+    Opens the Major web console to provision new cloud resources (Postgres, Redis, etc.).
+
+*   **`major resource manage`**
+    Interactively select which provisioned resources should be connected to your current app. Updates your project configuration.
+
+*   **`major app generate_env`**
+    Pulls environment variables from your connected resources and generates a local `.env` file.
+
+## Organization & Config
+
+*   **`major org list`**
+    List all organizations you belong to and see which one is currently active.
+
+*   **`major org select`**
+    Interactively switch your active organization context.
+
+*   **`major git config`**
+    Configure your GitHub username for git integrations.
 
 ## License
 
 [MIT](LICENSE)
-
