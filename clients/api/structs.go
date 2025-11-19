@@ -176,7 +176,7 @@ type TemplateItem struct {
 // GetTemplatesResponse represents the response from GET /templates
 type GetTemplatesResponse struct {
 	Error     *AppErrorDetail `json:"error,omitempty"`
-	Templates []TemplateItem  `json:"templates,omitempty"`
+	Templates []*TemplateItem `json:"templates,omitempty"`
 }
 
 // --- Resource structs ---
