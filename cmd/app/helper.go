@@ -178,16 +178,24 @@ func ensureRepositoryAccess(cmd *cobra.Command, appID string, sshURL string, htt
 		return errors.WrapError("failed to check stored GitHub username", err)
 	}
 
+	// If not in keychain, try to get it from git config/ssh
+	if storedUsername == "" {
+		gitUsername, err := git.GetCurrentGithubUser()
+		if err == nil && gitUsername != "" {
+			storedUsername = gitUsername
+		}
+	}
+
 	var githubUsername string
 
-	// If we have a stored username, confirm with the user
+	// If we have a stored username (from keychain or git), confirm with the user
 	if storedUsername != "" {
 		var useStored bool
 		confirmForm := huh.NewForm(
 			huh.NewGroup(
 				huh.NewConfirm().
 					Title(fmt.Sprintf("Use GitHub username: %s?", storedUsername)).
-					Description("We have your GitHub username saved. Would you like to use it?").
+					Description("We found this GitHub username. Would you like to use it?").
 					Value(&useStored),
 			),
 		)
