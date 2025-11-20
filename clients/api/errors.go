@@ -1,12 +1,9 @@
 package api
 
 import (
-	"errors"
 	"fmt"
-	"net/http"
 
-	"github.com/major-technology/cli/ui"
-	"github.com/spf13/cobra"
+	clierrors "github.com/major-technology/cli/errors"
 )
 
 // Error code constants from @repo/errors
@@ -47,145 +44,45 @@ type ErrorResponse struct {
 	Error *AppErrorDetail `json:"error,omitempty"`
 }
 
-// APIError represents an API error with status code and message
-type APIError struct {
-	StatusCode   int
-	InternalCode int // Internal error code from the API
-	Message      string
-	ErrorType    string
+// errorCodeToCLIError maps API error codes to CLIError instances
+var errorCodeToCLIError = map[int]*clierrors.CLIError{
+	// Authentication & Authorization Errors (2000-2099)
+	ErrorCodeUnauthorized:         clierrors.ErrorUnauthorized,
+	ErrorCodeInvalidToken:         clierrors.ErrorInvalidToken,
+	ErrorCodeInvalidUserCode:      clierrors.ErrorInvalidUserCode,
+	ErrorCodeTokenNotFound:        clierrors.ErrorTokenNotFound,
+	ErrorCodeInvalidDeviceCode:    clierrors.ErrorInvalidDeviceCode,
+	ErrorCodeAuthorizationPending: clierrors.ErrorAuthorizationPending,
+
+	// Organization Errors (3000-3099)
+	ErrorCodeOrganizationNotFound: clierrors.ErrorOrganizationNotFoundAPI,
+	ErrorCodeNotOrgMember:         clierrors.ErrorNotOrgMember,
+	ErrorCodeNoCreatePermission:   clierrors.ErrorNoCreatePermission,
+
+	// Application Errors (4000-4099)
+	ErrorCodeApplicationNotFound: clierrors.ErrorApplicationNotFoundAPI,
+	ErrorCodeNoApplicationAccess: clierrors.ErrorNoApplicationAccess,
+	ErrorCodeDuplicateAppName:    clierrors.ErrorDuplicateAppName,
+
+	// GitHub Integration Errors (5000-5099)
+	ErrorCodeGitHubRepoNotFound:          clierrors.ErrorGitHubRepoNotFound,
+	ErrorCodeGitHubRepoAccessDenied:      clierrors.ErrorGitHubRepoAccessDenied,
+	ErrorCodeGitHubCollaboratorAddFailed: clierrors.ErrorGitHubCollaboratorAddFailed,
 }
 
-func (e *APIError) Error() string {
-	if e.ErrorType != "" {
-		return fmt.Sprintf("API error (status %d): %s - %s", e.StatusCode, e.ErrorType, e.Message)
-	}
-	return fmt.Sprintf("API error (status %d): %s", e.StatusCode, e.Message)
-}
-
-// NoTokenError represents an error when no token is available
-type NoTokenError struct {
-	OriginalError error
-}
-
-func (e *NoTokenError) Error() string {
-	return fmt.Sprintf("not logged in: %v", e.OriginalError)
-}
-
-// ForceUpgradeError represents an error when the CLI version is too old and must be upgraded
-type ForceUpgradeError struct {
-	LatestVersion string
-}
-
-func (e *ForceUpgradeError) Error() string {
-	return "CLI version is out of date and must be upgraded"
-}
-
-// IsUnauthorized checks if the error is an unauthorized error
-func IsUnauthorized(err error) bool {
-	var apiErr *APIError
-	if errors.As(err, &apiErr) {
-		return apiErr.StatusCode == http.StatusUnauthorized
-	}
-	return false
-}
-
-// IsNotFound checks if the error is a not found error
-func IsNotFound(err error) bool {
-	var apiErr *APIError
-	if errors.As(err, &apiErr) {
-		return apiErr.StatusCode == http.StatusNotFound
-	}
-	return false
-}
-
-// IsBadRequest checks if the error is a bad request error
-func IsBadRequest(err error) bool {
-	var apiErr *APIError
-	if errors.As(err, &apiErr) {
-		return apiErr.StatusCode == http.StatusBadRequest
-	}
-	return false
-}
-
-// IsNoToken checks if the error is a no token error
-func IsNoToken(err error) bool {
-	var noTokenErr *NoTokenError
-	return errors.As(err, &noTokenErr)
-}
-
-// HasErrorCode checks if the error has a specific internal error code
-func HasErrorCode(err error, code int) bool {
-	var apiErr *APIError
-	if errors.As(err, &apiErr) {
-		return apiErr.InternalCode == code
-	}
-	return false
-}
-
-// IsAuthorizationPending checks if the error is an authorization pending error
-func IsAuthorizationPending(err error) bool {
-	return HasErrorCode(err, ErrorCodeAuthorizationPending)
-}
-
-// IsInvalidDeviceCode checks if the error is an invalid device code error
-func IsInvalidDeviceCode(err error) bool {
-	return HasErrorCode(err, ErrorCodeInvalidDeviceCode)
-}
-
-// GetErrorCode returns the internal error code from an error, or 0 if not an APIError
-func GetErrorCode(err error) int {
-	var apiErr *APIError
-	if errors.As(err, &apiErr) {
-		return apiErr.InternalCode
-	}
-	return 0
-}
-
-// IsForceUpgrade checks if the error is a force upgrade error
-func IsForceUpgrade(err error) bool {
-	var forceUpgradeErr *ForceUpgradeError
-	return errors.As(err, &forceUpgradeErr)
-}
-
-// IsTokenExpired checks if the error is a token expiration error
-func IsTokenExpired(err error) bool {
-	return HasErrorCode(err, ErrorCodeInvalidToken)
-}
-
-// CheckErr checks for errors and prints appropriate messages using the command's output
-// Returns true if no error (ok to continue), false if there was an error
-func CheckErr(cmd *cobra.Command, err error) bool {
-	if err == nil {
-		return true
+// ToCLIError converts an APIError to a CLIError
+// If a specific error code mapping exists, it returns that CLIError
+// Otherwise, it creates a generic CLIError with the API error details
+func ToCLIError(errResp *ErrorResponse) error {
+	// Check if we have a specific mapping for this error code
+	if cliErr, exists := errorCodeToCLIError[errResp.Error.InternalCode]; exists {
+		return cliErr
 	}
 
-	// Check if it's a force upgrade error
-	if IsForceUpgrade(err) {
-		ui.PrintError(cmd, "Your CLI version is out of date and must be upgraded.", "brew update && brew upgrade major")
-		return false
+	// No specific mapping - create a generic CLIError with API details
+	return &clierrors.CLIError{
+		Title:      fmt.Sprintf("API Error (Code: %d)", errResp.Error.InternalCode),
+		Suggestion: "Please try again or contact support if the issue persists.",
+		Err:        fmt.Errorf("%s", errResp.Error.ErrorString),
 	}
-
-	// Check if it's a token expiration error
-	if IsTokenExpired(err) {
-		ui.PrintError(cmd, "Your session has expired!", "major user login")
-		return false
-	}
-
-	// Check if it's a no token error
-	if IsNoToken(err) {
-		ui.PrintError(cmd, "Not logged in!", "major user login")
-		return false
-	}
-
-	// Check if it's an API error
-	var apiErr *APIError
-	if errors.As(err, &apiErr) {
-		// Just print the error description/message, nothing else
-		cmd.Printf("Error: %s\n", apiErr.Message)
-		return false
-	}
-
-	// Generic error
-	cmd.Printf("Error: %v\n", err)
-	return false
 }

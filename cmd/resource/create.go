@@ -13,8 +13,8 @@ var createCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Open the resource creation page in your browser",
 	Long:  `Open the resource creation page in your default browser.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		cobra.CheckErr(runCreate(cmd))
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return runCreate(cmd)
 	},
 }
 

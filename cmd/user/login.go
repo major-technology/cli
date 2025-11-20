@@ -1,6 +1,7 @@
 package user
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -8,6 +9,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	apiClient "github.com/major-technology/cli/clients/api"
 	mjrToken "github.com/major-technology/cli/clients/token"
+	clierrors "github.com/major-technology/cli/errors"
 	"github.com/major-technology/cli/singletons"
 	"github.com/major-technology/cli/utils"
 	"github.com/spf13/cobra"
@@ -18,8 +20,8 @@ var loginCmd = &cobra.Command{
 	Use:   "login",
 	Short: "Login to the major app",
 	Long:  `Login and stores your session token`,
-	Run: func(cobraCmd *cobra.Command, args []string) {
-		cobra.CheckErr(runLogin(cobraCmd))
+	RunE: func(cobraCmd *cobra.Command, args []string) error {
+		return runLogin(cobraCmd)
 	},
 }
 
@@ -28,7 +30,7 @@ func runLogin(cobraCmd *cobra.Command) error {
 	apiClient := singletons.GetAPIClient()
 	startResp, err := apiClient.StartLogin()
 	if err != nil {
-		return fmt.Errorf("failed to start login: %w", err)
+		return clierrors.WrapError("failed to start login", err)
 	}
 
 	if err := utils.OpenBrowser(startResp.VerificationURI); err != nil {
@@ -39,17 +41,17 @@ func runLogin(cobraCmd *cobra.Command) error {
 
 	token, err := pollForToken(cobraCmd, apiClient, startResp.DeviceCode, startResp.Interval, startResp.ExpiresIn)
 	if err != nil {
-		return fmt.Errorf("authentication failed: %w", err)
+		return clierrors.WrapError("authentication failed", err)
 	}
 
 	if err := mjrToken.StoreToken(token); err != nil {
-		return fmt.Errorf("failed to store token: %w", err)
+		return clierrors.WrapError("failed to store token", err)
 	}
 
 	// Fetch organizations (token will be fetched automatically)
 	orgsResp, err := apiClient.GetOrganizations()
 	if err != nil {
-		return fmt.Errorf("failed to fetch organizations: %w", err)
+		return clierrors.WrapError("failed to fetch organizations", err)
 	}
 
 	// Let user select default organization
@@ -64,6 +66,8 @@ func runLogin(cobraCmd *cobra.Command) error {
 		}
 
 		cobraCmd.Printf("Default organization set to: %s\n", selectedOrg.Name)
+	} else {
+		return clierrors.ErrorNoOrganizationsAvailable
 	}
 
 	printSuccessMessage(cobraCmd)
@@ -84,12 +88,12 @@ func pollForToken(cobraCmd *cobra.Command, client *apiClient.Client, deviceCode 
 			pollResp, err := client.PollLogin(deviceCode)
 			if err != nil {
 				// Check if authorization is still pending - this is an expected state
-				if apiClient.IsAuthorizationPending(err) {
+				if errors.Is(err, clierrors.ErrorAuthorizationPending) {
 					cobraCmd.Print(".")
 					continue
 				}
 				// Any other error is unexpected
-				return "", fmt.Errorf("failed to poll: %w", err)
+				return "", clierrors.WrapError("failed to poll", err)
 			}
 
 			// Success - got the token
@@ -99,7 +103,7 @@ func pollForToken(cobraCmd *cobra.Command, client *apiClient.Client, deviceCode 
 			}
 
 			// Unexpected response
-			return "", fmt.Errorf("unexpected response - no access token received")
+			return "", errors.New("unexpected response - no access token received")
 		}
 	}
 }
@@ -107,7 +111,7 @@ func pollForToken(cobraCmd *cobra.Command, client *apiClient.Client, deviceCode 
 // SelectOrganization prompts the user to select an organization from the list
 func SelectOrganization(cobraCmd *cobra.Command, orgs []apiClient.Organization) (*apiClient.Organization, error) {
 	if len(orgs) == 0 {
-		return nil, fmt.Errorf("no organizations available")
+		return nil, clierrors.ErrorNoOrganizationsAvailable
 	}
 
 	// If only one organization, automatically select it

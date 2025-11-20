@@ -6,6 +6,10 @@ import (
 	"os/exec"
 	"regexp"
 	"strings"
+
+	"github.com/pkg/errors"
+
+	clierrors "github.com/major-technology/cli/errors"
 )
 
 // RemoteInfo contains parsed information from a git remote URL
@@ -32,7 +36,7 @@ func GetRemoteURLFromDir(dir string) (string, error) {
 		if exitErr, ok := err.(*exec.ExitError); ok {
 			stderr := string(exitErr.Stderr)
 			if strings.Contains(stderr, "not a git repository") {
-				return "", fmt.Errorf("you currently are not in a git repo")
+				return "", clierrors.ErrorNotGitRepository
 			}
 		}
 		return "", err
@@ -47,7 +51,7 @@ func Clone(url, targetDir string) error {
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		// Include the git output in the error message
-		return fmt.Errorf("%w: %s", err, string(output))
+		return errors.Wrap(err, "git clone failed: "+string(output))
 	}
 	// Print output on success
 	fmt.Print(string(output))
@@ -107,7 +111,7 @@ func ParseRemoteURL(remoteURL string) (*RemoteInfo, error) {
 		}, nil
 	}
 
-	return nil, fmt.Errorf("unsupported remote URL format: %s", remoteURL)
+	return nil, clierrors.ErrorUnsupportedGitRemoteURLWithFormat(remoteURL)
 }
 
 // GetRepoRoot returns the root directory of the git repository
@@ -173,7 +177,7 @@ func Pull(repoDir string) error {
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		// Include the git output in the error message
-		return fmt.Errorf("%w: %s", err, string(output))
+		return errors.Wrap(err, "git pull failed: "+string(output))
 	}
 	return nil
 }

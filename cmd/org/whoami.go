@@ -13,8 +13,8 @@ var whoamiCmd = &cobra.Command{
 	Use:   "whoami",
 	Short: "Display the current default organization",
 	Long:  `Display information about the currently selected default organization.`,
-	Run: func(cobraCmd *cobra.Command, args []string) {
-		cobra.CheckErr(runWhoami(cobraCmd))
+	RunE: func(cobraCmd *cobra.Command, args []string) error {
+		return runWhoami(cobraCmd)
 	},
 }
 

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	mjrToken "github.com/major-technology/cli/clients/token"
+	clierrors "github.com/major-technology/cli/errors"
 	"github.com/pkg/errors"
 )
 
@@ -46,7 +47,8 @@ func (c *Client) doRequestInternal(method, path string, body interface{}, respon
 		// Get token from keyring for this request
 		t, err := mjrToken.GetToken()
 		if err != nil {
-			return &NoTokenError{OriginalError: err}
+			// User is not logged in - return appropriate CLIError
+			return clierrors.ErrorNotLoggedIn
 		}
 		token = t
 	}
@@ -84,20 +86,19 @@ func (c *Client) doRequestInternal(method, path string, body interface{}, respon
 
 	// Handle error responses
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		var errResp ErrorResponse
+		var errResp *ErrorResponse
 		if err := json.Unmarshal(respBody, &errResp); err == nil && errResp.Error != nil {
-			return &APIError{
-				StatusCode:   errResp.Error.StatusCode,
-				InternalCode: errResp.Error.InternalCode,
-				Message:      errResp.Error.ErrorString,
-				ErrorType:    errResp.Error.ErrorString,
-			}
+			return ToCLIError(errResp)
 		}
 		// Fallback for unexpected error format
-		return &APIError{
-			StatusCode: resp.StatusCode,
-			Message:    string(respBody),
+		errResp = &ErrorResponse{
+			Error: &AppErrorDetail{
+				InternalCode: 9999,
+				ErrorString:  string(respBody),
+				StatusCode:   resp.StatusCode,
+			},
 		}
+		return ToCLIError(errResp)
 	}
 
 	// Parse successful response if a response struct is provided
@@ -123,22 +124,12 @@ func (c *Client) StartLogin() (*LoginStartResponse, error) {
 }
 
 // PollLogin polls the login endpoint to check if the user has authorized the device
-// Returns the response and error. For authorization pending state, returns a specific error.
 func (c *Client) PollLogin(deviceCode string) (*LoginPollResponse, error) {
 	req := LoginPollRequest{DeviceCode: deviceCode}
 
 	var resp LoginPollResponse
 	err := c.doRequestWithoutAuth("POST", "/login/poll", req, &resp)
 	if err != nil {
-		// Check if authorization is pending (expected error state)
-		if IsAuthorizationPending(err) {
-			return nil, err // Return the error so caller can check with IsAuthorizationPending
-		}
-		// Check if it's an invalid device code
-		if IsInvalidDeviceCode(err) {
-			return nil, fmt.Errorf("invalid or expired device code")
-		}
-		// Other errors
 		return nil, err
 	}
 
@@ -150,14 +141,11 @@ func (c *Client) VerifyToken() (*VerifyTokenResponse, error) {
 	var resp VerifyTokenResponse
 	err := c.doRequest("GET", "/verify", nil, &resp)
 	if err != nil {
-		if IsUnauthorized(err) {
-			return nil, fmt.Errorf("invalid or expired token - please login again")
-		}
 		return nil, err
 	}
 
 	if !resp.Active {
-		return nil, fmt.Errorf("token is not active - please login again")
+		return nil, clierrors.ErrorTokenNotActive
 	}
 
 	return &resp, nil
@@ -363,6 +351,7 @@ func (c *Client) SetApplicationTemplate(applicationID, templateID string) (*SetA
 // CheckVersion checks if the CLI version is up to date
 func (c *Client) CheckVersion(currentVersion string) (*CheckVersionResponse, error) {
 	req := VersionCheckRequest{Version: currentVersion}
+
 	var resp CheckVersionResponse
 	err := c.doRequestWithoutAuth("POST", "/version/check", req, &resp)
 	if err != nil {

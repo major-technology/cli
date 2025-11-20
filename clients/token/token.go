@@ -1,8 +1,7 @@
 package token
 
 import (
-	"fmt"
-
+	"github.com/pkg/errors"
 	"github.com/zalando/go-keyring"
 )
 
@@ -23,7 +22,7 @@ const (
 func StoreToken(token string) error {
 	err := keyring.Set(keyringService, keyringUser, token)
 	if err != nil {
-		return fmt.Errorf("failed to store token in keyring: %w", err)
+		return errors.Wrap(err, "failed to store token in keyring")
 	}
 	return nil
 }
@@ -32,7 +31,7 @@ func StoreToken(token string) error {
 func GetToken() (string, error) {
 	token, err := keyring.Get(keyringService, keyringUser)
 	if err != nil {
-		return "", fmt.Errorf("failed to get token from keyring: %w", err)
+		return "", errors.Wrap(err, "failed to get token from keyring")
 	}
 	return token, nil
 }
@@ -41,7 +40,7 @@ func GetToken() (string, error) {
 func DeleteToken() error {
 	err := keyring.Delete(keyringService, keyringUser)
 	if err != nil {
-		return fmt.Errorf("failed to delete token from keyring: %w", err)
+		return errors.Wrap(err, "failed to delete token from keyring")
 	}
 	return nil
 }
@@ -50,11 +49,11 @@ func DeleteToken() error {
 func StoreDefaultOrg(orgID string, orgName string) error {
 	err := keyring.Set(keyringService, keyringOrgUser, orgID)
 	if err != nil {
-		return fmt.Errorf("failed to store default org in keyring: %w", err)
+		return errors.Wrap(err, "failed to store default org in keyring")
 	}
 	err = keyring.Set(keyringService, keyringOrgName, orgName)
 	if err != nil {
-		return fmt.Errorf("failed to store default org name in keyring: %w", err)
+		return errors.Wrap(err, "failed to store default org name in keyring")
 	}
 	return nil
 }
@@ -63,11 +62,11 @@ func StoreDefaultOrg(orgID string, orgName string) error {
 func GetDefaultOrg() (string, string, error) {
 	orgID, err := keyring.Get(keyringService, keyringOrgUser)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to get default org from keyring: %w", err)
+		return "", "", errors.Wrap(err, "failed to get default org from keyring")
 	}
 	orgName, err := keyring.Get(keyringService, keyringOrgName)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to get default org name from keyring: %w", err)
+		return "", "", errors.Wrap(err, "failed to get default org name from keyring")
 	}
 	return orgID, orgName, nil
 }
@@ -76,11 +75,11 @@ func GetDefaultOrg() (string, string, error) {
 func DeleteDefaultOrg() error {
 	err := keyring.Delete(keyringService, keyringOrgUser)
 	if err != nil {
-		return fmt.Errorf("failed to delete default org from keyring: %w", err)
+		return errors.Wrap(err, "failed to delete default org from keyring")
 	}
 	err = keyring.Delete(keyringService, keyringOrgName)
 	if err != nil {
-		return fmt.Errorf("failed to delete default org name from keyring: %w", err)
+		return errors.Wrap(err, "failed to delete default org name from keyring")
 	}
 	return nil
 }
@@ -89,7 +88,7 @@ func DeleteDefaultOrg() error {
 func StoreGithubUsername(username string) error {
 	err := keyring.Set(keyringService, keyringGithubUsername, username)
 	if err != nil {
-		return fmt.Errorf("failed to store GitHub username in keyring: %w", err)
+		return errors.Wrap(err, "failed to store GitHub username in keyring")
 	}
 	return nil
 }
@@ -103,7 +102,7 @@ func GetGithubUsername() (string, error) {
 		if err == keyring.ErrNotFound {
 			return "", nil
 		}
-		return "", fmt.Errorf("failed to get GitHub username from keyring: %w", err)
+		return "", errors.Wrap(err, "failed to get GitHub username from keyring")
 	}
 	return username, nil
 }
@@ -116,7 +115,7 @@ func DeleteGithubUsername() error {
 		if err == keyring.ErrNotFound {
 			return nil
 		}
-		return fmt.Errorf("failed to delete GitHub username from keyring: %w", err)
+		return errors.Wrap(err, "failed to delete GitHub username from keyring")
 	}
 	return nil
 }

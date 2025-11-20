@@ -16,7 +16,7 @@ brew install major-technology/tap/major
 
 ### Direct Install
 ```bash
-curl -fsSL https://raw.githubusercontent.com/major-technology/cli/main/install.sh | bash
+curl -fsSL https://install.major.build | bash
 ```
 
 ### Updating

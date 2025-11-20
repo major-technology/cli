@@ -15,15 +15,8 @@ var updateCmd = &cobra.Command{
 	Use:   "update",
 	Short: "Update the major CLI to the latest version",
 	Long:  `Automatically detects your installation method (brew or direct install) and updates to the latest version.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		if err := runUpdate(cmd); err != nil {
-			errorStyle := lipgloss.NewStyle().
-				Bold(true).
-				Foreground(lipgloss.Color("#FF0000"))
-
-			cmd.Println(errorStyle.Render(fmt.Sprintf("✗ Update failed: %s", err.Error())))
-			os.Exit(1)
-		}
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return runUpdate(cmd)
 	},
 }
 

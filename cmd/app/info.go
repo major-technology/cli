@@ -9,8 +9,8 @@ var infoCmd = &cobra.Command{
 	Use:   "info",
 	Short: "Display information about the current application",
 	Long:  `Display information about the application in the current directory, including the application ID.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		cobra.CheckErr(runInfo(cmd))
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return runInfo(cmd)
 	},
 }
 

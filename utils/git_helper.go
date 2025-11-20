@@ -1,10 +1,9 @@
 package utils
 
 import (
-	"fmt"
-
 	"github.com/major-technology/cli/clients/api"
 	"github.com/major-technology/cli/clients/git"
+	"github.com/major-technology/cli/errors"
 	"github.com/major-technology/cli/singletons"
 )
 
@@ -38,25 +37,22 @@ func GetApplicationInfo(dir string) (*api.GetApplicationByRepoResponse, error) {
 	}
 
 	if remoteURL == "" {
-		return nil, fmt.Errorf("no git remote found in directory")
+		return nil, errors.ErrorNoGitRemoteFoundInDirectory
 	}
 
 	// Parse the remote URL to extract owner and repo
 	remoteInfo, err := git.ParseRemoteURL(remoteURL)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse git remote URL: %w", err)
+		return nil, errors.WrapError("failed to parse git remote URL", err)
 	}
 
 	// Get API client
 	apiClient := singletons.GetAPIClient()
-	if apiClient == nil {
-		return nil, fmt.Errorf("API client not initialized")
-	}
 
 	// Get application by repository
 	appResp, err := apiClient.GetApplicationByRepo(remoteInfo.Owner, remoteInfo.Repo)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get application: %w", err)
+		return nil, errors.WrapError("failed to get application", err)
 	}
 
 	return appResp, nil

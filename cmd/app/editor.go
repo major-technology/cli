@@ -13,8 +13,8 @@ var editCmd = &cobra.Command{
 	Use:   "editor",
 	Short: "Open the application editor in your browser",
 	Long:  `Open the application editor in your default browser for the current application.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		cobra.CheckErr(runEdit(cmd))
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return runEdit(cmd)
 	},
 }
 
@@ -27,9 +27,6 @@ func runEdit(cmd *cobra.Command) error {
 
 	// Get config to access frontend URI
 	cfg := singletons.GetConfig()
-	if cfg == nil {
-		return fmt.Errorf("configuration not initialized")
-	}
 
 	// Construct the editor URL
 	editorURL := fmt.Sprintf("%s/apps/%s/edit", cfg.FrontendURI, applicationID)

@@ -1,7 +1,6 @@
 package app
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -11,6 +10,7 @@ import (
 	"github.com/major-technology/cli/clients/api"
 	"github.com/major-technology/cli/clients/git"
 	"github.com/major-technology/cli/clients/token"
+	"github.com/major-technology/cli/errors"
 	"github.com/major-technology/cli/singletons"
 	"github.com/spf13/cobra"
 )
@@ -20,8 +20,8 @@ var cloneCmd = &cobra.Command{
 	Use:   "clone",
 	Short: "Clone an application repository",
 	Long:  `Select and clone an application repository from your organization, then generate env and resources.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		cobra.CheckErr(runClone(cmd))
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return runClone(cmd)
 	},
 }
 
@@ -29,32 +29,28 @@ func runClone(cmd *cobra.Command) error {
 	// Get the default organization ID from keyring
 	orgID, orgName, err := token.GetDefaultOrg()
 	if err != nil {
-		return fmt.Errorf("failed to get default organization: %w\nPlease run 'major org select' to set a default organization", err)
+		return errors.WrapError("failed to get default organization", errors.ErrorNoOrganizationSelected)
 	}
 
 	cmd.Printf("Fetching applications for organization: %s\n", orgName)
 
 	// Get API client
 	apiClient := singletons.GetAPIClient()
-	if apiClient == nil {
-		return fmt.Errorf("API client not initialized")
-	}
 
 	// Get applications for the organization
 	appsResp, err := apiClient.GetOrganizationApplications(orgID)
 	if err != nil {
-		return fmt.Errorf("failed to get applications: %w", err)
+		return errors.WrapError("failed to get applications", err)
 	}
 
 	if len(appsResp.Applications) == 0 {
-		cmd.Println("No applications available for this organization")
-		return nil
+		return errors.ErrorNoApplicationsAvailable
 	}
 
 	// Let user select application
 	selectedApp, err := selectApplication(cmd, appsResp.Applications)
 	if err != nil {
-		return fmt.Errorf("failed to select application: %w", err)
+		return errors.WrapError("failed to select application", err)
 	}
 
 	cmd.Printf("Selected application: %s\n", selectedApp.Name)
@@ -90,18 +86,17 @@ func runClone(cmd *cobra.Command) error {
 		if isGitAuthError(gitErr) {
 			// Ensure repository access
 			if err := ensureRepositoryAccess(cmd, selectedApp.ID, selectedApp.CloneURLSSH, selectedApp.CloneURLHTTPS); err != nil {
-				return fmt.Errorf("failed to ensure repository access: %w", err)
+				return errors.WrapError("failed to ensure repository access", err)
 			}
 
 			// For some reason, there's a race where the repo is still not available for clones
-			gitErr = retryGitOperation(cmd, workingDir, selectedApp.CloneURLSSH, selectedApp.CloneURLHTTPS)
-
+			gitErr = pullOrCloneWithRetries(cmd, workingDir, selectedApp.CloneURLSSH, selectedApp.CloneURLHTTPS)
 			// Check if retry succeeded
 			if gitErr != nil {
-				return fmt.Errorf("failed to access repository after accepting invitation: %w", gitErr)
+				return errors.ErrorGitRepositoryAccessFailed
 			}
 		} else {
-			return fmt.Errorf("failed to clone repository: %w", gitErr)
+			return errors.ErrorGitCloneFailed
 		}
 	}
 
@@ -132,7 +127,7 @@ func runClone(cmd *cobra.Command) error {
 	cmd.Println("\nGenerating .env file...")
 	envFilePath, _, err := generateEnvFile(finalDir)
 	if err != nil {
-		return fmt.Errorf("failed to generate .env file: %w", err)
+		return errors.WrapError("failed to generate .env file", err)
 	}
 	cmd.Printf("Successfully generated .env file at: %s\n", envFilePath)
 
@@ -165,7 +160,7 @@ func sanitizeDirName(name string) string {
 // selectApplication prompts the user to select an application from the list
 func selectApplication(cmd *cobra.Command, apps []api.ApplicationItem) (*api.ApplicationItem, error) {
 	if len(apps) == 0 {
-		return nil, fmt.Errorf("no applications available")
+		return nil, errors.ErrorNoApplicationsAvailable
 	}
 
 	// If only one application, automatically select it
@@ -194,7 +189,7 @@ func selectApplication(cmd *cobra.Command, apps []api.ApplicationItem) (*api.App
 
 	err := form.Run()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get selection: %w", err)
+		return nil, errors.WrapError("failed to get selection", err)
 	}
 
 	// Find the selected application
@@ -204,5 +199,5 @@ func selectApplication(cmd *cobra.Command, apps []api.ApplicationItem) (*api.App
 		}
 	}
 
-	return nil, fmt.Errorf("selected application not found")
+	return nil, errors.ErrorApplicationNotFound
 }

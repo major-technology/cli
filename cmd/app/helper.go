@@ -4,12 +4,14 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/charmbracelet/huh"
 	"github.com/major-technology/cli/clients/git"
 	mjrToken "github.com/major-technology/cli/clients/token"
+	"github.com/major-technology/cli/errors"
 	"github.com/major-technology/cli/singletons"
 	"github.com/major-technology/cli/utils"
 	"github.com/spf13/cobra"
@@ -164,10 +166,16 @@ func testGitAccess(repoURL string) bool {
 // ensureRepositoryAccess ensures the user has access to the repository by inviting them as a collaborator
 // This function prompts for GitHub username, sends an invite, and waits for access to be granted
 func ensureRepositoryAccess(cmd *cobra.Command, appID string, sshURL string, httpsURL string) error {
+	// First check if the user already has access to the repository
+	if checkRepositoryAccess(sshURL, httpsURL) {
+		cmd.Println("✓ You already have access to the repository")
+		return nil
+	}
+
 	// Check if GitHub username is stored in keychain
 	storedUsername, err := mjrToken.GetGithubUsername()
 	if err != nil {
-		return fmt.Errorf("failed to check stored GitHub username: %w", err)
+		return errors.WrapError("failed to check stored GitHub username", err)
 	}
 
 	var githubUsername string
@@ -193,7 +201,6 @@ func ensureRepositoryAccess(cmd *cobra.Command, appID string, sshURL string, htt
 		}
 	}
 
-	// If no stored username or user declined to use it, prompt for username
 	if githubUsername == "" {
 		form := huh.NewForm(
 			huh.NewGroup(
@@ -210,13 +217,11 @@ func ensureRepositoryAccess(cmd *cobra.Command, appID string, sshURL string, htt
 		)
 
 		if err := form.Run(); err != nil {
-			return fmt.Errorf("failed to get GitHub username: %w", err)
+			return errors.WrapError("failed to get GitHub username", err)
 		}
 
-		// Store the username for future use
 		if err := mjrToken.StoreGithubUsername(githubUsername); err != nil {
-			// Log the error but don't fail the operation
-			cmd.Printf("Warning: Failed to save GitHub username: %v\n", err)
+			return errors.WrapError("failed to save GitHub username", err)
 		}
 	}
 
@@ -224,14 +229,11 @@ func ensureRepositoryAccess(cmd *cobra.Command, appID string, sshURL string, htt
 
 	// Get API client
 	apiClient := singletons.GetAPIClient()
-	if apiClient == nil {
-		return fmt.Errorf("API client not initialized")
-	}
 
 	// Add user as GitHub collaborator
 	_, err = apiClient.AddGithubCollaborators(appID, githubUsername)
 	if err != nil {
-		return fmt.Errorf("failed to add GitHub collaborator: %w", err)
+		return errors.WrapError("failed to add GitHub collaborator", err)
 	}
 
 	cmd.Println("✓ Invitation sent!")
@@ -246,12 +248,11 @@ func ensureRepositoryAccess(cmd *cobra.Command, appID string, sshURL string, htt
 	if urlErr == nil {
 		cmd.Printf("\nPlease accept the invitation at: %s\n", githubURL)
 		_ = utils.OpenBrowser(githubURL)
-		cmd.Printf("You may need to refresh the page to see the invitation.\n")
 	}
 
 	// Poll for repository access
 	if !pollForRepositoryAccess(cmd, sshURL, httpsURL) {
-		return fmt.Errorf("timeout waiting for repository access - please try again after accepting the invitation")
+		return errors.ErrorRepositoryAccessTimeout
 	}
 
 	cmd.Println("\n✓ Repository access granted!")
@@ -279,9 +280,8 @@ func pollForRepositoryAccess(cmd *cobra.Command, sshURL, httpsURL string) bool {
 	}
 }
 
-// retryGitOperation retries a git clone or pull operation with exponential backoff
-// This handles race conditions where permissions take a moment to propagate after being granted
-func retryGitOperation(cmd *cobra.Command, workingDir, sshURL, httpsURL string) error {
+// pullOrCloneWithRetries retries a git clone or pull operation with exponential backoff
+func pullOrCloneWithRetries(cmd *cobra.Command, workingDir, sshURL, httpsURL string) error {
 	maxRetries := 3
 	baseDelay := 200 * time.Millisecond
 
@@ -313,5 +313,52 @@ func retryGitOperation(cmd *cobra.Command, workingDir, sshURL, httpsURL string) 
 		}
 	}
 
-	return fmt.Errorf("repository access not available after %d attempts", maxRetries)
+	return errors.ErrorGitRepositoryAccessFailed
+}
+
+// generateEnvFile generates a .env file for the application in the specified directory.
+// If targetDir is empty, it uses the current git repository root.
+// Returns the path to the generated file and the number of variables written.
+func generateEnvFile(targetDir string) (string, int, error) {
+	orgID, _, err := mjrToken.GetDefaultOrg()
+	if err != nil {
+		return "", 0, errors.WrapError("failed to get default organization", errors.ErrorNoOrganizationSelected)
+	}
+
+	applicationID, err := getApplicationIDFromDir(targetDir)
+	if err != nil {
+		return "", 0, errors.WrapError("failed to get application ID", err)
+	}
+
+	apiClient := singletons.GetAPIClient()
+
+	envVars, err := apiClient.GetApplicationEnv(orgID, applicationID)
+	if err != nil {
+		return "", 0, errors.WrapError("failed to get environment variables", err)
+	}
+
+	gitRoot := targetDir
+	if gitRoot == "" {
+		gitRoot, err = git.GetRepoRoot()
+		if err != nil {
+			return "", 0, errors.WrapError("failed to get git repository root", err)
+		}
+	}
+
+	// Create .env file path
+	envFilePath := filepath.Join(gitRoot, ".env")
+
+	// Build the .env file content
+	var envContent strings.Builder
+	for key, value := range envVars {
+		envContent.WriteString(fmt.Sprintf("%s=%s\n", key, value))
+	}
+
+	// Write to .env file
+	err = os.WriteFile(envFilePath, []byte(envContent.String()), 0644)
+	if err != nil {
+		return "", 0, errors.WrapError("failed to write .env file", err)
+	}
+
+	return envFilePath, len(envVars), nil
 }
