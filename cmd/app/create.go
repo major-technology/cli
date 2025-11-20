@@ -1,7 +1,6 @@
 package app
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -11,6 +10,7 @@ import (
 	"github.com/major-technology/cli/clients/api"
 	"github.com/major-technology/cli/clients/git"
 	mjrToken "github.com/major-technology/cli/clients/token"
+	"github.com/major-technology/cli/errors"
 	"github.com/major-technology/cli/middleware"
 	"github.com/major-technology/cli/singletons"
 	"github.com/major-technology/cli/utils"
@@ -25,8 +25,8 @@ var createCmd = &cobra.Command{
 	PreRunE: middleware.Compose(
 		middleware.CheckLogin,
 	),
-	Run: func(cobraCmd *cobra.Command, args []string) {
-		cobra.CheckErr(runCreate(cobraCmd))
+	RunE: func(cobraCmd *cobra.Command, args []string) error {
+		return runCreate(cobraCmd)
 	},
 }
 
@@ -34,7 +34,7 @@ func runCreate(cobraCmd *cobra.Command) error {
 	// Get default org from keychain
 	orgID, orgName, err := mjrToken.GetDefaultOrg()
 	if err != nil {
-		return fmt.Errorf("no default organization set. Please run 'major user login' first: %w", err)
+		return errors.ErrorNoOrganizationSelected
 	}
 
 	cobraCmd.Printf("Creating application in organization: %s\n\n", orgName)
@@ -50,7 +50,7 @@ func runCreate(cobraCmd *cobra.Command) error {
 				Value(&appName).
 				Validate(func(s string) error {
 					if s == "" {
-						return fmt.Errorf("application name is required")
+						return errors.ErrorApplicationNameRequired
 					}
 					return nil
 				}),
@@ -60,7 +60,7 @@ func runCreate(cobraCmd *cobra.Command) error {
 				Value(&appDescription).
 				Validate(func(s string) error {
 					if s == "" {
-						return fmt.Errorf("application description is required")
+						return errors.ErrorApplicationDescriptionRequired
 					}
 					return nil
 				}),
@@ -68,24 +68,23 @@ func runCreate(cobraCmd *cobra.Command) error {
 	)
 
 	if err := form.Run(); err != nil {
-		return fmt.Errorf("failed to collect application details: %w", err)
+		return errors.WrapError("failed to collect application details", err)
 	}
 
 	// Get the API client
 	apiClient := singletons.GetAPIClient()
 
 	// Fetch and select template
-	cobraCmd.Println("\nFetching available templates...")
 	templateURL, templateName, templateID, err := selectTemplate(cobraCmd, apiClient)
 	if err != nil {
-		return fmt.Errorf("failed to select template: %w", err)
+		return errors.WrapError("failed to select template", err)
 	}
 
 	cobraCmd.Printf("\nCreating application '%s'...\n", appName)
 
 	// Call POST /applications (token will be fetched automatically)
 	createResp, err := apiClient.CreateApplication(appName, appDescription, orgID)
-	if ok := api.CheckErr(cobraCmd, err); !ok {
+	if err != nil {
 		return err
 	}
 
@@ -93,8 +92,8 @@ func runCreate(cobraCmd *cobra.Command) error {
 	cobraCmd.Printf("✓ Repository: %s\n", createResp.RepositoryName)
 
 	_, err = apiClient.SetApplicationTemplate(createResp.ApplicationID, templateID)
-	if ok := api.CheckErr(cobraCmd, err); !ok {
-		// Don't fail the entire create if template setting fails
+	if err != nil {
+		return err
 	}
 
 	// Check if we have permissions to use SSH or HTTPS
@@ -106,7 +105,7 @@ func runCreate(cobraCmd *cobra.Command) error {
 		cobraCmd.Println("✓ Using HTTPS for git operations")
 		useSSH = false
 	} else {
-		return fmt.Errorf("no valid clone method available")
+		return errors.ErrorNoValidCloneMethodAvailable
 	}
 
 	// Determine which clone URL to use
@@ -118,58 +117,52 @@ func runCreate(cobraCmd *cobra.Command) error {
 	// Create a temporary directory for the template
 	tempDir, err := os.MkdirTemp("", "major-template-*")
 	if err != nil {
-		return fmt.Errorf("failed to create temp directory: %w", err)
+		return errors.WrapError("failed to create temp directory", err)
 	}
 	defer os.RemoveAll(tempDir)
 
-	cobraCmd.Printf("\nCloning template repository...\n")
-
 	// Clone the template repository
 	if err := git.Clone(templateURL, tempDir); err != nil {
-		return fmt.Errorf("failed to clone template repository: %w", err)
+		return errors.WrapError("failed to clone template repository", err)
 	}
 
 	cobraCmd.Println("✓ Template cloned")
 
 	// Remove the existing remote origin
 	if err := git.RemoveRemote(tempDir, "origin"); err != nil {
-		return fmt.Errorf("failed to remove remote origin: %w", err)
+		return errors.WrapError("failed to remove remote origin", err)
 	}
 
 	cobraCmd.Println("✓ Removed template remote")
 
 	// Add the new remote
 	if err := git.AddRemote(tempDir, "origin", cloneURL); err != nil {
-		return fmt.Errorf("failed to add new remote: %w", err)
+		return errors.WrapError("failed to add new remote", err)
 	}
 
 	cobraCmd.Printf("✓ Added new remote: %s\n", cloneURL)
 
 	// Ensure repository access before pushing
 	if err := ensureRepositoryAccess(cobraCmd, createResp.ApplicationID, createResp.CloneURLSSH, createResp.CloneURLHTTPS); err != nil {
-		return fmt.Errorf("failed to ensure repository access: %w", err)
+		return errors.WrapError("failed to ensure repository access", err)
 	}
 
 	// Select resources for the application
 	cobraCmd.Println("\nSelecting resources for your application...")
 	selectedResources, err := utils.SelectApplicationResources(cobraCmd, apiClient, orgID, createResp.ApplicationID)
 	if err != nil {
-		errorStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("9")) // Red
-		cobraCmd.Println(errorStyle.Render("Failed to configure resources. Please run 'major app resources' to configure them later."))
+		return errors.ErrorFailedToSelectResources
 	}
 
 	// Push to the new remote
-	cobraCmd.Println("\nPushing to new repository...")
 	if err := git.Push(tempDir); err != nil {
-		return fmt.Errorf("failed to push to new repository: %w", err)
+		return errors.WrapError("failed to push to new repository", err)
 	}
-
-	cobraCmd.Println("✓ Pushed to repository")
 
 	// Move the repository to the current directory
 	targetDir := filepath.Join(".", appName)
 	if err := os.Rename(tempDir, targetDir); err != nil {
-		return fmt.Errorf("failed to move repository: %w", err)
+		return errors.WrapError("failed to move repository", err)
 	}
 
 	cobraCmd.Printf("\n✓ Application '%s' successfully created in ./%s\n", appName, appName)
@@ -177,10 +170,8 @@ func runCreate(cobraCmd *cobra.Command) error {
 
 	// If Vite template and resources were selected, add them using major-client
 	if templateName == "Vite" && len(selectedResources) > 0 {
-		cobraCmd.Println("\nAdding resources to Vite project...")
 		if err := utils.AddResourcesToViteProject(cobraCmd, targetDir, selectedResources, createResp.ApplicationID); err != nil {
-			cobraCmd.Printf("Warning: Failed to add resources to project: %v\n", err)
-			cobraCmd.Println("You can manually add them later using 'pnpm clients:add'")
+			return errors.ErrorFailedToSelectResources
 		}
 	}
 
@@ -226,7 +217,7 @@ func printSuccessMessage(cobraCmd *cobra.Command, appName string) {
 		MarginBottom(1)
 
 	cdStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("11")). // Yellow
+		Foreground(lipgloss.Color("14")). // Cyan - more readable
 		Bold(true).
 		MarginTop(1).
 		MarginBottom(1)
@@ -272,7 +263,7 @@ func printSuccessMessage(cobraCmd *cobra.Command, appName string) {
 func selectTemplate(cobraCmd *cobra.Command, apiClient *api.Client) (string, string, string, error) {
 	// Fetch available templates
 	templatesResp, err := apiClient.GetTemplates()
-	if ok := api.CheckErr(cobraCmd, err); !ok {
+	if err != nil {
 		return "", "", "", err
 	}
 
@@ -291,7 +282,7 @@ func selectTemplate(cobraCmd *cobra.Command, apiClient *api.Client) (string, str
 
 	// Check if there are any templates available
 	if len(orderedTemplates) == 0 {
-		return "", "", "", errors.New("no templates available")
+		return "", "", "", errors.ErrorNoTemplatesAvailable
 	}
 
 	// If only one template, use it automatically

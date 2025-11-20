@@ -1,10 +1,10 @@
 package git
 
 import (
-	"fmt"
-
 	"github.com/charmbracelet/huh"
 	mjrToken "github.com/major-technology/cli/clients/token"
+	"github.com/major-technology/cli/errors"
+	pkgErrors "github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
 
@@ -13,8 +13,8 @@ var configCmd = &cobra.Command{
 	Use:   "config",
 	Short: "Configure git settings",
 	Long:  `Configure git-related settings such as your GitHub username.`,
-	Run: func(cobraCmd *cobra.Command, args []string) {
-		cobra.CheckErr(runConfig(cobraCmd))
+	RunE: func(cobraCmd *cobra.Command, args []string) error {
+		return runConfig(cobraCmd)
 	},
 }
 
@@ -22,7 +22,7 @@ func runConfig(cobraCmd *cobra.Command) error {
 	// Get current GitHub username if it exists
 	currentUsername, err := mjrToken.GetGithubUsername()
 	if err != nil {
-		return fmt.Errorf("failed to get current GitHub username: %w", err)
+		return errors.WrapError("failed to get current GitHub username", err)
 	}
 
 	// Show current username if it exists
@@ -41,7 +41,7 @@ func runConfig(cobraCmd *cobra.Command) error {
 				Placeholder(currentUsername).
 				Validate(func(s string) error {
 					if s == "" {
-						return fmt.Errorf("GitHub username is required")
+						return pkgErrors.New("GitHub username is required")
 					}
 					return nil
 				}),
@@ -49,15 +49,14 @@ func runConfig(cobraCmd *cobra.Command) error {
 	)
 
 	if err := form.Run(); err != nil {
-		return fmt.Errorf("failed to collect GitHub username: %w", err)
+		return errors.WrapError("failed to collect GitHub username", err)
 	}
 
 	// Store the GitHub username
 	if err := mjrToken.StoreGithubUsername(githubUsername); err != nil {
-		return fmt.Errorf("failed to store GitHub username: %w", err)
+		return errors.WrapError("failed to store GitHub username", err)
 	}
 
 	cobraCmd.Printf("✓ GitHub username saved: %s\n", githubUsername)
 	return nil
 }
-

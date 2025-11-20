@@ -9,10 +9,11 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/major-technology/cli/clients/api"
 	"github.com/major-technology/cli/clients/git"
 	"github.com/major-technology/cli/clients/token"
+	"github.com/major-technology/cli/errors"
 	"github.com/major-technology/cli/singletons"
+	pkgErrors "github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
 
@@ -21,21 +22,27 @@ var deployCmd = &cobra.Command{
 	Use:   "deploy",
 	Short: "Deploy a new version of the application",
 	Long:  `Creates a new version by committing and pushing changes, then deploying to the platform.`,
-	Run: func(cobraCmd *cobra.Command, args []string) {
-		cobra.CheckErr(runDeploy(cobraCmd))
+	RunE: func(cobraCmd *cobra.Command, args []string) error {
+		return runDeploy(cobraCmd)
 	},
 }
 
 func runDeploy(cobraCmd *cobra.Command) error {
 	// Check if we're in a git repository
 	if !git.IsGitRepository() {
-		return fmt.Errorf("not in a git repository")
+		return errors.ErrorNotInGitRepository
+	}
+
+	// Get application ID
+	applicationID, err := getApplicationID()
+	if err != nil {
+		return errors.WrapError("failed to get application ID", err)
 	}
 
 	// Check for uncommitted changes
 	hasChanges, err := git.HasUncommittedChanges()
 	if err != nil {
-		return fmt.Errorf("failed to check for uncommitted changes: %w", err)
+		return errors.WrapError("failed to check for uncommitted changes: %w", err)
 	}
 
 	if hasChanges {
@@ -59,50 +66,40 @@ func runDeploy(cobraCmd *cobra.Command) error {
 		)
 
 		if err := form.Run(); err != nil {
-			return fmt.Errorf("failed to collect commit message: %w", err)
+			return errors.WrapError("failed to collect commit message", err)
 		}
 
 		// Stage all changes
-		cobraCmd.Println("\nStaging changes...")
 		if err := git.Add(); err != nil {
-			return fmt.Errorf("failed to stage changes: %w", err)
+			return errors.WrapError("failed to stage changes", err)
 		}
 		cobraCmd.Println("✓ Changes staged")
 
 		// Commit changes
-		cobraCmd.Println("Committing changes...")
 		if err := git.Commit(commitMessage); err != nil {
-			return fmt.Errorf("failed to commit changes: %w", err)
+			return errors.WrapError("failed to commit changes", err)
 		}
 		cobraCmd.Println("✓ Changes committed")
 
 		// Push to remote
-		cobraCmd.Println("Pushing to remote...")
 		if err := git.PushToMain(); err != nil {
-			return fmt.Errorf("failed to push changes: %w", err)
+			return errors.WrapError("failed to push changes", err)
 		}
 		cobraCmd.Println("✓ Changes pushed to remote")
 	} else {
 		cobraCmd.Println("✓ No uncommitted changes")
 	}
 
-	// Get application ID
-	cobraCmd.Println("\nDeploying new version...")
-	applicationID, err := getApplicationID()
-	if err != nil {
-		return fmt.Errorf("failed to get application ID: %w", err)
-	}
-
 	// Get organization ID
 	organizationID, _, err := token.GetDefaultOrg()
 	if err != nil {
-		return fmt.Errorf("failed to get default organization: %w\nPlease run 'major org select' to set a default organization", err)
+		return errors.WrapError("failed to get default organization", errors.ErrorNoOrganizationSelected)
 	}
 
 	// Call API to create new version
 	apiClient := singletons.GetAPIClient()
 	resp, err := apiClient.CreateApplicationVersion(applicationID)
-	if ok := api.CheckErr(cobraCmd, err); !ok {
+	if err != nil {
 		return err
 	}
 
@@ -111,7 +108,7 @@ func runDeploy(cobraCmd *cobra.Command) error {
 	// Poll deployment status with beautiful UI
 	finalStatus, deploymentError, appURL, err := pollDeploymentStatus(applicationID, organizationID, resp.VersionID)
 	if err != nil {
-		return fmt.Errorf("failed to track deployment status: %w", err)
+		return errors.WrapError("failed to track deployment status", err)
 	}
 
 	// Print final status
@@ -128,9 +125,8 @@ func runDeploy(cobraCmd *cobra.Command) error {
 		if deploymentError != "" {
 			cobraCmd.Printf("\n❌ Deployment failed with status: %s\n", finalStatus)
 			cobraCmd.Printf("\n%s\n", formatDeploymentError(deploymentError))
-			return fmt.Errorf("deployment failed")
 		}
-		return fmt.Errorf("deployment failed with status: %s", finalStatus)
+		return pkgErrors.Errorf("deployment failed with status: %s", finalStatus)
 	}
 
 	return nil

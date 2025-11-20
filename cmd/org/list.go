@@ -1,8 +1,8 @@
 package org
 
 import (
-	"github.com/major-technology/cli/clients/api"
 	mjrToken "github.com/major-technology/cli/clients/token"
+	"github.com/major-technology/cli/errors"
 	"github.com/major-technology/cli/singletons"
 	"github.com/spf13/cobra"
 )
@@ -11,24 +11,21 @@ var listCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all organizations",
 	Long:  `List all organizations you are a member of`,
-	Run: func(cobraCmd *cobra.Command, args []string) {
-		cobra.CheckErr(runList(cobraCmd))
+	RunE: func(cobraCmd *cobra.Command, args []string) error {
+		return runList(cobraCmd)
 	},
 }
 
 func runList(cobraCmd *cobra.Command) error {
-	// Get the API client
 	apiClient := singletons.GetAPIClient()
 
-	// Fetch organizations (token will be fetched automatically)
 	orgsResp, err := apiClient.GetOrganizations()
-	if ok := api.CheckErr(cobraCmd, err); !ok {
+	if err != nil {
 		return err
 	}
 
 	if len(orgsResp.Organizations) == 0 {
-		cobraCmd.Println("No organizations available")
-		return nil
+		return errors.ErrorNoOrganizationsAvailable
 	}
 
 	// Get the default org to mark it

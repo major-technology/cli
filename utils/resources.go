@@ -12,6 +12,7 @@ import (
 	"github.com/charmbracelet/huh"
 	"github.com/major-technology/cli/clients/api"
 	"github.com/major-technology/cli/clients/git"
+	"github.com/major-technology/cli/errors"
 	"github.com/major-technology/cli/singletons"
 	"github.com/spf13/cobra"
 )
@@ -36,12 +37,12 @@ func ReadLocalResources(projectDir string) ([]LocalResource, error) {
 
 	data, err := os.ReadFile(resourcesPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read resources.json: %w", err)
+		return nil, errors.WrapError("failed to read resources.json", err)
 	}
 
 	var resources []LocalResource
 	if err := json.Unmarshal(data, &resources); err != nil {
-		return nil, fmt.Errorf("failed to parse resources.json: %w", err)
+		return nil, errors.WrapError("failed to parse resources.json", err)
 	}
 
 	return resources, nil
@@ -52,13 +53,12 @@ func ReadLocalResources(projectDir string) ([]LocalResource, error) {
 func SelectApplicationResources(cmd *cobra.Command, apiClient *api.Client, orgID, appID string) ([]api.ResourceItem, error) {
 	// Fetch available resources
 	resourcesResp, err := apiClient.GetResources(orgID)
-	if ok := api.CheckErr(cmd, err); !ok {
+	if err != nil {
 		return nil, err
 	}
 
 	// Check if there are any resources available
 	if len(resourcesResp.Resources) == 0 {
-		cmd.Println("No resources available in this organization.")
 		return nil, nil
 	}
 
@@ -126,11 +126,11 @@ func SelectApplicationResources(cmd *cobra.Command, apiClient *api.Client, orgID
 	).WithKeyMap(customKeyMap)
 
 	if err := form.Run(); err != nil {
-		return nil, fmt.Errorf("failed to collect resource selection: %w", err)
+		return nil, errors.WrapError("failed to collect resource selection", err)
 	}
 
 	_, err = apiClient.SaveApplicationResources(orgID, appID, selectedResourceIDs)
-	if ok := api.CheckErr(cmd, err); !ok {
+	if err != nil {
 		return nil, err
 	}
 

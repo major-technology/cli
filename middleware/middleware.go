@@ -7,48 +7,44 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/major-technology/cli/clients/api"
+	"github.com/charmbracelet/lipgloss"
+	clierrors "github.com/major-technology/cli/errors"
 	"github.com/major-technology/cli/singletons"
-	"github.com/major-technology/cli/ui"
 	"github.com/spf13/cobra"
 )
-
-// MiddlewareError is a custom error type that includes a title and suggestion
-type MiddlewareError struct {
-	Title      string
-	Suggestion string
-	Err        error
-}
-
-func (e *MiddlewareError) Error() string {
-	return e.Title
-}
-
-func (e *MiddlewareError) Unwrap() error {
-	return e.Err
-}
 
 // CommandCheck is a function that performs a check before a command is run
 type CommandCheck func(cmd *cobra.Command, args []string) error
 
-// Compose combines multiple checks into a single function compatible with Cobra's PreRunE
+// Compose combines multiple checks into a single function compatible with Cobra's PreRunE/PersistentPreRunE
+// All errors are returned without printing - error formatting is handled centrally in Execute()
 func Compose(checks ...CommandCheck) func(cmd *cobra.Command, args []string) error {
 	return func(cmd *cobra.Command, args []string) error {
 		for _, check := range checks {
 			if err := check(cmd, args); err != nil {
-				// If it's our custom MiddlewareError, print nicely
-				if mwErr, ok := err.(*MiddlewareError); ok {
-					ui.PrintError(cmd, mwErr.Title, mwErr.Suggestion)
-					cmd.SilenceErrors = true
-					cmd.SilenceUsage = true
-					return err
-				}
+				return err
+			}
+		}
+		return nil
+	}
+}
 
-				// Fallback: print using ui.PrintError for consistency or rely on CheckErr if relevant
-				// For checks that didn't return MiddlewareError but are simple errors:
-				ui.PrintError(cmd, err.Error(), "")
-				cmd.SilenceErrors = true
-				cmd.SilenceUsage = true
+// ChainParent combines the parent command's PersistentPreRunE with additional checks
+// This ensures child commands inherit parent middleware while adding their own
+// All errors are returned without printing - error formatting is handled centrally in Execute()
+func ChainParent(checks ...CommandCheck) func(cmd *cobra.Command, args []string) error {
+	return func(cmd *cobra.Command, args []string) error {
+		// First, call parent's PersistentPreRunE if it exists
+		parent := cmd.Parent()
+		if parent != nil && parent.PersistentPreRunE != nil {
+			if err := parent.PersistentPreRunE(parent, args); err != nil {
+				return err
+			}
+		}
+
+		// Then run the additional checks
+		for _, check := range checks {
+			if err := check(cmd, args); err != nil {
 				return err
 			}
 		}
@@ -62,26 +58,64 @@ func CheckLogin(cmd *cobra.Command, args []string) error {
 
 	// VerifyToken checks if the token exists and is valid by calling the API
 	_, err := client.VerifyToken()
-	if err != nil {
-		// Try to determine the specific error
-		title := "Authentication failed"
-		suggestion := "Run major user login to authenticate"
+	return err
+}
 
-		if api.IsTokenExpired(err) || strings.Contains(err.Error(), "expired") {
-			title = "Your session has expired!"
-			suggestion = "Run major user login to login again."
-		} else if api.IsNoToken(err) || strings.Contains(err.Error(), "not logged in") || strings.Contains(err.Error(), "invalid") {
-			title = "Not logged in!"
-			suggestion = "Run major user login to get started."
+// CheckVersion checks if the CLI version is up to date and handles upgrade prompts
+func CheckVersion(version string) CommandCheck {
+	return func(cmd *cobra.Command, args []string) error {
+		// Skip for dev version
+		if version == "dev" {
+			return nil
 		}
 
-		return &MiddlewareError{
-			Title:      title,
-			Suggestion: suggestion,
-			Err:        err,
+		// Skip for update command itself
+		if cmd.Name() == "update" {
+			return nil
 		}
+
+		client := singletons.GetAPIClient()
+
+		resp, err := client.CheckVersion(version)
+		if err != nil {
+			// Silently ignore version check errors to not disrupt user workflow
+			return nil
+		}
+
+		// Check for force upgrade
+		if resp.ForceUpgrade {
+			return clierrors.ErrorForceUpgrade
+		}
+
+		// Check for optional upgrade
+		if resp.CanUpgrade {
+			warningStyle := lipgloss.NewStyle().
+				Bold(true).
+				Foreground(lipgloss.Color("#FFD700"))
+
+			commandStyle := lipgloss.NewStyle().
+				Bold(true).
+				Foreground(lipgloss.Color("#87D7FF"))
+
+			message := fmt.Sprintf("%s %s",
+				warningStyle.Render("There's a new version of major available."),
+				fmt.Sprintf("Run %s to get the newest version.",
+					commandStyle.Render("major update")))
+
+			cmd.Println(message)
+			cmd.Println() // Add a blank line for spacing
+		}
+
+		return nil
 	}
+}
 
+// CheckNodeInstalled checks if node is installed in the system path
+func CheckNodeInstalled(cmd *cobra.Command, args []string) error {
+	_, err := exec.LookPath("node")
+	if err != nil {
+		return clierrors.ErrorNodeNotFound
+	}
 	return nil
 }
 
@@ -89,11 +123,7 @@ func CheckLogin(cmd *cobra.Command, args []string) error {
 func CheckPnpmInstalled(cmd *cobra.Command, args []string) error {
 	_, err := exec.LookPath("pnpm")
 	if err != nil {
-		return &MiddlewareError{
-			Title:      "pnpm not found",
-			Suggestion: "pnpm is required. Please install it: npm install -g pnpm",
-			Err:        err,
-		}
+		return clierrors.ErrorPnpmNotFound
 	}
 	return nil
 }
@@ -103,11 +133,7 @@ func CheckNodeVersion(minVersion string) CommandCheck {
 	return func(cmd *cobra.Command, args []string) error {
 		path, err := exec.LookPath("node")
 		if err != nil {
-			return &MiddlewareError{
-				Title:      "Node.js not found",
-				Suggestion: "Node.js is required. Please install it.",
-				Err:        err,
-			}
+			return clierrors.ErrorNodeNotFound
 		}
 
 		cmdOut := exec.Command(path, "--version")
@@ -121,11 +147,7 @@ func CheckNodeVersion(minVersion string) CommandCheck {
 		versionStr = strings.TrimPrefix(versionStr, "v")
 
 		if !isVersionGTE(versionStr, minVersion) {
-			return &MiddlewareError{
-				Title:      fmt.Sprintf("Node.js version %s required", minVersion),
-				Suggestion: fmt.Sprintf("You are running version %s. Please upgrade Node.js.", versionStr),
-				Err:        fmt.Errorf("node version %s is required, but found %s", minVersion, versionStr),
-			}
+			return clierrors.ErrorNodeVersionTooOld(minVersion, versionStr)
 		}
 
 		return nil

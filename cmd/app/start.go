@@ -1,10 +1,10 @@
 package app
 
 import (
-	"fmt"
 	"os"
 	"os/exec"
 
+	"github.com/major-technology/cli/errors"
 	"github.com/spf13/cobra"
 )
 
@@ -13,15 +13,16 @@ var startCmd = &cobra.Command{
 	Use:   "start",
 	Short: "Start the application locally",
 	Long:  `Runs pnpm install and pnpm dev to set up dependencies and start the development server.`,
-	Run: func(cobraCmd *cobra.Command, args []string) {
-		cobra.CheckErr(runStart(cobraCmd))
+	RunE: func(cobraCmd *cobra.Command, args []string) error {
+		return runStart(cobraCmd)
 	},
 }
 
 func runStart(cobraCmd *cobra.Command) error {
-	// Check if pnpm is installed
-	if _, err := exec.LookPath("pnpm"); err != nil {
-		return fmt.Errorf("pnpm is not installed. Please install pnpm first: https://pnpm.io/installation")
+	// Generate .env file
+	_, _, err := generateEnvFile("")
+	if err != nil {
+		return errors.WrapError("failed to generate .env file", err)
 	}
 
 	// Run pnpm install
@@ -32,7 +33,7 @@ func runStart(cobraCmd *cobra.Command) error {
 	installCmd.Stdin = os.Stdin
 
 	if err := installCmd.Run(); err != nil {
-		return fmt.Errorf("failed to run pnpm install: %w", err)
+		return errors.WrapError("failed to run pnpm install: %w", err)
 	}
 
 	cobraCmd.Println("✓ Dependencies installed")
@@ -45,7 +46,7 @@ func runStart(cobraCmd *cobra.Command) error {
 	devCmd.Stdin = os.Stdin
 
 	if err := devCmd.Run(); err != nil {
-		return fmt.Errorf("failed to run pnpm dev: %w", err)
+		return errors.WrapError("failed to run pnpm dev", err)
 	}
 
 	return nil
