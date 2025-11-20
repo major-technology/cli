@@ -387,7 +387,7 @@ var ErrorNotInGitRepository = &CLIError{
 
 var ErrorNoOrganizationsAvailable = &CLIError{
 	Title:      "No organizations available",
-	Suggestion: "You don't have any organizations. Please create one first at https://app.major.build.",
+	Suggestion: "Please create one on https://app.major.build. Then run `major org select` to select it.",
 	Err:        errors.New("no organizations available"),
 }
 
