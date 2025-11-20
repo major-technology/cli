@@ -1,6 +1,7 @@
 package git
 
 import (
+	stderrors "errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -33,7 +34,8 @@ func GetRemoteURLFromDir(dir string) (string, error) {
 	output, err := cmd.Output()
 	if err != nil {
 		// Check if this is a "not a git repository" error
-		if exitErr, ok := err.(*exec.ExitError); ok {
+		var exitErr *exec.ExitError
+		if stderrors.As(err, &exitErr) {
 			stderr := string(exitErr.Stderr)
 			if strings.Contains(stderr, "not a git repository") {
 				return "", clierrors.ErrorNotGitRepository
