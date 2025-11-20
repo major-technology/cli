@@ -45,13 +45,13 @@ OS="$(uname -s)"
 ARCH="$(uname -m)"
 
 case "$OS" in
-    Linux)  OS="Linux" ;;
-    Darwin) OS="Darwin" ;;
+    Linux)  OS="linux" ;;
+    Darwin) OS="darwin" ;;
     *)      print_error "OS $OS not supported"; exit 1 ;;
 esac
 
 case "$ARCH" in
-    x86_64) ARCH="x86_64" ;;
+    x86_64) ARCH="amd64" ;;
     arm64|aarch64) ARCH="arm64" ;;
     *)      print_error "Architecture $ARCH not supported"; exit 1 ;;
 esac
