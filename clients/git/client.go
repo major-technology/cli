@@ -183,3 +183,44 @@ func Pull(repoDir string) error {
 	}
 	return nil
 }
+
+// GetCurrentGithubUser attempts to retrieve the GitHub username of the current user
+// by checking SSH authentication and git configuration.
+func GetCurrentGithubUser() (string, error) {
+	// 1. Try SSH authentication
+	// ssh -T -o BatchMode=yes -o ConnectTimeout=2 git@github.com
+	// This usually returns exit code 1 on success with "Hi <username>! ..."
+	cmd := exec.Command("ssh", "-T", "-o", "BatchMode=yes", "-o", "ConnectTimeout=2", "git@github.com")
+	output, _ := cmd.CombinedOutput() // We expect an error (exit code 1), so we ignore it and parse output
+
+	outputStr := string(output)
+	// Regex matches: Hi <username>! You've successfully authenticated...
+	// GitHub usernames are alphanumeric with single hyphens, max 39 chars
+	sshPattern := regexp.MustCompile(`Hi ([a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?)! You've successfully authenticated`)
+	if matches := sshPattern.FindStringSubmatch(outputStr); len(matches) > 1 {
+		return matches[1], nil
+	}
+
+	// 2. Check git config for github.user
+	cmd = exec.Command("git", "config", "--get", "github.user")
+	output, err := cmd.Output()
+	if err == nil && len(output) > 0 {
+		return strings.TrimSpace(string(output)), nil
+	}
+
+	// 3. Check git config user.email for GitHub noreply address
+	cmd = exec.Command("git", "config", "--get", "user.email")
+	output, err = cmd.Output()
+	if err == nil {
+		email := strings.TrimSpace(string(output))
+		// Matches: <id>+<username>@users.noreply.github.com
+		// Example: 123456+jasonbao@users.noreply.github.com
+		emailPattern := regexp.MustCompile(`^(?:(\d+)\+)?([^@]+)@users\.noreply\.github\.com$`)
+		if matches := emailPattern.FindStringSubmatch(email); len(matches) > 2 {
+			// matches[2] contains the username part
+			return matches[2], nil
+		}
+	}
+
+	return "", nil
+}
