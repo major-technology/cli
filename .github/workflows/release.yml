@@ -15,6 +15,12 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: "1.24.2"
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-west-1
       # Mint short-lived token for the tap repo
       - id: app-token
         uses: tibdex/github-app-token@v2
@@ -32,3 +38,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HOMEBREW_TAP_GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+      - name: Upload metadata to S3
+        run: |
+          # Create version file (strip v prefix)
+          echo "${GITHUB_REF#refs/tags/v}" > latest-version
+
+          # Upload latest version pointer
+          aws s3 cp latest-version s3://major-cli-releases/latest-version --acl public-read
+
+          # Upload install script
+          aws s3 cp install.sh s3://major-cli-releases/install.sh --acl public-read

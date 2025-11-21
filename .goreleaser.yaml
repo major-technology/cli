@@ -33,6 +33,7 @@ brews:                     # <- still deprecated but works
   - name: major
     description: "Major CLI"
     homepage: "https://github.com/major-technology/major"
+    url_template: "https://major-cli-releases.s3.us-west-1.amazonaws.com/{{ .Version }}/{{ .ArtifactName }}"
     license: "MIT"
     repository:
       owner: major-technology
@@ -50,3 +51,12 @@ release:
   github:
     owner: major-technology
     name: cli
+  # We're using S3 for release artifacts now
+  disable: true
+
+blobs:
+  - provider: s3
+    bucket: major-cli-releases
+    region: us-west-1
+    folder: "{{ .Version }}"
+    acl: public-read
