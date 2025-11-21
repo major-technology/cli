@@ -2,7 +2,6 @@ package resource
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/major-technology/cli/errors"
 	"github.com/major-technology/cli/middleware"
@@ -39,35 +38,14 @@ func runManage(cobraCmd *cobra.Command) error {
 		return errors.ErrorFailedToSelectResourcesTryAgain
 	}
 
-	// Handle post-selection logic based on template
-	templateName := ""
-	if appInfo.TemplateName != nil {
-		templateName = *appInfo.TemplateName
+	if appInfo.TemplateName == nil {
+		return errors.ErrorOldProjectNotSupported
 	}
 
-	if templateName == "Vite" {
-		cobraCmd.Println("\nUpdating resources in Vite project...")
-		if err := utils.AddResourcesToViteProject(cobraCmd, ".", selectedResources, appInfo.ApplicationID); err != nil {
-			return errors.ErrorFailedToSelectResourcesTryAgain
-		}
-	} else {
-		// Default/Next.js flow: delete and regenerate RESOURCES.md
-		cobraCmd.Println("\nUpdating RESOURCES.md...")
+	templateName := *appInfo.TemplateName
 
-		// Delete existing RESOURCES.md if it exists
-		resourcesPath := "RESOURCES.md"
-		if _, err := os.Stat(resourcesPath); err == nil {
-			if err := os.Remove(resourcesPath); err != nil {
-				cobraCmd.Printf("Warning: Failed to delete old RESOURCES.md: %v\n", err)
-			}
-		}
-
-		// Generate new RESOURCES.md
-		filePath, _, err := utils.GenerateResourcesFile(".")
-		if err != nil {
-			return errors.WrapError("failed to update RESOURCES.md", err)
-		}
-		cobraCmd.Printf("✓ Updated %s\n", filePath)
+	if err := utils.AddResourcesToProject(cobraCmd, ".", selectedResources, appInfo.ApplicationID, templateName); err != nil {
+		return errors.ErrorFailedToSelectResourcesTryAgain
 	}
 
 	return nil

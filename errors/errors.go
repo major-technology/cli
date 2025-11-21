@@ -402,3 +402,9 @@ var ErrorNoGitRemoteFoundInDirectory = &CLIError{
 	Suggestion: "Please make sure you are in a git repository and have a remote origin set.",
 	Err:        errors.New("no git remote found in directory"),
 }
+
+var ErrorOldProjectNotSupported = &CLIError{
+	Title:      "Old project not supported",
+	Suggestion: "This project is not supported. Please create a new project with 'major app create'.",
+	Err:        errors.New("old project not supported"),
+}

@@ -1,5 +1,7 @@
 package api
 
+import "github.com/major-technology/cli/constants"
+
 // LoginStartResponse represents the response from POST /login/start
 type LoginStartResponse struct {
 	Error           *AppErrorDetail `json:"error,omitempty"`
@@ -72,11 +74,11 @@ type GetApplicationByRepoRequest struct {
 
 // GetApplicationByRepoResponse represents the response from GET /application/from-repo
 type GetApplicationByRepoResponse struct {
-	Error          *AppErrorDetail `json:"error,omitempty"`
-	ApplicationID  string          `json:"applicationId,omitempty"`
-	OrganizationID string          `json:"organizationId,omitempty"`
-	TemplateID     *string         `json:"templateId,omitempty"`
-	TemplateName   *string         `json:"templateName,omitempty"`
+	Error          *AppErrorDetail         `json:"error,omitempty"`
+	ApplicationID  string                  `json:"applicationId,omitempty"`
+	OrganizationID string                  `json:"organizationId,omitempty"`
+	TemplateID     *string                 `json:"templateId,omitempty"`
+	TemplateName   *constants.TemplateName `json:"templateName,omitempty"`
 }
 
 // GetApplicationEnvRequest represents the request body for POST /application/env
@@ -168,9 +170,9 @@ type GetVersionStatusResponse struct {
 
 // TemplateItem represents a single template
 type TemplateItem struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	TemplateURL string `json:"templateUrl"`
+	ID          string                 `json:"id"`
+	Name        constants.TemplateName `json:"name"`
+	TemplateURL string                 `json:"templateUrl"`
 }
 
 // GetTemplatesResponse represents the response from GET /templates

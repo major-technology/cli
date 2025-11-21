@@ -10,6 +10,7 @@ import (
 	"github.com/major-technology/cli/clients/api"
 	"github.com/major-technology/cli/clients/git"
 	mjrToken "github.com/major-technology/cli/clients/token"
+	"github.com/major-technology/cli/constants"
 	"github.com/major-technology/cli/errors"
 	"github.com/major-technology/cli/middleware"
 	"github.com/major-technology/cli/singletons"
@@ -169,8 +170,8 @@ func runCreate(cobraCmd *cobra.Command) error {
 	cobraCmd.Printf("  Clone URL: %s\n", cloneURL)
 
 	// If Vite template and resources were selected, add them using major-client
-	if templateName == "Vite" && len(selectedResources) > 0 {
-		if err := utils.AddResourcesToViteProject(cobraCmd, targetDir, selectedResources, createResp.ApplicationID); err != nil {
+	if len(selectedResources) > 0 {
+		if err := utils.AddResourcesToProject(cobraCmd, targetDir, selectedResources, createResp.ApplicationID, templateName); err != nil {
 			return errors.ErrorFailedToSelectResources
 		}
 	}
@@ -258,7 +259,7 @@ func printSuccessMessage(cobraCmd *cobra.Command, appName string) {
 
 // selectTemplate prompts the user to select a template for the application
 // Returns the template URL, name, and ID
-func selectTemplate(cobraCmd *cobra.Command, apiClient *api.Client) (string, string, string, error) {
+func selectTemplate(cobraCmd *cobra.Command, apiClient *api.Client) (string, constants.TemplateName, string, error) {
 	// Fetch available templates
 	templatesResp, err := apiClient.GetTemplates()
 	if err != nil {
@@ -293,7 +294,7 @@ func selectTemplate(cobraCmd *cobra.Command, apiClient *api.Client) (string, str
 	// Create options for the select
 	options := make([]huh.Option[string], len(orderedTemplates))
 	for i, template := range orderedTemplates {
-		options[i] = huh.NewOption(template.Name, template.TemplateURL)
+		options[i] = huh.NewOption(string(template.Name), template.TemplateURL)
 	}
 
 	// Prompt user to select a template
@@ -313,7 +314,8 @@ func selectTemplate(cobraCmd *cobra.Command, apiClient *api.Client) (string, str
 	}
 
 	// Find the template name and ID for the selected URL
-	var selectedTemplateName, selectedTemplateID string
+	var selectedTemplateName constants.TemplateName
+	var selectedTemplateID string
 	for _, template := range orderedTemplates {
 		if template.TemplateURL == selectedTemplateURL {
 			selectedTemplateName = template.Name
