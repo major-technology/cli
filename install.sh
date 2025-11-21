@@ -71,34 +71,82 @@ if [ -z "$LATEST_TAG" ]; then
     exit 1
 fi
 
-# Remove 'v' prefix for version number if your assets use strict numbering (major_1.0.0 vs major_v1.0.0)
-# GoReleaser usually strips the 'v' in the version template variable {{ .Version }}
+# Remove 'v' prefix for version number if your assets use strict numbering
 VERSION=${LATEST_TAG#v}
 
 # Construct the asset name
 ASSET_NAME="${BINARY}_${VERSION}_${OS}_${ARCH}.tar.gz"
 DOWNLOAD_URL="https://github.com/$OWNER/$REPO/releases/download/$LATEST_TAG/$ASSET_NAME"
+CHECKSUMS_URL="https://github.com/$OWNER/$REPO/releases/download/$LATEST_TAG/checksums.txt"
 
 print_step "Downloading ${BINARY} ${LATEST_TAG}..."
 
 # Create a temporary directory
 TMP_DIR=$(mktemp -d)
-curl -fsSL "$DOWNLOAD_URL" -o "$TMP_DIR/$ASSET_NAME" || { print_error "Failed to download from $DOWNLOAD_URL"; exit 1; }
+
+# Download Asset
+if ! curl -fsSL "$DOWNLOAD_URL" -o "$TMP_DIR/$ASSET_NAME"; then
+    print_error "Failed to download binary from $DOWNLOAD_URL"
+    rm -rf "$TMP_DIR"
+    exit 1
+fi
+
+# Download Checksums
+if ! curl -fsSL "$CHECKSUMS_URL" -o "$TMP_DIR/checksums.txt"; then
+    print_error "Failed to download checksums from $CHECKSUMS_URL"
+    rm -rf "$TMP_DIR"
+    exit 1
+fi
+
+# Verify Checksum
+print_step "Verifying checksum..."
+cd "$TMP_DIR"
+
+# Extract the checksum for our specific asset
+EXPECTED_CHECKSUM=$(grep "$ASSET_NAME" checksums.txt | awk '{print $1}')
+
+if [ -z "$EXPECTED_CHECKSUM" ]; then
+    print_error "Could not find checksum for $ASSET_NAME in checksums.txt"
+    rm -rf "$TMP_DIR"
+    exit 1
+fi
+
+# Calculate actual checksum
+if command -v sha256sum >/dev/null 2>&1; then
+    ACTUAL_CHECKSUM=$(sha256sum "$ASSET_NAME" | awk '{print $1}')
+elif command -v shasum >/dev/null 2>&1; then
+    ACTUAL_CHECKSUM=$(shasum -a 256 "$ASSET_NAME" | awk '{print $1}')
+else
+    print_error "Neither sha256sum nor shasum found to verify checksum"
+    rm -rf "$TMP_DIR"
+    exit 1
+fi
+
+if [ "$EXPECTED_CHECKSUM" != "$ACTUAL_CHECKSUM" ]; then
+    print_error "Checksum verification failed!"
+    printf "  Expected: %s\n" "$EXPECTED_CHECKSUM"
+    printf "  Actual:   %s\n" "$ACTUAL_CHECKSUM"
+    rm -rf "$TMP_DIR"
+    exit 1
+fi
+
+print_success "Checksum verified"
 
 # Extract and Install
 print_step "Installing to $INSTALL_DIR..."
-tar -xzf "$TMP_DIR/$ASSET_NAME" -C "$TMP_DIR"
+tar -xzf "$ASSET_NAME"
 
 # Create install directory
 mkdir -p "$INSTALL_DIR"
 
 # Move binary to install directory
-mv "$TMP_DIR/$BINARY" "$INSTALL_DIR/$BINARY"
+mv "$BINARY" "$INSTALL_DIR/$BINARY"
 
 # Make sure it's executable
 chmod +x "$INSTALL_DIR/$BINARY"
 
 # Cleanup
+cd - >/dev/null
 rm -rf "$TMP_DIR"
 
 # Run the internal install command to setup shell integration
