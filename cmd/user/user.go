@@ -24,4 +24,5 @@ func init() {
 	Cmd.AddCommand(loginCmd)
 	Cmd.AddCommand(logoutCmd)
 	Cmd.AddCommand(whoamiCmd)
+	Cmd.AddCommand(gitconfigCmd)
 }
