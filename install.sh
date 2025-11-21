@@ -2,10 +2,9 @@
 set -e
 
 # --- Configuration ---
-OWNER="major-technology"
-REPO="cli"
 BINARY="major"
 INSTALL_DIR="$HOME/.major/bin"
+S3_BUCKET_URL="https://major-cli-releases.s3.us-west-1.amazonaws.com"
 # ---------------------
 
 # ANSI color codes for better output
@@ -63,24 +62,23 @@ esac
 
 print_step "Finding latest release..."
 
-# Get latest release tag from GitHub API
-LATEST_TAG=$(curl -s "https://api.github.com/repos/$OWNER/$REPO/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+# Get latest version from S3
+LATEST_VERSION=$(curl -fsSL "$S3_BUCKET_URL/latest-version")
 
-if [ -z "$LATEST_TAG" ]; then
-    print_error "Could not find latest release tag"
+if [ -z "$LATEST_VERSION" ]; then
+    print_error "Could not find latest release version"
     exit 1
 fi
 
-# Remove 'v' prefix for version number if your assets use strict numbering
-VERSION=${LATEST_TAG#v}
+VERSION="$LATEST_VERSION"
 
 # Construct the asset name
 ASSET_NAME="${BINARY}_${VERSION}_${OS}_${ARCH}.tar.gz"
 CHECKSUMS_NAME="${BINARY}_${VERSION}_checksums.txt"
-DOWNLOAD_URL="https://github.com/$OWNER/$REPO/releases/download/$LATEST_TAG/$ASSET_NAME"
-CHECKSUMS_URL="https://github.com/$OWNER/$REPO/releases/download/$LATEST_TAG/$CHECKSUMS_NAME"
+DOWNLOAD_URL="$S3_BUCKET_URL/$VERSION/$ASSET_NAME"
+CHECKSUMS_URL="$S3_BUCKET_URL/$VERSION/$CHECKSUMS_NAME"
 
-print_step "Downloading ${BINARY} ${LATEST_TAG}..."
+print_step "Downloading ${BINARY} v${VERSION}..."
 
 # Create a temporary directory
 TMP_DIR=$(mktemp -d)
@@ -159,7 +157,7 @@ print_step "Verifying installation..."
 
 # We verify using the absolute path since PATH might not be updated in the current shell yet
 INSTALLED_VERSION=$("$INSTALL_DIR/$BINARY" --version 2>&1 | head -n 1 || echo "unknown")
-print_success "Successfully installed ${BINARY} ${LATEST_TAG}"
+print_success "Successfully installed ${BINARY} v${VERSION}"
 
 # Print welcome message
 printf "\n${BOLD}${GREEN}🎉 Welcome to Major!${RESET}\n\n"
