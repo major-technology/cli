@@ -217,10 +217,8 @@ func printSuccessMessage(cobraCmd *cobra.Command, appName string) {
 		MarginBottom(1)
 
 	cdStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("14")). // Cyan - more readable
-		Bold(true).
-		MarginTop(1).
-		MarginBottom(1)
+		Foreground(lipgloss.Color("10")). // Green
+		Bold(true)
 
 	// Build the message
 	successMsg := successStyle.Render("🎉 Congrats on setting up your app!")
@@ -237,24 +235,24 @@ func printSuccessMessage(cobraCmd *cobra.Command, appName string) {
 	deployCommand := commandStyle.Render("major app deploy")
 	deployDesc := descriptionStyle.Render("  Deploy your app to production when ready")
 
-	editorCommand := commandStyle.Render("major app editor")
-	editorDesc := descriptionStyle.Render("  Open your app in the UI editor")
+	resourceCommand := commandStyle.Render("major resource manage")
+	resourceDesc := descriptionStyle.Render("  Manage the resources your app is connected to")
 
-	content := fmt.Sprintf("%s\n\n%s\n%s\n\n%s\n%s\n\n%s\n%s",
+	content := fmt.Sprintf("%s\n\n%s\n\n%s\n%s\n\n%s\n%s\n\n%s\n%s",
 		nextStepsTitle,
+		cdInstruction,
 		startCommand,
 		startDesc,
 		deployCommand,
 		deployDesc,
-		editorCommand,
-		editorDesc,
+		resourceCommand,
+		resourceDesc,
 	)
 
 	box := boxStyle.Render(content)
 
 	// Print everything
 	cobraCmd.Println(successMsg)
-	cobraCmd.Println(cdInstruction)
 	cobraCmd.Println(box)
 }
 
