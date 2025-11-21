@@ -165,8 +165,17 @@ source "%s"
 		return fmt.Errorf("failed to write to shell config file: %w", err)
 	}
 
-	cmd.Println(successStyle.Render(fmt.Sprintf("Added Major CLI configuration to %s", configFile)))
-	cmd.Println("Please restart your shell or run 'source " + configFile + "' to start using 'major'")
+	boxStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("#00FF00")).
+		Padding(1, 2).
+		MarginTop(1)
+
+	msg := fmt.Sprintf("%s\n\nPlease restart your shell or run:\n\n  %s\n\nto start using 'major'",
+		successStyle.Render(fmt.Sprintf("Added Major CLI configuration to %s", configFile)),
+		lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#87D7FF")).Render("source "+configFile))
+
+	cmd.Println(boxStyle.Render(msg))
 
 	return nil
 }

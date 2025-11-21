@@ -161,7 +161,5 @@ print_success "Successfully installed ${BINARY} v${VERSION}"
 
 # Print welcome message
 printf "\n${BOLD}${GREEN}🎉 Welcome to Major!${RESET}\n\n"
-printf "Get started with these commands:\n\n"
+printf "Get started by running:\n\n"
 printf "  ${BOLD}major user login${RESET}      Log in to your Major account\n"
-printf "  ${BOLD}major app create${RESET}      Create a new application\n"
-printf "  ${BOLD}major --help${RESET}          View all available commands\n"
