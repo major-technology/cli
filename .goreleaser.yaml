@@ -58,5 +58,5 @@ blobs:
   - provider: s3
     bucket: major-cli-releases
     region: us-west-1
-    folder: "{{ .Version }}"
+    directory: "{{ .Version }}"
     acl: public-read
