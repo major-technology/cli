@@ -1,4 +1,4 @@
-package git
+package user
 
 import (
 	"github.com/charmbracelet/huh"
@@ -8,17 +8,17 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// configCmd represents the git config command
-var configCmd = &cobra.Command{
-	Use:   "config",
+// gitconfigCmd represents the gitconfig command
+var gitconfigCmd = &cobra.Command{
+	Use:   "gitconfig",
 	Short: "Configure git settings",
 	Long:  `Configure git-related settings such as your GitHub username.`,
 	RunE: func(cobraCmd *cobra.Command, args []string) error {
-		return runConfig(cobraCmd)
+		return runGitConfig(cobraCmd)
 	},
 }
 
-func runConfig(cobraCmd *cobra.Command) error {
+func runGitConfig(cobraCmd *cobra.Command) error {
 	// Get current GitHub username if it exists
 	currentUsername, err := mjrToken.GetGithubUsername()
 	if err != nil {
