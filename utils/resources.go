@@ -12,6 +12,7 @@ import (
 	"github.com/charmbracelet/huh"
 	"github.com/major-technology/cli/clients/api"
 	"github.com/major-technology/cli/clients/git"
+	"github.com/major-technology/cli/constants"
 	"github.com/major-technology/cli/errors"
 	"github.com/major-technology/cli/singletons"
 	"github.com/spf13/cobra"
@@ -150,7 +151,7 @@ func SelectApplicationResources(cmd *cobra.Command, apiClient *api.Client, orgID
 
 // AddResourcesToViteProject adds selected resources to a Vite project using pnpm clients:add
 // It handles differential updates: removes resources that are no longer selected and adds new ones
-func AddResourcesToViteProject(cmd *cobra.Command, projectDir string, resources []api.ResourceItem, applicationID string) error {
+func AddResourcesToProject(cmd *cobra.Command, projectDir string, resources []api.ResourceItem, applicationID string, framework constants.TemplateName) error {
 	// Read existing resources
 	existingResources, err := ReadLocalResources(projectDir)
 	if err != nil {
@@ -202,13 +203,20 @@ func AddResourcesToViteProject(cmd *cobra.Command, projectDir string, resources 
 		return fmt.Errorf("failed to install dependencies: %w", err)
 	}
 
+	var prefix string
+	if framework == constants.ViteTemplate {
+		prefix = "clients"
+	} else if framework == constants.NextJSTemplate {
+		prefix = "resource"
+	}
+
 	// Remove old resources
 	removeSuccessCount := 0
 	for _, resource := range resourcesToRemove {
 		cmd.Printf("  Removing resource: %s (%s)...\n", resource.Name, resource.Type)
 
 		// Run: pnpm clients:remove <name>
-		pnpmCmd := exec.Command("pnpm", "clients:remove", resource.Name)
+		pnpmCmd := exec.Command("pnpm", prefix+":remove", resource.Name)
 		pnpmCmd.Dir = projectDir
 		pnpmCmd.Stdout = os.Stdout
 		pnpmCmd.Stderr = os.Stderr
@@ -231,7 +239,7 @@ func AddResourcesToViteProject(cmd *cobra.Command, projectDir string, resources 
 		cmd.Printf("  Adding resource: %s (%s)...\n", resource.Name, resource.Type)
 
 		// Run: pnpm clients:add <resource_id> <name> <type> <description> <application_id>
-		pnpmCmd := exec.Command("pnpm", "clients:add", resource.ID, clientName, resource.Type, resource.Description, applicationID)
+		pnpmCmd := exec.Command("pnpm", prefix+":add", resource.ID, clientName, resource.Type, resource.Description, applicationID)
 		pnpmCmd.Dir = projectDir
 		pnpmCmd.Stdout = os.Stdout
 		pnpmCmd.Stderr = os.Stderr
