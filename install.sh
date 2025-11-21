@@ -76,8 +76,9 @@ VERSION=${LATEST_TAG#v}
 
 # Construct the asset name
 ASSET_NAME="${BINARY}_${VERSION}_${OS}_${ARCH}.tar.gz"
+CHECKSUMS_NAME="${BINARY}_${VERSION}_checksums.txt"
 DOWNLOAD_URL="https://github.com/$OWNER/$REPO/releases/download/$LATEST_TAG/$ASSET_NAME"
-CHECKSUMS_URL="https://github.com/$OWNER/$REPO/releases/download/$LATEST_TAG/checksums.txt"
+CHECKSUMS_URL="https://github.com/$OWNER/$REPO/releases/download/$LATEST_TAG/$CHECKSUMS_NAME"
 
 print_step "Downloading ${BINARY} ${LATEST_TAG}..."
 
