@@ -44,7 +44,7 @@ jobs:
           echo "${GITHUB_REF#refs/tags/v}" > latest-version
 
           # Upload latest version pointer
-          aws s3 cp latest-version s3://major-cli-releases/latest-version --acl public-read
+          aws s3 cp latest-version s3://major-cli-releases/latest-version --acl public-read --content-type "text/plain"
 
           # Upload install script
-          aws s3 cp install.sh s3://major-cli-releases/install.sh --acl public-read
+          aws s3 cp install.sh s3://major-cli-releases/install.sh --acl public-read --content-type "text/plain"
