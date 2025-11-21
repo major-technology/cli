@@ -51,8 +51,9 @@ release:
   github:
     owner: major-technology
     name: cli
-  # We're using S3 for release artifacts now
-  disable: true
+  # We keep GitHub releases enabled for changelogs and "latest" status,
+  # even though artifacts are served from S3 (via install.sh and brew).
+  disable: false
 
 blobs:
   - provider: s3
