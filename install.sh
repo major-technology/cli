@@ -1,10 +1,11 @@
-#!/bin/sh
+#!/bin/bash
 set -e
 
 # --- Configuration ---
 OWNER="major-technology"
 REPO="cli"
 BINARY="major"
+INSTALL_DIR="$HOME/.major/bin"
 # ---------------------
 
 # ANSI color codes for better output
@@ -85,37 +86,35 @@ TMP_DIR=$(mktemp -d)
 curl -fsSL "$DOWNLOAD_URL" -o "$TMP_DIR/$ASSET_NAME" || { print_error "Failed to download from $DOWNLOAD_URL"; exit 1; }
 
 # Extract and Install
-print_step "Installing to /usr/local/bin..."
+print_step "Installing to $INSTALL_DIR..."
 tar -xzf "$TMP_DIR/$ASSET_NAME" -C "$TMP_DIR"
 
-# Use sudo if we can't write to the destination
-if [ -w "/usr/local/bin" ]; then
-    mv "$TMP_DIR/$BINARY" "/usr/local/bin/$BINARY"
-else
-    sudo mv "$TMP_DIR/$BINARY" "/usr/local/bin/$BINARY"
-fi
+# Create install directory
+mkdir -p "$INSTALL_DIR"
+
+# Move binary to install directory
+mv "$TMP_DIR/$BINARY" "$INSTALL_DIR/$BINARY"
 
 # Make sure it's executable
-chmod +x "/usr/local/bin/$BINARY"
+chmod +x "$INSTALL_DIR/$BINARY"
 
 # Cleanup
 rm -rf "$TMP_DIR"
 
+# Run the internal install command to setup shell integration
+print_step "Setting up shell integration..."
+"$INSTALL_DIR/$BINARY" install
+
 # Verify installation
 print_step "Verifying installation..."
 
-if command -v "$BINARY" >/dev/null 2>&1; then
-    INSTALLED_VERSION=$("$BINARY" --version 2>&1 | head -n 1 || echo "unknown")
-    print_success "Successfully installed ${BINARY} ${LATEST_TAG}"
-    
-    # Print welcome message
-    printf "\n${BOLD}${GREEN}🎉 Welcome to Major!${RESET}\n\n"
-    printf "Get started with these commands:\n\n"
-    printf "  ${BOLD}major user login${RESET}      Log in to your Major account\n"
-    printf "  ${BOLD}major app create${RESET}      Create a new application\n"
-    printf "  ${BOLD}major --help${RESET}          View all available commands\n"
-else
-    print_error "Installation completed but ${BINARY} command not found in PATH"
-    printf "\n${YELLOW}Note:${RESET} You may need to restart your terminal or add /usr/local/bin to your PATH\n\n"
-    exit 1
-fi
+# We verify using the absolute path since PATH might not be updated in the current shell yet
+INSTALLED_VERSION=$("$INSTALL_DIR/$BINARY" --version 2>&1 | head -n 1 || echo "unknown")
+print_success "Successfully installed ${BINARY} ${LATEST_TAG}"
+
+# Print welcome message
+printf "\n${BOLD}${GREEN}🎉 Welcome to Major!${RESET}\n\n"
+printf "Get started with these commands:\n\n"
+printf "  ${BOLD}major user login${RESET}      Log in to your Major account\n"
+printf "  ${BOLD}major app create${RESET}      Create a new application\n"
+printf "  ${BOLD}major --help${RESET}          View all available commands\n"
