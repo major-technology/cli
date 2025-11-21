@@ -30,6 +30,9 @@ func runInstall(cmd *cobra.Command) error {
 		Bold(true).
 		Foreground(lipgloss.Color("#00FF00"))
 
+	stepStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#87D7FF"))
+
 	// Get the path to the current executable
 	exe, err := os.Executable()
 	if err != nil {
@@ -55,11 +58,6 @@ func runInstall(cmd *cobra.Command) error {
 		}
 	}
 
-	// If we are in a temp directory or not in the expected location,
-	// we might want to copy ourselves?
-	// The script does the downloading, so we assume we are already in ~/.major/bin/major
-	// We just need to ensure ~/.major/bin is in PATH
-
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return fmt.Errorf("failed to get user home dir: %w", err)
@@ -67,10 +65,12 @@ func runInstall(cmd *cobra.Command) error {
 
 	shell := os.Getenv("SHELL")
 	var configFile string
+	var shellType string
 
 	switch {
 	case strings.Contains(shell, "zsh"):
 		configFile = filepath.Join(home, ".zshrc")
+		shellType = "zsh"
 	case strings.Contains(shell, "bash"):
 		configFile = filepath.Join(home, ".bashrc")
 		// Check for .bash_profile on macOS
@@ -79,6 +79,7 @@ func runInstall(cmd *cobra.Command) error {
 				configFile = filepath.Join(home, ".bash_profile")
 			}
 		}
+		shellType = "bash"
 	default:
 		// Fallback or skip
 		cmd.Println("Could not detect compatible shell (zsh/bash). Please add the following to your path manually:")
@@ -86,11 +87,69 @@ func runInstall(cmd *cobra.Command) error {
 		return nil
 	}
 
-	// Check if already in config
+	// Create completions directory
+	completionsDir := filepath.Join(home, ".major", "completions")
+	if err := os.MkdirAll(completionsDir, 0755); err != nil {
+		return fmt.Errorf("failed to create completions directory: %w", err)
+	}
+
+	// Generate completion script
+	cmd.Println(stepStyle.Render("▸ Generating shell completions..."))
+
+	var completionEntry string
+	switch shellType {
+	case "zsh":
+		// For Zsh, we generate _major file and add directory to fpath
+		completionFile := filepath.Join(completionsDir, "_major")
+		f, err := os.Create(completionFile)
+		if err != nil {
+			return fmt.Errorf("failed to create zsh completion file: %w", err)
+		}
+		defer f.Close()
+
+		if err := cmd.Root().GenZshCompletion(f); err != nil {
+			return fmt.Errorf("failed to generate zsh completion: %w", err)
+		}
+
+		// We need to add fpath before compinit
+		// But often users already have compinit in their .zshrc
+		// The safest robust way is to append to fpath and ensure compinit is called
+		completionEntry = fmt.Sprintf(`
+# Major CLI
+export PATH="%s:$PATH"
+export FPATH="%s:$FPATH"
+# Ensure compinit is loaded (if not already)
+autoload -U compinit && compinit
+`, binDir, completionsDir)
+
+	case "bash":
+		completionFile := filepath.Join(completionsDir, "major.bash")
+		f, err := os.Create(completionFile)
+		if err != nil {
+			return fmt.Errorf("failed to create bash completion file: %w", err)
+		}
+		defer f.Close()
+
+		if err := cmd.Root().GenBashCompletion(f); err != nil {
+			return fmt.Errorf("failed to generate bash completion: %w", err)
+		}
+
+		completionEntry = fmt.Sprintf(`
+# Major CLI
+export PATH="%s:$PATH"
+source "%s"
+`, binDir, completionFile)
+	}
+
+	// Check if already configured
 	content, err := os.ReadFile(configFile)
 	if err == nil {
-		if strings.Contains(string(content), binDir) {
-			cmd.Println(successStyle.Render("Major CLI is already in your PATH!"))
+		// If we already see our marker or the bin path, we might want to update it or skip
+		// But the user might have moved the directory.
+		// Let's check for our specific comment
+		if strings.Contains(string(content), "# Major CLI") {
+			cmd.Println(successStyle.Render("Major CLI is already configured in your shell!"))
+			// We still re-generated the completion file above, which is good for updates.
 			return nil
 		}
 	}
@@ -102,13 +161,12 @@ func runInstall(cmd *cobra.Command) error {
 	}
 	defer f.Close()
 
-	pathEntry := fmt.Sprintf("\n# Major CLI\nexport PATH=\"%s:$PATH\"\n", binDir)
-	if _, err := f.WriteString(pathEntry); err != nil {
+	if _, err := f.WriteString(completionEntry); err != nil {
 		return fmt.Errorf("failed to write to shell config file: %w", err)
 	}
 
-	cmd.Println(successStyle.Render(fmt.Sprintf("Added Major CLI to %s", configFile)))
-	cmd.Println("Please restart your shell or source your config file to start using 'major'")
+	cmd.Println(successStyle.Render(fmt.Sprintf("Added Major CLI configuration to %s", configFile)))
+	cmd.Println("Please restart your shell or run 'source " + configFile + "' to start using 'major'")
 
 	return nil
 }

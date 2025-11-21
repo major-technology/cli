@@ -74,7 +74,7 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 
-	// Disable the completion command
+	// Disable the default completion command (we use our own)
 	rootCmd.CompletionOptions.DisableDefaultCmd = true
 
 	// Disable the help command (use -h flag instead)

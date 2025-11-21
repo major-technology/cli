@@ -8,15 +8,15 @@ Major is a platform that lets you deploy and manage access to applications you b
 
 ## Installation
 
+### Direct Install
+```bash
+curl -fsSL https://install.major.build | bash
+```
+
 ### Homebrew
 ```bash
 brew tap major-technology/tap
 brew install major-technology/tap/major
-```
-
-### Direct Install
-```bash
-curl -fsSL https://install.major.build | bash
 ```
 
 ### Updating
