@@ -343,24 +343,12 @@ func pollDeploymentStatus(applicationID, organizationID, versionID string) (stri
 
 // formatDeploymentError formats the deployment error message with nice styling
 func formatDeploymentError(errorMsg string) string {
-	// Style definitions
-	errorBoxStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("196")).
-		Padding(1, 2).
-		Width(80)
-
 	titleStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("196")).
 		Bold(true)
 
-	messageStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("252"))
-
-	// Format the error message
+	// Format with just a title and raw logs
 	title := titleStyle.Render("Deployment Error Details:")
-	message := messageStyle.Render(errorMsg)
-
-	content := fmt.Sprintf("%s\n\n%s", title, message)
-	return errorBoxStyle.Render(content)
+	
+	return fmt.Sprintf("%s\n\n%s", title, errorMsg)
 }

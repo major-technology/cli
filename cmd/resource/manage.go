@@ -15,8 +15,11 @@ var manageCmd = &cobra.Command{
 	Use:   "manage",
 	Short: "Manage application resources",
 	Long:  `Select and configure resources for your application.`,
-	PreRunE: middleware.Compose(
+	PreRunE: middleware.ChainParent(
 		middleware.CheckLogin,
+		middleware.CheckNodeInstalled,
+		middleware.CheckNodeVersion("22.12"),
+		middleware.CheckPnpmInstalled,
 	),
 	RunE: func(cobraCmd *cobra.Command, args []string) error {
 		return runManage(cobraCmd)
