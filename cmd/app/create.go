@@ -316,7 +316,7 @@ func selectTemplate(cobraCmd *cobra.Command, apiClient *api.Client) (string, con
 	// Find the template name and ID for the selected URL
 	var selectedTemplateName constants.TemplateName
 	var selectedTemplateID string
-	for _, template := range orderedTemplates {
+	for _, template := range templatesResp.Templates {
 		if template.TemplateURL == selectedTemplateURL {
 			selectedTemplateName = template.Name
 			selectedTemplateID = template.ID
