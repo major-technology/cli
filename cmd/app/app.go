@@ -29,6 +29,6 @@ func init() {
 	Cmd.AddCommand(infoCmd)
 	Cmd.AddCommand(startCmd)
 	Cmd.AddCommand(deployCmd)
-	Cmd.AddCommand(editCmd)
+	Cmd.AddCommand(configureCmd)
 	Cmd.AddCommand(cloneCmd)
 }
