@@ -122,8 +122,8 @@ var ErrorGitNotFound = &CLIError{
 }
 
 var ErrorNotGitRepository = &CLIError{
-	Title:      "Not a git repository",
-	Suggestion: "Run this command from inside a git repository, or initialize one with 'git init'",
+	Title:      "Not a major repository",
+	Suggestion: "Make sure you're inside a major project directory.",
 	Err:        errors.New("not a git repository"),
 }
 
