@@ -13,7 +13,6 @@ import (
 	"github.com/major-technology/cli/clients/token"
 	"github.com/major-technology/cli/errors"
 	"github.com/major-technology/cli/singletons"
-	pkgErrors "github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
 
@@ -126,7 +125,7 @@ func runDeploy(cobraCmd *cobra.Command) error {
 			cobraCmd.Printf("\n❌ Deployment failed with status: %s\n", finalStatus)
 			cobraCmd.Printf("\n%s\n", formatDeploymentError(deploymentError))
 		}
-		return pkgErrors.Errorf("deployment failed with status: %s", finalStatus)
+		return fmt.Errorf("deployment failed with status: %s", finalStatus)
 	}
 
 	return nil
@@ -349,6 +348,6 @@ func formatDeploymentError(errorMsg string) string {
 
 	// Format with just a title and raw logs
 	title := titleStyle.Render("Deployment Error Details:")
-	
+
 	return fmt.Sprintf("%s\n\n%s", title, errorMsg)
 }

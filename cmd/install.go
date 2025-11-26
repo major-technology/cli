@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/major-technology/cli/errors"
 	"github.com/spf13/cobra"
 )
 
@@ -36,13 +37,13 @@ func runInstall(cmd *cobra.Command) error {
 	// Get the path to the current executable
 	exe, err := os.Executable()
 	if err != nil {
-		return fmt.Errorf("failed to get executable path: %w", err)
+		return errors.WrapError("failed to get executable path", err)
 	}
 
 	// Resolve symlinks just in case
 	exe, err = filepath.EvalSymlinks(exe)
 	if err != nil {
-		return fmt.Errorf("failed to resolve executable path: %w", err)
+		return errors.WrapError("failed to resolve executable path", err)
 	}
 
 	binDir := filepath.Dir(exe)
@@ -60,7 +61,7 @@ func runInstall(cmd *cobra.Command) error {
 
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return fmt.Errorf("failed to get user home dir: %w", err)
+		return errors.WrapError("failed to get user home dir", err)
 	}
 
 	shell := os.Getenv("SHELL")
@@ -90,7 +91,7 @@ func runInstall(cmd *cobra.Command) error {
 	// Create completions directory
 	completionsDir := filepath.Join(home, ".major", "completions")
 	if err := os.MkdirAll(completionsDir, 0755); err != nil {
-		return fmt.Errorf("failed to create completions directory: %w", err)
+		return errors.WrapError("failed to create completions directory", err)
 	}
 
 	// Generate completion script
@@ -103,12 +104,12 @@ func runInstall(cmd *cobra.Command) error {
 		completionFile := filepath.Join(completionsDir, "_major")
 		f, err := os.Create(completionFile)
 		if err != nil {
-			return fmt.Errorf("failed to create zsh completion file: %w", err)
+			return errors.WrapError("failed to create zsh completion file", err)
 		}
 		defer f.Close()
 
 		if err := cmd.Root().GenZshCompletion(f); err != nil {
-			return fmt.Errorf("failed to generate zsh completion: %w", err)
+			return errors.WrapError("failed to generate zsh completion", err)
 		}
 
 		// We need to add fpath before compinit
@@ -126,12 +127,12 @@ autoload -U compinit && compinit
 		completionFile := filepath.Join(completionsDir, "major.bash")
 		f, err := os.Create(completionFile)
 		if err != nil {
-			return fmt.Errorf("failed to create bash completion file: %w", err)
+			return errors.WrapError("failed to create bash completion file", err)
 		}
 		defer f.Close()
 
 		if err := cmd.Root().GenBashCompletion(f); err != nil {
-			return fmt.Errorf("failed to generate bash completion: %w", err)
+			return errors.WrapError("failed to generate bash completion", err)
 		}
 
 		completionEntry = fmt.Sprintf(`
@@ -157,12 +158,12 @@ source "%s"
 	// Append to config
 	f, err := os.OpenFile(configFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		return fmt.Errorf("failed to open shell config file: %w", err)
+		return errors.WrapError("failed to open shell config file", err)
 	}
 	defer f.Close()
 
 	if _, err := f.WriteString(completionEntry); err != nil {
-		return fmt.Errorf("failed to write to shell config file: %w", err)
+		return errors.WrapError("failed to write to shell config file", err)
 	}
 
 	boxStyle := lipgloss.NewStyle().

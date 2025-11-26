@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/major-technology/cli/errors"
 	"github.com/spf13/cobra"
 )
 
@@ -79,7 +80,7 @@ func updateViaBrew(cmd *cobra.Command, stepStyle, successStyle lipgloss.Style) e
 	updateCmd.Stdout = os.Stdout
 	updateCmd.Stderr = os.Stderr
 	if err := updateCmd.Run(); err != nil {
-		return fmt.Errorf("failed to update Homebrew: %w", err)
+		return errors.WrapError("failed to update Homebrew", err)
 	}
 
 	// Upgrade major
@@ -94,7 +95,7 @@ func updateViaBrew(cmd *cobra.Command, stepStyle, successStyle lipgloss.Style) e
 			cmd.Println(successStyle.Render("✓ Major CLI is already up to date!"))
 			return nil
 		}
-		return fmt.Errorf("failed to upgrade major: %w", err)
+		return errors.WrapError("failed to upgrade major", err)
 	}
 
 	cmd.Println()
@@ -115,7 +116,7 @@ func updateViaDirect(cmd *cobra.Command, stepStyle, successStyle lipgloss.Style)
 	curlCmd.Stdin = os.Stdin // Allow password prompt for sudo
 
 	if err := curlCmd.Run(); err != nil {
-		return fmt.Errorf("failed to download and install update: %w", err)
+		return errors.WrapError("failed to download and install update", err)
 	}
 
 	cmd.Println()

@@ -10,7 +10,6 @@ import (
 
 	mjrToken "github.com/major-technology/cli/clients/token"
 	clierrors "github.com/major-technology/cli/errors"
-	"github.com/pkg/errors"
 )
 
 // Client represents an API client for making authenticated requests
@@ -57,7 +56,7 @@ func (c *Client) doRequestInternal(method, path string, body interface{}, respon
 	if body != nil {
 		jsonBody, err := json.Marshal(body)
 		if err != nil {
-			return errors.Wrap(err, "failed to marshal request body")
+			return clierrors.WrapError("failed to marshal request body", err)
 		}
 		reqBody = bytes.NewBuffer(jsonBody)
 	}
@@ -65,7 +64,7 @@ func (c *Client) doRequestInternal(method, path string, body interface{}, respon
 	url := c.baseURL + path
 	req, err := http.NewRequest(method, url, reqBody)
 	if err != nil {
-		return errors.Wrap(err, "failed to create request")
+		return clierrors.WrapError("failed to create request", err)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
@@ -75,13 +74,13 @@ func (c *Client) doRequestInternal(method, path string, body interface{}, respon
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return errors.Wrap(err, "failed to make request")
+		return clierrors.WrapError("failed to make request", err)
 	}
 	defer resp.Body.Close()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return errors.Wrap(err, "failed to read response")
+		return clierrors.WrapError("failed to read response", err)
 	}
 
 	// Handle error responses
@@ -104,7 +103,7 @@ func (c *Client) doRequestInternal(method, path string, body interface{}, respon
 	// Parse successful response if a response struct is provided
 	if response != nil {
 		if err := json.Unmarshal(respBody, response); err != nil {
-			return errors.Wrap(err, "failed to parse response")
+			return clierrors.WrapError("failed to parse response", err)
 		}
 	}
 

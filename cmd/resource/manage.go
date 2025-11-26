@@ -1,8 +1,6 @@
 package resource
 
 import (
-	"fmt"
-
 	"github.com/major-technology/cli/errors"
 	"github.com/major-technology/cli/middleware"
 	"github.com/major-technology/cli/singletons"
@@ -30,7 +28,7 @@ func runManage(cobraCmd *cobra.Command) error {
 	// Get application info from current directory
 	appInfo, err := utils.GetApplicationInfo("")
 	if err != nil {
-		return fmt.Errorf("failed to identify application: %w", err)
+		return errors.WrapError("failed to identify application", err)
 	}
 
 	apiClient := singletons.GetAPIClient()

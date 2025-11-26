@@ -1,14 +1,12 @@
 package git
 
 import (
-	stderrors "errors"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"regexp"
 	"strings"
-
-	"github.com/pkg/errors"
 
 	clierrors "github.com/major-technology/cli/errors"
 )
@@ -35,7 +33,7 @@ func GetRemoteURLFromDir(dir string) (string, error) {
 	if err != nil {
 		// Check if this is a "not a git repository" error
 		var exitErr *exec.ExitError
-		if stderrors.As(err, &exitErr) {
+		if errors.As(err, &exitErr) {
 			stderr := string(exitErr.Stderr)
 			if strings.Contains(stderr, "not a git repository") {
 				return "", clierrors.ErrorNotGitRepository
@@ -53,7 +51,7 @@ func Clone(url, targetDir string) error {
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		// Include the git output in the error message
-		return errors.Wrap(err, "git clone failed: "+string(output))
+		return clierrors.WrapError("git clone failed: "+string(output), err)
 	}
 	// Print output on success
 	fmt.Print(string(output))
@@ -179,7 +177,7 @@ func Pull(repoDir string) error {
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		// Include the git output in the error message
-		return errors.Wrap(err, "git pull failed: "+string(output))
+		return clierrors.WrapError("git pull failed: "+string(output), err)
 	}
 	return nil
 }
