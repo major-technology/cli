@@ -310,7 +310,7 @@ func selectTemplate(cobraCmd *cobra.Command, apiClient *api.Client) (string, con
 	)
 
 	if err := form.Run(); err != nil {
-		return "", "", "", fmt.Errorf("failed to select template: %w", err)
+		return "", "", "", errors.WrapError("failed to select template", err)
 	}
 
 	// Find the template name and ID for the selected URL

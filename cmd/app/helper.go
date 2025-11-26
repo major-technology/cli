@@ -38,7 +38,7 @@ func getApplicationIDFromDir(dir string) (string, error) {
 	// Parse the remote URL to extract owner and repo
 	remoteInfo, err := git.ParseRemoteURL(remoteURL)
 	if err != nil {
-		return "", fmt.Errorf("failed to parse git remote URL: %w", err)
+		return "", errors.WrapError("failed to parse git remote URL", err)
 	}
 
 	// Get API client
@@ -50,7 +50,7 @@ func getApplicationIDFromDir(dir string) (string, error) {
 	// Get application by repository
 	appResp, err := apiClient.GetApplicationByRepo(remoteInfo.Owner, remoteInfo.Repo)
 	if err != nil {
-		return "", fmt.Errorf("failed to get application: %w", err)
+		return "", errors.WrapError("failed to get application", err)
 	}
 
 	return appResp.ApplicationID, nil
@@ -84,7 +84,7 @@ func cloneRepository(sshURL, httpsURL, targetDir string) (string, error) {
 
 	// Clone the repository
 	if err := git.Clone(cloneURL, targetDir); err != nil {
-		return "", fmt.Errorf("failed to clone repository using %s: %w", cloneMethod, err)
+		return "", errors.WrapError("failed to clone repository using "+cloneMethod, err)
 	}
 
 	return cloneMethod, nil
@@ -201,7 +201,7 @@ func ensureRepositoryAccess(cmd *cobra.Command, appID string, sshURL string, htt
 		)
 
 		if err := confirmForm.Run(); err != nil {
-			return fmt.Errorf("failed to confirm GitHub username: %w", err)
+			return errors.WrapError("failed to confirm GitHub username", err)
 		}
 
 		if useStored {

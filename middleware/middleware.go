@@ -139,7 +139,7 @@ func CheckNodeVersion(minVersion string) CommandCheck {
 		cmdOut := exec.Command(path, "--version")
 		output, err := cmdOut.Output()
 		if err != nil {
-			return fmt.Errorf("failed to check node version: %w", err)
+			return clierrors.WrapError("failed to check node version", err)
 		}
 
 		versionStr := strings.TrimSpace(string(output))

@@ -1,10 +1,10 @@
 package errors
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
 
@@ -15,31 +15,34 @@ type CLIError struct {
 	Err        error
 }
 
+// Standard error interface
 func (e *CLIError) Error() string {
 	return e.Title
 }
 
+// Unwrap allows standard errors.Is/As to work on this struct
 func (e *CLIError) Unwrap() error {
 	return e.Err
 }
 
-// WrapError wraps an existing error with additional context
+// WrapError wraps an existing error with additional context using Standard Lib
 func WrapError(msg string, ogerr error) *CLIError {
 	var cliError *CLIError
+
 	if errors.As(ogerr, &cliError) {
 		return &CLIError{
 			Title:      msg,
 			Suggestion: cliError.Suggestion,
-			Err:        errors.Wrap(cliError.Err, msg),
+			Err:        fmt.Errorf("%s: %w", msg, cliError.Err),
 		}
 	}
+
 	return &CLIError{
 		Title: msg,
-		Err:   errors.Wrap(ogerr, msg),
+		Err:   fmt.Errorf("%s: %w", msg, ogerr),
 	}
 }
 
-// PrintError prints a styled error message to the command output
 func PrintError(cmd *cobra.Command, err error) {
 	errorStyle := lipgloss.NewStyle().
 		Bold(true).
@@ -54,13 +57,12 @@ func PrintError(cmd *cobra.Command, err error) {
 
 	var title, suggestion string
 
-	// If it's a CLIError, extract title and suggestion
+	// standard errors.As works perfectly with your custom struct
 	var cliErr *CLIError
 	if errors.As(err, &cliErr) {
 		title = cliErr.Title
 		suggestion = cliErr.Suggestion
 	} else {
-		// Fallback for non-CLIError errors
 		title = err.Error()
 	}
 

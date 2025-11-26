@@ -58,11 +58,11 @@ func runLogin(cobraCmd *cobra.Command) error {
 	if len(orgsResp.Organizations) > 0 {
 		selectedOrg, err := SelectOrganization(cobraCmd, orgsResp.Organizations)
 		if err != nil {
-			return fmt.Errorf("failed to select organization: %w", err)
+			return clierrors.WrapError("failed to select organization", err)
 		}
 
 		if err := mjrToken.StoreDefaultOrg(selectedOrg.ID, selectedOrg.Name); err != nil {
-			return fmt.Errorf("failed to store default organization: %w", err)
+			return clierrors.WrapError("failed to store default organization", err)
 		}
 
 		cobraCmd.Printf("Default organization set to: %s\n", selectedOrg.Name)
@@ -140,7 +140,7 @@ func SelectOrganization(cobraCmd *cobra.Command, orgs []apiClient.Organization) 
 
 	err := form.Run()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get selection: %w", err)
+		return nil, clierrors.WrapError("failed to get selection", err)
 	}
 
 	// Find the selected organization

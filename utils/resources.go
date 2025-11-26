@@ -200,7 +200,7 @@ func AddResourcesToProject(cmd *cobra.Command, projectDir string, resources []ap
 	installCmd.Stderr = os.Stderr
 
 	if err := installCmd.Run(); err != nil {
-		return fmt.Errorf("failed to install dependencies: %w", err)
+		return errors.WrapError("failed to install dependencies", err)
 	}
 
 	var prefix string
@@ -287,7 +287,7 @@ func GenerateResourcesFile(targetDir string) (string, int, error) {
 	// Get application resources
 	resourcesResp, err := apiClient.GetApplicationResources(applicationID)
 	if err != nil {
-		return "", 0, fmt.Errorf("failed to get application resources: %w", err)
+		return "", 0, errors.WrapError("failed to get application resources", err)
 	}
 
 	// Determine the target directory
@@ -295,7 +295,7 @@ func GenerateResourcesFile(targetDir string) (string, int, error) {
 	if gitRoot == "" {
 		gitRoot, err = git.GetRepoRoot()
 		if err != nil {
-			return "", 0, fmt.Errorf("failed to get git repository root: %w", err)
+			return "", 0, errors.WrapError("failed to get git repository root", err)
 		}
 	}
 
@@ -320,7 +320,7 @@ func GenerateResourcesFile(targetDir string) (string, int, error) {
 	// Write to RESOURCES.md file
 	err = os.WriteFile(resourcesFilePath, []byte(content.String()), 0644)
 	if err != nil {
-		return "", 0, fmt.Errorf("failed to write RESOURCES.md file: %w", err)
+		return "", 0, errors.WrapError("failed to write RESOURCES.md file", err)
 	}
 
 	return resourcesFilePath, len(resourcesResp.Resources), nil
