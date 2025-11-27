@@ -58,10 +58,13 @@ func getApplicationIDFromDir(dir string) (string, error) {
 
 // canUseSSH checks if SSH is available and configured for git
 func canUseSSH() bool {
-	// Check if ssh-agent is running and has keys
-	cmd := exec.Command("ssh-add", "-l")
-	err := cmd.Run()
-	return err == nil
+	// Test actual SSH connectivity to GitHub
+	// ssh -T returns exit code 1 even on success (no shell access), so we check output
+	cmd := exec.Command("ssh", "-T", "-o", "BatchMode=yes", "-o", "ConnectTimeout=5", "git@github.com")
+	output, _ := cmd.CombinedOutput() // Ignore error since exit code 1 is expected on success
+
+	// GitHub returns "Hi <username>! You've successfully authenticated..." on success
+	return strings.Contains(string(output), "successfully authenticated")
 }
 
 // cloneRepository clones a repository using SSH or HTTPS based on availability
