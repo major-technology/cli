@@ -272,7 +272,6 @@ func selectTemplate(cobraCmd *cobra.Command, apiClient *api.Client) (string, con
 
 	for _, t := range templatesResp.Templates {
 		if t.ID == recommendedID {
-			t.Name = t.Name + " (recommended)"
 			orderedTemplates = append([]*api.TemplateItem{t}, orderedTemplates...)
 		} else {
 			orderedTemplates = append(orderedTemplates, t)
@@ -291,10 +290,14 @@ func selectTemplate(cobraCmd *cobra.Command, apiClient *api.Client) (string, con
 		return template.TemplateURL, template.Name, template.ID, nil
 	}
 
-	// Create options for the select
+	// Create options for the select (add display suffix for recommended template)
 	options := make([]huh.Option[string], len(orderedTemplates))
 	for i, template := range orderedTemplates {
-		options[i] = huh.NewOption(string(template.Name), template.TemplateURL)
+		displayName := string(template.Name)
+		if template.ID == recommendedID {
+			displayName += " (recommended)"
+		}
+		options[i] = huh.NewOption(displayName, template.TemplateURL)
 	}
 
 	// Prompt user to select a template
