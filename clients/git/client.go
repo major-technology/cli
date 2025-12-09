@@ -2,7 +2,6 @@ package git
 
 import (
 	"errors"
-	"fmt"
 	"os"
 	"os/exec"
 	"regexp"
@@ -53,8 +52,6 @@ func Clone(url, targetDir string) error {
 		// Include the git output in the error message
 		return clierrors.WrapError("git clone failed: "+string(output), err)
 	}
-	// Print output on success
-	fmt.Print(string(output))
 	return nil
 }
 

@@ -1,6 +1,7 @@
 package app
 
 import (
+	stderrors "errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -94,12 +95,11 @@ func cloneRepository(sshURL, httpsURL, targetDir string) (string, error) {
 }
 
 // isGitAuthError checks if the error is related to git authentication/permission issues
+// It checks all wrapped errors in the chain, not just the top-level error
 func isGitAuthError(err error) bool {
 	if err == nil {
 		return false
 	}
-
-	errMsg := strings.ToLower(err.Error())
 
 	// Common git authentication error patterns
 	authErrorPatterns := []string{
@@ -113,9 +113,13 @@ func isGitAuthError(err error) bool {
 		"fatal: unable to access",
 	}
 
-	for _, pattern := range authErrorPatterns {
-		if strings.Contains(errMsg, pattern) {
-			return true
+	// Check all errors in the chain
+	for e := err; e != nil; e = stderrors.Unwrap(e) {
+		errMsg := strings.ToLower(e.Error())
+		for _, pattern := range authErrorPatterns {
+			if strings.Contains(errMsg, pattern) {
+				return true
+			}
 		}
 	}
 
