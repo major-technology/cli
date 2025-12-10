@@ -1,9 +1,10 @@
-package app
+package demo
 
 import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
@@ -18,11 +19,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// Hardcoded demo template URL
+const demoTemplateURL = "https://github.com/major-technology/demo-template"
+
 // createCmd represents the create command
 var createCmd = &cobra.Command{
 	Use:   "create",
-	Short: "Create a new application",
-	Long:  `Create a new application with a GitHub repository and sets up the basic template.`,
+	Short: "Create a new demo application",
+	Long:  `Create a new demo application with a GitHub repository and the demo template.`,
 	PreRunE: middleware.Compose(
 		middleware.CheckLogin,
 	),
@@ -38,7 +42,7 @@ func runCreate(cobraCmd *cobra.Command) error {
 		return errors.ErrorNoOrganizationSelected
 	}
 
-	cobraCmd.Printf("Creating application in organization: %s\n\n", orgName)
+	cobraCmd.Printf("Creating demo application in organization: %s\n\n", orgName)
 
 	// Ask user for application name and description
 	var appName, appDescription string
@@ -47,7 +51,7 @@ func runCreate(cobraCmd *cobra.Command) error {
 		huh.NewGroup(
 			huh.NewInput().
 				Title("Application Name").
-				Description("Enter a name for your application").
+				Description("Enter a name for your demo application").
 				Value(&appName).
 				Validate(func(s string) error {
 					if s == "" {
@@ -57,7 +61,7 @@ func runCreate(cobraCmd *cobra.Command) error {
 				}),
 			huh.NewText().
 				Title("Application Description").
-				Description("Enter a description for your application").
+				Description("Enter a description for your demo application").
 				Value(&appDescription).
 				Validate(func(s string) error {
 					if s == "" {
@@ -75,27 +79,16 @@ func runCreate(cobraCmd *cobra.Command) error {
 	// Get the API client
 	apiClient := singletons.GetAPIClient()
 
-	// Fetch and select template
-	templateURL, templateName, templateID, err := selectTemplate(cobraCmd, apiClient)
-	if err != nil {
-		return errors.WrapError("failed to select template", err)
-	}
+	cobraCmd.Printf("\nCreating demo application '%s'...\n", appName)
 
-	cobraCmd.Printf("\nCreating application '%s'...\n", appName)
-
-	// Call POST /applications (token will be fetched automatically)
-	createResp, err := apiClient.CreateApplication(appName, appDescription, orgID)
+	// Call POST /demo_application
+	createResp, err := apiClient.CreateDemoApplication(appName, appDescription, orgID)
 	if err != nil {
 		return err
 	}
 
-	cobraCmd.Printf("✓ Application created with ID: %s\n", createResp.ApplicationID)
+	cobraCmd.Printf("✓ Demo application created with ID: %s\n", createResp.ApplicationID)
 	cobraCmd.Printf("✓ Repository: %s\n", createResp.RepositoryName)
-
-	_, err = apiClient.SetApplicationTemplate(createResp.ApplicationID, templateID)
-	if err != nil {
-		return err
-	}
 
 	// Check if we have permissions to use SSH or HTTPS
 	useSSH := false
@@ -116,18 +109,18 @@ func runCreate(cobraCmd *cobra.Command) error {
 	}
 
 	// Create a temporary directory for the template
-	tempDir, err := os.MkdirTemp("", "major-template-*")
+	tempDir, err := os.MkdirTemp("", "major-demo-template-*")
 	if err != nil {
 		return errors.WrapError("failed to create temp directory", err)
 	}
 	defer os.RemoveAll(tempDir)
 
-	// Clone the template repository
-	if err := git.Clone(templateURL, tempDir); err != nil {
-		return errors.WrapError("failed to clone template repository", err)
+	// Clone the hardcoded demo template repository
+	if err := git.Clone(demoTemplateURL, tempDir); err != nil {
+		return errors.WrapError("failed to clone demo template repository", err)
 	}
 
-	cobraCmd.Println("✓ Template cloned")
+	cobraCmd.Println("✓ Demo template cloned")
 
 	// Remove the existing remote origin
 	if err := git.RemoveRemote(tempDir, "origin"); err != nil {
@@ -148,11 +141,24 @@ func runCreate(cobraCmd *cobra.Command) error {
 		return errors.WrapError("failed to ensure repository access", err)
 	}
 
-	// Select resources for the application
-	cobraCmd.Println("\nSelecting resources for your application...")
-	selectedResources, err := utils.SelectApplicationResources(cobraCmd, apiClient, orgID, createResp.ApplicationID)
+	// Get the demo resource
+	cobraCmd.Println("\nFetching demo resource...")
+	demoResourceResp, err := apiClient.GetDemoResource()
 	if err != nil {
-		return errors.ErrorFailedToSelectResources
+		return errors.WrapError("failed to get demo resource", err)
+	}
+
+	var selectedResources []api.ResourceItem
+	if demoResourceResp.Resource != nil {
+		selectedResources = []api.ResourceItem{*demoResourceResp.Resource}
+		cobraCmd.Printf("✓ Demo resource found: %s (%s)\n", demoResourceResp.Resource.Name, demoResourceResp.Resource.Type)
+
+		// Save the demo resource to the application
+		_, err = apiClient.SaveApplicationResources(orgID, createResp.ApplicationID, []string{demoResourceResp.Resource.ID})
+		if err != nil {
+			return errors.WrapError("failed to save demo resource", err)
+		}
+		cobraCmd.Println("✓ Demo resource linked to application")
 	}
 
 	// Push to the new remote
@@ -166,19 +172,19 @@ func runCreate(cobraCmd *cobra.Command) error {
 		return errors.WrapError("failed to move repository", err)
 	}
 
-	cobraCmd.Printf("\n✓ Application '%s' successfully created in ./%s\n", appName, appName)
+	cobraCmd.Printf("\n✓ Demo application '%s' successfully created in ./%s\n", appName, appName)
 	cobraCmd.Printf("  Clone URL: %s\n", cloneURL)
 
-	// If Vite template and resources were selected, add them using major-client
+	// Add the demo resource to the project
 	if len(selectedResources) > 0 {
-		if err := utils.AddResourcesToProject(cobraCmd, targetDir, selectedResources, createResp.ApplicationID, templateName); err != nil {
+		if err := utils.AddResourcesToProject(cobraCmd, targetDir, selectedResources, createResp.ApplicationID, constants.ViteTemplate); err != nil {
 			return errors.ErrorFailedToSelectResources
 		}
 	}
 
 	// Generate .env file
 	cobraCmd.Println("\nGenerating .env file...")
-	envFilePath, _, err := generateEnvFile(targetDir)
+	envFilePath, _, err := generateEnvFile(targetDir, orgID, createResp.ApplicationID)
 	if err != nil {
 		cobraCmd.Printf("Warning: Failed to generate .env file: %v\n", err)
 	} else {
@@ -222,7 +228,7 @@ func printSuccessMessage(cobraCmd *cobra.Command, appName string) {
 		Bold(true)
 
 	// Build the message
-	successMsg := successStyle.Render("🎉 Congrats on setting up your app!")
+	successMsg := successStyle.Render("🎉 Congrats on setting up your demo app!")
 
 	// CD instruction
 	cdInstruction := cdStyle.Render(fmt.Sprintf("First, navigate to your app directory:\n  cd %s", appName))
@@ -236,18 +242,13 @@ func printSuccessMessage(cobraCmd *cobra.Command, appName string) {
 	deployCommand := commandStyle.Render("major app deploy")
 	deployDesc := descriptionStyle.Render("  Deploy your app to production when ready")
 
-	resourceCommand := commandStyle.Render("major resource manage")
-	resourceDesc := descriptionStyle.Render("  Manage the resources your app is connected to")
-
-	content := fmt.Sprintf("%s\n\n%s\n\n%s\n%s\n\n%s\n%s\n\n%s\n%s",
+	content := fmt.Sprintf("%s\n\n%s\n\n%s\n%s\n\n%s\n%s",
 		nextStepsTitle,
 		cdInstruction,
 		startCommand,
 		startDesc,
 		deployCommand,
 		deployDesc,
-		resourceCommand,
-		resourceDesc,
 	)
 
 	box := boxStyle.Render(content)
@@ -257,75 +258,29 @@ func printSuccessMessage(cobraCmd *cobra.Command, appName string) {
 	cobraCmd.Println(box)
 }
 
-// selectTemplate prompts the user to select a template for the application
-// Returns the template URL, name, and ID
-func selectTemplate(cobraCmd *cobra.Command, apiClient *api.Client) (string, constants.TemplateName, string, error) {
-	// Fetch available templates
-	templatesResp, err := apiClient.GetTemplates()
+// generateEnvFile generates a .env file for the application in the specified directory.
+func generateEnvFile(targetDir, orgID, applicationID string) (string, int, error) {
+	apiClient := singletons.GetAPIClient()
+
+	envVars, err := apiClient.GetApplicationEnv(orgID, applicationID)
 	if err != nil {
-		return "", "", "", err
+		return "", 0, errors.WrapError("failed to get environment variables", err)
 	}
 
-	// Prioritize the recommended template (this is the vite template rn)
-	recommendedID := "962add46-30fb-48b6-94a6-7b967cdf0d35"
-	var orderedTemplates []*api.TemplateItem
+	// Create .env file path
+	envFilePath := filepath.Join(targetDir, ".env")
 
-	for _, t := range templatesResp.Templates {
-		if t.ID == recommendedID {
-			orderedTemplates = append([]*api.TemplateItem{t}, orderedTemplates...)
-		} else {
-			orderedTemplates = append(orderedTemplates, t)
-		}
+	// Build the .env file content
+	var envContent strings.Builder
+	for key, value := range envVars {
+		envContent.WriteString(fmt.Sprintf("%s=%s\n", key, value))
 	}
 
-	// Check if there are any templates available
-	if len(orderedTemplates) == 0 {
-		return "", "", "", errors.ErrorNoTemplatesAvailable
+	// Write to .env file
+	err = os.WriteFile(envFilePath, []byte(envContent.String()), 0644)
+	if err != nil {
+		return "", 0, errors.WrapError("failed to write .env file", err)
 	}
 
-	// If only one template, use it automatically
-	if len(orderedTemplates) == 1 {
-		template := orderedTemplates[0]
-		cobraCmd.Printf("Using template: %s\n", template.Name)
-		return template.TemplateURL, template.Name, template.ID, nil
-	}
-
-	// Create options for the select (add display suffix for recommended template)
-	options := make([]huh.Option[string], len(orderedTemplates))
-	for i, template := range orderedTemplates {
-		displayName := string(template.Name)
-		if template.ID == recommendedID {
-			displayName += " (recommended)"
-		}
-		options[i] = huh.NewOption(displayName, template.TemplateURL)
-	}
-
-	// Prompt user to select a template
-	var selectedTemplateURL string
-	form := huh.NewForm(
-		huh.NewGroup(
-			huh.NewSelect[string]().
-				Title("Select a template for your application").
-				Description("Choose which template to use as a starting point").
-				Options(options...).
-				Value(&selectedTemplateURL),
-		),
-	)
-
-	if err := form.Run(); err != nil {
-		return "", "", "", errors.WrapError("failed to select template", err)
-	}
-
-	// Find the template name and ID for the selected URL
-	var selectedTemplateName constants.TemplateName
-	var selectedTemplateID string
-	for _, template := range templatesResp.Templates {
-		if template.TemplateURL == selectedTemplateURL {
-			selectedTemplateName = template.Name
-			selectedTemplateID = template.ID
-			break
-		}
-	}
-
-	return selectedTemplateURL, selectedTemplateName, selectedTemplateID, nil
+	return envFilePath, len(envVars), nil
 }

@@ -358,3 +358,31 @@ func (c *Client) CheckVersion(currentVersion string) (*CheckVersionResponse, err
 	}
 	return &resp, nil
 }
+
+// --- Demo endpoints ---
+
+// CreateDemoApplication creates a new demo application with a GitHub repository
+func (c *Client) CreateDemoApplication(name, description, organizationID string) (*CreateDemoApplicationResponse, error) {
+	req := CreateDemoApplicationRequest{
+		Name:           name,
+		Description:    description,
+		OrganizationID: organizationID,
+	}
+
+	var resp CreateDemoApplicationResponse
+	err := c.doRequest("POST", "/demo_application", req, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+// GetDemoResource retrieves the singular demo resource
+func (c *Client) GetDemoResource() (*GetDemoResourceResponse, error) {
+	var resp GetDemoResourceResponse
+	err := c.doRequest("GET", "/demo_resource", nil, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
