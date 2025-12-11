@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/major-technology/cli/clients/api"
 	"github.com/major-technology/cli/clients/git"
@@ -19,8 +18,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Hardcoded demo template URL
-const demoTemplateURL = "https://github.com/major-technology/demo-template"
+var DemoCloneURLSSH = "git@github.com:major-technology/vite-api-usage-demo.git"
+var DemoCloneURLHTTPS = "https://github.com/major-technology/vite-api-usage-demo.git"
 
 // createCmd represents the create command
 var createCmd = &cobra.Command{
@@ -44,45 +43,11 @@ func runCreate(cobraCmd *cobra.Command) error {
 
 	cobraCmd.Printf("Creating demo application in organization: %s\n\n", orgName)
 
-	// Ask user for application name and description
-	var appName, appDescription string
-
-	form := huh.NewForm(
-		huh.NewGroup(
-			huh.NewInput().
-				Title("Application Name").
-				Description("Enter a name for your demo application").
-				Value(&appName).
-				Validate(func(s string) error {
-					if s == "" {
-						return errors.ErrorApplicationNameRequired
-					}
-					return nil
-				}),
-			huh.NewText().
-				Title("Application Description").
-				Description("Enter a description for your demo application").
-				Value(&appDescription).
-				Validate(func(s string) error {
-					if s == "" {
-						return errors.ErrorApplicationDescriptionRequired
-					}
-					return nil
-				}),
-		),
-	)
-
-	if err := form.Run(); err != nil {
-		return errors.WrapError("failed to collect application details", err)
-	}
-
 	// Get the API client
 	apiClient := singletons.GetAPIClient()
 
-	cobraCmd.Printf("\nCreating demo application '%s'...\n", appName)
-
 	// Call POST /demo_application
-	createResp, err := apiClient.CreateDemoApplication(appName, appDescription, orgID)
+	createResp, err := apiClient.CreateDemoApplication(orgID)
 	if err != nil {
 		return err
 	}
@@ -103,6 +68,11 @@ func runCreate(cobraCmd *cobra.Command) error {
 	}
 
 	// Determine which clone URL to use
+	templateURL := DemoCloneURLHTTPS
+	if useSSH {
+		templateURL = DemoCloneURLSSH
+	}
+
 	cloneURL := createResp.CloneURLHTTPS
 	if useSSH {
 		cloneURL = createResp.CloneURLSSH
@@ -116,7 +86,7 @@ func runCreate(cobraCmd *cobra.Command) error {
 	defer os.RemoveAll(tempDir)
 
 	// Clone the hardcoded demo template repository
-	if err := git.Clone(demoTemplateURL, tempDir); err != nil {
+	if err := git.Clone(templateURL, tempDir); err != nil {
 		return errors.WrapError("failed to clone demo template repository", err)
 	}
 
@@ -143,7 +113,7 @@ func runCreate(cobraCmd *cobra.Command) error {
 
 	// Get the demo resource
 	cobraCmd.Println("\nFetching demo resource...")
-	demoResourceResp, err := apiClient.GetDemoResource()
+	demoResourceResp, err := apiClient.GetDemoResource(orgID)
 	if err != nil {
 		return errors.WrapError("failed to get demo resource", err)
 	}
@@ -167,12 +137,12 @@ func runCreate(cobraCmd *cobra.Command) error {
 	}
 
 	// Move the repository to the current directory
-	targetDir := filepath.Join(".", appName)
+	targetDir := filepath.Join(".", createResp.RepositoryName)
 	if err := os.Rename(tempDir, targetDir); err != nil {
 		return errors.WrapError("failed to move repository", err)
 	}
 
-	cobraCmd.Printf("\n✓ Demo application '%s' successfully created in ./%s\n", appName, appName)
+	cobraCmd.Printf("\n✓ Demo application '%s' successfully created in ./%s\n", createResp.RepositoryName, createResp.RepositoryName)
 	cobraCmd.Printf("  Clone URL: %s\n", cloneURL)
 
 	// Add the demo resource to the project
@@ -191,7 +161,7 @@ func runCreate(cobraCmd *cobra.Command) error {
 		cobraCmd.Printf("✓ Generated .env file at: %s\n", envFilePath)
 	}
 
-	printSuccessMessage(cobraCmd, appName)
+	printSuccessMessage(cobraCmd, createResp.RepositoryName)
 
 	return nil
 }

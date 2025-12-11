@@ -170,6 +170,21 @@ func printSuccessMessage(cobraCmd *cobra.Command) {
 		Foreground(lipgloss.Color("14")). // Cyan
 		Bold(true)
 
+	// Highlighted style for the recommended demo command
+	demoCommandStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("10")). // Green
+		Bold(true)
+
+	recommendedBadge := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("0")).  // Black text
+		Background(lipgloss.Color("10")). // Green background
+		Bold(true).
+		Padding(0, 1)
+
+	demoDescStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("7")). // Brighter gray/white
+		MarginLeft(2)
+
 	descriptionStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("8")). // Gray
 		MarginLeft(2)
@@ -186,14 +201,19 @@ func printSuccessMessage(cobraCmd *cobra.Command) {
 
 	nextStepsTitle := titleStyle.Render("What's next?")
 
+	demoCommand := demoCommandStyle.Render("major demo create") + " " + recommendedBadge.Render("Recommended")
+	demoDesc := demoDescStyle.Render("Create a demo app connected to a database to play around with")
+
 	cloneCommand := commandStyle.Render("major app clone")
 	cloneDesc := descriptionStyle.Render("Clone an existing app from GitHub")
 
 	createCommand := commandStyle.Render("major app create")
 	createDesc := descriptionStyle.Render("Create a brand new app from a template")
 
-	content := fmt.Sprintf("%s\n\n%s\n%s\n\n%s\n%s",
+	content := fmt.Sprintf("%s\n\n%s\n%s\n\n%s\n%s\n\n%s\n%s",
 		nextStepsTitle,
+		demoCommand,
+		demoDesc,
 		cloneCommand,
 		cloneDesc,
 		createCommand,

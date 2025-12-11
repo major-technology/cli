@@ -238,8 +238,6 @@ type VersionCheckRequest struct {
 
 // CreateDemoApplicationRequest represents the request body for POST /demo_application
 type CreateDemoApplicationRequest struct {
-	Name           string `json:"name"`
-	Description    string `json:"description"`
 	OrganizationID string `json:"organizationId"`
 }
 
