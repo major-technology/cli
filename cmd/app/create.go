@@ -99,7 +99,7 @@ func runCreate(cobraCmd *cobra.Command) error {
 
 	// Check if we have permissions to use SSH or HTTPS
 	useSSH := false
-	if canUseSSH() {
+	if utils.CanUseSSH() {
 		cobraCmd.Println("✓ SSH access detected")
 		useSSH = true
 	} else if createResp.CloneURLHTTPS != "" {
@@ -144,7 +144,7 @@ func runCreate(cobraCmd *cobra.Command) error {
 	cobraCmd.Printf("✓ Added new remote: %s\n", cloneURL)
 
 	// Ensure repository access before pushing
-	if err := ensureRepositoryAccess(cobraCmd, createResp.ApplicationID, createResp.CloneURLSSH, createResp.CloneURLHTTPS); err != nil {
+	if err := utils.EnsureRepositoryAccess(cobraCmd, createResp.ApplicationID, createResp.CloneURLSSH, createResp.CloneURLHTTPS); err != nil {
 		return errors.WrapError("failed to ensure repository access", err)
 	}
 

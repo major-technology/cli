@@ -233,3 +233,25 @@ type CheckVersionResponse struct {
 type VersionCheckRequest struct {
 	Version string `json:"version"`
 }
+
+// --- Demo structs ---
+
+// CreateDemoApplicationRequest represents the request body for POST /demo_application
+type CreateDemoApplicationRequest struct {
+	OrganizationID string `json:"organizationId"`
+}
+
+// CreateDemoApplicationResponse represents the response from POST /demo_application
+type CreateDemoApplicationResponse struct {
+	Error          *AppErrorDetail `json:"error,omitempty"`
+	ApplicationID  string          `json:"applicationId,omitempty"`
+	RepositoryName string          `json:"repositoryName,omitempty"`
+	CloneURLSSH    string          `json:"cloneUrlSsh,omitempty"`
+	CloneURLHTTPS  string          `json:"cloneUrlHttps,omitempty"`
+}
+
+// GetDemoResourceResponse represents the response from GET /demo_resource
+type GetDemoResourceResponse struct {
+	Error    *AppErrorDetail `json:"error,omitempty"`
+	Resource *ResourceItem   `json:"resource,omitempty"`
+}

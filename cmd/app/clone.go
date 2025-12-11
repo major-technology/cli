@@ -12,6 +12,7 @@ import (
 	"github.com/major-technology/cli/clients/token"
 	"github.com/major-technology/cli/errors"
 	"github.com/major-technology/cli/singletons"
+	"github.com/major-technology/cli/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -85,7 +86,7 @@ func runClone(cmd *cobra.Command) error {
 	if gitErr != nil {
 		if isGitAuthError(gitErr) {
 			// Ensure repository access
-			if err := ensureRepositoryAccess(cmd, selectedApp.ID, selectedApp.CloneURLSSH, selectedApp.CloneURLHTTPS); err != nil {
+			if err := utils.EnsureRepositoryAccess(cmd, selectedApp.ID, selectedApp.CloneURLSSH, selectedApp.CloneURLHTTPS); err != nil {
 				return errors.WrapError("failed to ensure repository access", err)
 			}
 
