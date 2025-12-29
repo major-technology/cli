@@ -31,4 +31,5 @@ func init() {
 	Cmd.AddCommand(deployCmd)
 	Cmd.AddCommand(configureCmd)
 	Cmd.AddCommand(cloneCmd)
+	Cmd.AddCommand(envCmd)
 }
