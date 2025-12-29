@@ -201,4 +201,3 @@ func printEnvironmentChanged(cobraCmd *cobra.Command, newEnvName string) {
 	cobraCmd.Printf("Now using: %s\n", envNameStyle.Render(newEnvName))
 	cobraCmd.Println(tipStyle.Render("Run 'major app start' to use the new environment locally."))
 }
-
