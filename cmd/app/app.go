@@ -25,11 +25,10 @@ var Cmd = &cobra.Command{
 
 func init() {
 	// Add app subcommands
+	Cmd.AddCommand(cloneCmd)
+	Cmd.AddCommand(configureCmd)
 	Cmd.AddCommand(createCmd)
+	Cmd.AddCommand(deployCmd)
 	Cmd.AddCommand(infoCmd)
 	Cmd.AddCommand(startCmd)
-	Cmd.AddCommand(deployCmd)
-	Cmd.AddCommand(configureCmd)
-	Cmd.AddCommand(cloneCmd)
-	Cmd.AddCommand(envCmd)
 }

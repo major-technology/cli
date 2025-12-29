@@ -19,4 +19,6 @@ var Cmd = &cobra.Command{
 func init() {
 	// Add resource subcommands
 	Cmd.AddCommand(createCmd)
+	Cmd.AddCommand(manageCmd)
+	Cmd.AddCommand(envCmd)
 }

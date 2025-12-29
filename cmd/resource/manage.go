@@ -51,8 +51,3 @@ func runManage(cobraCmd *cobra.Command) error {
 
 	return nil
 }
-
-func init() {
-	// Add manage subcommand
-	Cmd.AddCommand(manageCmd)
-}

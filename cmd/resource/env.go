@@ -1,4 +1,4 @@
-package app
+package resource
 
 import (
 	"fmt"
@@ -9,6 +9,7 @@ import (
 	"github.com/major-technology/cli/errors"
 	"github.com/major-technology/cli/middleware"
 	"github.com/major-technology/cli/singletons"
+	"github.com/major-technology/cli/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -26,23 +27,23 @@ var envCmd = &cobra.Command{
 }
 
 func runEnv(cobraCmd *cobra.Command) error {
-	// Get application ID from current directory
-	applicationID, err := getApplicationID()
+	// Get application info from current directory
+	appInfo, err := utils.GetApplicationInfo("")
 	if err != nil {
-		return errors.WrapError("failed to get application ID", err)
+		return errors.WrapError("failed to identify application", err)
 	}
 
 	// Get the API client
 	apiClient := singletons.GetAPIClient()
 
 	// Fetch current environment
-	currentEnvResp, err := apiClient.GetApplicationEnvironment(applicationID)
+	currentEnvResp, err := apiClient.GetApplicationEnvironment(appInfo.ApplicationID)
 	if err != nil {
 		return errors.WrapError("failed to get current environment", err)
 	}
 
 	// Fetch all available environments
-	envListResp, err := apiClient.ListApplicationEnvironments(applicationID)
+	envListResp, err := apiClient.ListApplicationEnvironments(appInfo.ApplicationID)
 	if err != nil {
 		return errors.WrapError("failed to list environments", err)
 	}
@@ -68,7 +69,7 @@ func runEnv(cobraCmd *cobra.Command) error {
 	}
 
 	// Set the new environment
-	setResp, err := apiClient.SetApplicationEnvironment(applicationID, selectedEnv.ID)
+	setResp, err := apiClient.SetApplicationEnvironment(appInfo.ApplicationID, selectedEnv.ID)
 	if err != nil {
 		return errors.WrapError("failed to set environment", err)
 	}
@@ -200,3 +201,4 @@ func printEnvironmentChanged(cobraCmd *cobra.Command, newEnvName string) {
 	cobraCmd.Printf("Now using: %s\n", envNameStyle.Render(newEnvName))
 	cobraCmd.Println(tipStyle.Render("Run 'major app start' to use the new environment locally."))
 }
+
