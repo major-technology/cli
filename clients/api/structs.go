@@ -255,3 +255,37 @@ type GetDemoResourceResponse struct {
 	Error    *AppErrorDetail `json:"error,omitempty"`
 	Resource *ResourceItem   `json:"resource,omitempty"`
 }
+
+// --- Environment structs ---
+
+// EnvironmentItem represents a single environment
+type EnvironmentItem struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	IsDefault bool   `json:"isDefault"`
+}
+
+// GetApplicationEnvironmentResponse represents the response from GET /application/:applicationId/environment
+type GetApplicationEnvironmentResponse struct {
+	Error           *AppErrorDetail `json:"error,omitempty"`
+	EnvironmentID   *string         `json:"environmentId,omitempty"`
+	EnvironmentName *string         `json:"environmentName,omitempty"`
+}
+
+// ListEnvironmentsResponse represents the response from GET /application/:applicationId/environments
+type ListEnvironmentsResponse struct {
+	Error        *AppErrorDetail   `json:"error,omitempty"`
+	Environments []EnvironmentItem `json:"environments,omitempty"`
+}
+
+// SetEnvironmentChoiceRequest represents the request body for POST /application/:applicationId/environment
+type SetEnvironmentChoiceRequest struct {
+	EnvironmentID string `json:"environmentId"`
+}
+
+// SetEnvironmentChoiceResponse represents the response from POST /application/:applicationId/environment
+type SetEnvironmentChoiceResponse struct {
+	Error           *AppErrorDetail `json:"error,omitempty"`
+	EnvironmentID   string          `json:"environmentId,omitempty"`
+	EnvironmentName string          `json:"environmentName,omitempty"`
+}

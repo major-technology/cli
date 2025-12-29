@@ -386,3 +386,44 @@ func (c *Client) GetDemoResource(orgID string) (*GetDemoResourceResponse, error)
 	}
 	return &resp, nil
 }
+
+// --- Environment endpoints ---
+
+// GetApplicationEnvironment retrieves the user's current environment choice for an application
+func (c *Client) GetApplicationEnvironment(applicationID string) (*GetApplicationEnvironmentResponse, error) {
+	path := fmt.Sprintf("/application/%s/environment", applicationID)
+
+	var resp GetApplicationEnvironmentResponse
+	err := c.doRequest("GET", path, nil, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+// ListApplicationEnvironments retrieves all available environments for an application
+func (c *Client) ListApplicationEnvironments(applicationID string) (*ListEnvironmentsResponse, error) {
+	path := fmt.Sprintf("/application/%s/environments", applicationID)
+
+	var resp ListEnvironmentsResponse
+	err := c.doRequest("GET", path, nil, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+// SetApplicationEnvironment sets the user's environment choice for an application
+func (c *Client) SetApplicationEnvironment(applicationID, environmentID string) (*SetEnvironmentChoiceResponse, error) {
+	path := fmt.Sprintf("/application/%s/environment", applicationID)
+	req := SetEnvironmentChoiceRequest{
+		EnvironmentID: environmentID,
+	}
+
+	var resp SetEnvironmentChoiceResponse
+	err := c.doRequest("POST", path, req, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
