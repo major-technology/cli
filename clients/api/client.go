@@ -427,3 +427,14 @@ func (c *Client) SetApplicationEnvironment(applicationID, environmentID string) 
 	}
 	return &resp, nil
 }
+
+// GetApplicationForLink retrieves application info needed for the link command
+func (c *Client) GetApplicationForLink(applicationID string) (*GetApplicationForLinkResponse, error) {
+	var resp GetApplicationForLinkResponse
+	path := fmt.Sprintf("/application/%s/link-info", applicationID)
+	err := c.doRequest("GET", path, nil, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}

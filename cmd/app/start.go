@@ -3,6 +3,7 @@ package app
 import (
 	"os"
 	"os/exec"
+	"path/filepath"
 
 	"github.com/major-technology/cli/errors"
 	"github.com/spf13/cobra"
@@ -25,22 +26,43 @@ func runStart(cobraCmd *cobra.Command) error {
 		return errors.WrapError("failed to generate .env file", err)
 	}
 
+	// Run start in current directory
+	return RunStartInDir(cobraCmd, "")
+}
+
+// RunStartInDir runs pnpm install and pnpm dev in the specified directory.
+// If dir is empty, it uses the current directory.
+func RunStartInDir(cmd *cobra.Command, dir string) error {
+	var absDir string
+	var err error
+
+	if dir == "" {
+		absDir, err = os.Getwd()
+	} else {
+		absDir, err = filepath.Abs(dir)
+	}
+	if err != nil {
+		return errors.WrapError("failed to get directory path", err)
+	}
+
 	// Run pnpm install
-	cobraCmd.Println("Running pnpm install...")
+	cmd.Println("Running pnpm install...")
 	installCmd := exec.Command("pnpm", "install")
+	installCmd.Dir = absDir
 	installCmd.Stdout = os.Stdout
 	installCmd.Stderr = os.Stderr
 	installCmd.Stdin = os.Stdin
 
 	if err := installCmd.Run(); err != nil {
-		return errors.WrapError("failed to run pnpm install: %w", err)
+		return errors.WrapError("failed to run pnpm install", err)
 	}
 
-	cobraCmd.Println("✓ Dependencies installed")
+	cmd.Println("✓ Dependencies installed")
 
 	// Run pnpm dev
-	cobraCmd.Println("\nStarting development server...")
+	cmd.Println("\nStarting development server...")
 	devCmd := exec.Command("pnpm", "dev")
+	devCmd.Dir = absDir
 	devCmd.Stdout = os.Stdout
 	devCmd.Stderr = os.Stderr
 	devCmd.Stdin = os.Stdin
