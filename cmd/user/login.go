@@ -26,7 +26,7 @@ var loginCmd = &cobra.Command{
 }
 
 func runLogin(cobraCmd *cobra.Command) error {
-	if err := doLogin(cobraCmd); err != nil {
+	if err := doLogin(cobraCmd, true); err != nil {
 		return err
 	}
 	printSuccessMessage(cobraCmd)
@@ -35,7 +35,7 @@ func runLogin(cobraCmd *cobra.Command) error {
 
 // doLogin performs the core login flow: browser auth, token storage, and org selection.
 // Used by both runLogin and RunLoginForLink.
-func doLogin(cobraCmd *cobra.Command) error {
+func doLogin(cobraCmd *cobra.Command, selectOrg bool) error {
 	// Get the API client (no token yet for login flow)
 	apiClient := singletons.GetAPIClient()
 	startResp, err := apiClient.StartLogin()
@@ -58,26 +58,28 @@ func doLogin(cobraCmd *cobra.Command) error {
 		return clierrors.WrapError("failed to store token", err)
 	}
 
-	// Fetch organizations (token will be fetched automatically)
-	orgsResp, err := apiClient.GetOrganizations()
-	if err != nil {
-		return clierrors.WrapError("failed to fetch organizations", err)
-	}
-
-	// Let user select default organization
-	if len(orgsResp.Organizations) > 0 {
-		selectedOrg, err := SelectOrganization(cobraCmd, orgsResp.Organizations)
+	if selectOrg {
+		// Fetch organizations (token will be fetched automatically)
+		orgsResp, err := apiClient.GetOrganizations()
 		if err != nil {
-			return clierrors.WrapError("failed to select organization", err)
+			return clierrors.WrapError("failed to fetch organizations", err)
 		}
 
-		if err := mjrToken.StoreDefaultOrg(selectedOrg.ID, selectedOrg.Name); err != nil {
-			return clierrors.WrapError("failed to store default organization", err)
-		}
+		// Let user select default organization
+		if len(orgsResp.Organizations) > 0 {
+			selectedOrg, err := SelectOrganization(cobraCmd, orgsResp.Organizations)
+			if err != nil {
+				return clierrors.WrapError("failed to select organization", err)
+			}
 
-		cobraCmd.Printf("Default organization set to: %s\n", selectedOrg.Name)
-	} else {
-		return clierrors.ErrorNoOrganizationsAvailable
+			if err := mjrToken.StoreDefaultOrg(selectedOrg.ID, selectedOrg.Name); err != nil {
+				return clierrors.WrapError("failed to store default organization", err)
+			}
+
+			cobraCmd.Printf("Default organization set to: %s\n", selectedOrg.Name)
+		} else {
+			return clierrors.ErrorNoOrganizationsAvailable
+		}
 	}
 
 	return nil
@@ -165,7 +167,7 @@ func SelectOrganization(cobraCmd *cobra.Command, orgs []apiClient.Organization) 
 // RunLoginForLink is an exported function that runs the login flow for the link command.
 // It's a simplified version that doesn't print the full success message.
 func RunLoginForLink(cobraCmd *cobra.Command) error {
-	if err := doLogin(cobraCmd); err != nil {
+	if err := doLogin(cobraCmd, false); err != nil {
 		return err
 	}
 	cobraCmd.Println("✓ Successfully authenticated!")
