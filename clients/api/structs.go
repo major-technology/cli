@@ -289,3 +289,12 @@ type SetEnvironmentChoiceResponse struct {
 	EnvironmentID   string          `json:"environmentId,omitempty"`
 	EnvironmentName string          `json:"environmentName,omitempty"`
 }
+
+// GetApplicationForLinkResponse represents the response from GET /application/:applicationId/link-info
+type GetApplicationForLinkResponse struct {
+	Error         *AppErrorDetail `json:"error,omitempty"`
+	ApplicationID string          `json:"applicationId,omitempty"`
+	Name          string          `json:"name,omitempty"`
+	CloneURLSSH   string          `json:"cloneUrlSsh,omitempty"`
+	CloneURLHTTPS string          `json:"cloneUrlHttps,omitempty"`
+}

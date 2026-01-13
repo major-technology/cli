@@ -26,6 +26,16 @@ var loginCmd = &cobra.Command{
 }
 
 func runLogin(cobraCmd *cobra.Command) error {
+	if err := doLogin(cobraCmd); err != nil {
+		return err
+	}
+	printSuccessMessage(cobraCmd)
+	return nil
+}
+
+// doLogin performs the core login flow: browser auth, token storage, and org selection.
+// Used by both runLogin and RunLoginForLink.
+func doLogin(cobraCmd *cobra.Command) error {
 	// Get the API client (no token yet for login flow)
 	apiClient := singletons.GetAPIClient()
 	startResp, err := apiClient.StartLogin()
@@ -70,7 +80,6 @@ func runLogin(cobraCmd *cobra.Command) error {
 		return clierrors.ErrorNoOrganizationsAvailable
 	}
 
-	printSuccessMessage(cobraCmd)
 	return nil
 }
 
@@ -151,6 +160,16 @@ func SelectOrganization(cobraCmd *cobra.Command, orgs []apiClient.Organization) 
 	}
 
 	return nil, fmt.Errorf("selected organization not found")
+}
+
+// RunLoginForLink is an exported function that runs the login flow for the link command.
+// It's a simplified version that doesn't print the full success message.
+func RunLoginForLink(cobraCmd *cobra.Command) error {
+	if err := doLogin(cobraCmd); err != nil {
+		return err
+	}
+	cobraCmd.Println("✓ Successfully authenticated!")
+	return nil
 }
 
 // printSuccessMessage displays a nicely formatted success message with next steps
