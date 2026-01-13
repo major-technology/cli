@@ -50,6 +50,10 @@ func runLink(cmd *cobra.Command, applicationID string) error {
 
 	cmd.Printf("Found application: %s\n", appInfo.Name)
 
+	if err := mjrToken.StoreDefaultOrg(appInfo.OrganizationID, appInfo.OrganizationName); err != nil {
+		return errors.WrapError("failed to store default organization", err)
+	}
+
 	// Step 3: Clone the repository
 	desiredDir := sanitizeDirName(appInfo.Name)
 	workingDir := desiredDir
