@@ -30,25 +30,25 @@ func runStart(cobraCmd *cobra.Command) error {
 	return RunStartInDir(cobraCmd, "")
 }
 
-// RunStartInDir runs pnpm install and pnpm dev in the specified directory.
+// RunStartInDir changes to the specified directory and runs pnpm install and pnpm dev.
 // If dir is empty, it uses the current directory.
 func RunStartInDir(cmd *cobra.Command, dir string) error {
-	var absDir string
-	var err error
+	// Change to the target directory if specified
+	if dir != "" {
+		absDir, err := filepath.Abs(dir)
+		if err != nil {
+			return errors.WrapError("failed to get directory path", err)
+		}
 
-	if dir == "" {
-		absDir, err = os.Getwd()
-	} else {
-		absDir, err = filepath.Abs(dir)
-	}
-	if err != nil {
-		return errors.WrapError("failed to get directory path", err)
+		if err := os.Chdir(absDir); err != nil {
+			return errors.WrapError("failed to change directory", err)
+		}
+		cmd.Printf("Changed to directory: %s\n", absDir)
 	}
 
 	// Run pnpm install
 	cmd.Println("Running pnpm install...")
 	installCmd := exec.Command("pnpm", "install")
-	installCmd.Dir = absDir
 	installCmd.Stdout = os.Stdout
 	installCmd.Stderr = os.Stderr
 	installCmd.Stdin = os.Stdin
@@ -62,7 +62,6 @@ func RunStartInDir(cmd *cobra.Command, dir string) error {
 	// Run pnpm dev
 	cmd.Println("\nStarting development server...")
 	devCmd := exec.Command("pnpm", "dev")
-	devCmd.Dir = absDir
 	devCmd.Stdout = os.Stdout
 	devCmd.Stderr = os.Stderr
 	devCmd.Stdin = os.Stdin
