@@ -10,7 +10,6 @@ import (
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/major-technology/cli/clients/git"
-	"github.com/major-technology/cli/clients/token"
 	"github.com/major-technology/cli/errors"
 	"github.com/major-technology/cli/singletons"
 	"github.com/spf13/cobra"
@@ -32,8 +31,8 @@ func runDeploy(cobraCmd *cobra.Command) error {
 		return errors.ErrorNotInGitRepository
 	}
 
-	// Get application ID
-	applicationID, err := getApplicationID()
+	// Get application ID and organization ID
+	applicationID, organizationID, err := getApplicationAndOrgID()
 	if err != nil {
 		return errors.WrapError("failed to get application ID", err)
 	}
@@ -87,12 +86,6 @@ func runDeploy(cobraCmd *cobra.Command) error {
 		cobraCmd.Println("✓ Changes pushed to remote")
 	} else {
 		cobraCmd.Println("✓ No uncommitted changes")
-	}
-
-	// Get organization ID
-	organizationID, _, err := token.GetDefaultOrg()
-	if err != nil {
-		return errors.WrapError("failed to get default organization", errors.ErrorNoOrganizationSelected)
 	}
 
 	// Call API to create new version
