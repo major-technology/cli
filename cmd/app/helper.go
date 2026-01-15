@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/major-technology/cli/clients/git"
-	mjrToken "github.com/major-technology/cli/clients/token"
 	"github.com/major-technology/cli/errors"
 	"github.com/major-technology/cli/singletons"
 	"github.com/major-technology/cli/utils"
@@ -18,41 +17,54 @@ import (
 
 // getApplicationID retrieves the application ID for the current git repository
 func getApplicationID() (string, error) {
-	return getApplicationIDFromDir("")
+	appID, _, err := getApplicationAndOrgIDFromDir("")
+	return appID, err
+}
+
+// getApplicationAndOrgID retrieves the application ID and organization ID for the current git repository
+func getApplicationAndOrgID() (string, string, error) {
+	return getApplicationAndOrgIDFromDir("")
 }
 
 // getApplicationIDFromDir retrieves the application ID for a git repository in the specified directory.
 // If dir is empty, it uses the current directory.
 func getApplicationIDFromDir(dir string) (string, error) {
+	appID, _, err := getApplicationAndOrgIDFromDir(dir)
+	return appID, err
+}
+
+// getApplicationAndOrgIDFromDir retrieves the application ID and organization ID for a git repository in the specified directory.
+// If dir is empty, it uses the current directory.
+func getApplicationAndOrgIDFromDir(dir string) (string, string, error) {
 	// Get the git remote URL from the specified directory
 	remoteURL, err := git.GetRemoteURLFromDir(dir)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	if remoteURL == "" {
-		return "", fmt.Errorf("no git remote found in directory")
+		return "", "", fmt.Errorf("no git remote found in directory")
 	}
 
 	// Parse the remote URL to extract owner and repo
 	remoteInfo, err := git.ParseRemoteURL(remoteURL)
 	if err != nil {
-		return "", errors.WrapError("failed to parse git remote URL", err)
+		return "", "", errors.WrapError("failed to parse git remote URL", err)
 	}
 
 	// Get API client
 	apiClient := singletons.GetAPIClient()
 	if apiClient == nil {
-		return "", fmt.Errorf("API client not initialized")
+		return "", "", fmt.Errorf("API client not initialized")
 	}
 
 	// Get application by repository
 	appResp, err := apiClient.GetApplicationByRepo(remoteInfo.Owner, remoteInfo.Repo)
 	if err != nil {
-		return "", errors.WrapError("failed to get application", err)
+		return "", "", errors.WrapError("failed to get application", err)
 	}
 
-	return appResp.ApplicationID, nil
+	return appResp.ApplicationID, appResp.OrganizationID, nil
 }
 
 // cloneRepository clones a repository using SSH or HTTPS based on availability
@@ -153,12 +165,7 @@ func pullOrCloneWithRetries(cmd *cobra.Command, workingDir, sshURL, httpsURL str
 // If targetDir is empty, it uses the current git repository root.
 // Returns the path to the generated file and the number of variables written.
 func generateEnvFile(targetDir string) (string, int, error) {
-	orgID, _, err := mjrToken.GetDefaultOrg()
-	if err != nil {
-		return "", 0, errors.WrapError("failed to get default organization", errors.ErrorNoOrganizationSelected)
-	}
-
-	applicationID, err := getApplicationIDFromDir(targetDir)
+	applicationID, orgID, err := getApplicationAndOrgIDFromDir(targetDir)
 	if err != nil {
 		return "", 0, errors.WrapError("failed to get application ID", err)
 	}
