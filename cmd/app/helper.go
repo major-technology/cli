@@ -181,7 +181,8 @@ func ensureGitRepositoryWithRetries(cmd *cobra.Command, workingDir, sshURL, http
 
 	for attempt := 0; attempt < maxRetries; attempt++ {
 		if attempt > 0 {
-			delay := baseDelay * time.Duration(1<<uint(attempt-1)) // Exponential backoff: 200ms, 400ms, 800ms
+			delay := baseDelay * time.Duration(1<<uint(attempt-1)) // Exponential backoff: 2s, 4s, 8s, 16s, 32s
+			cmd.Printf("Waiting %v for GitHub permissions to propagate...\n", delay)
 			time.Sleep(delay)
 		}
 

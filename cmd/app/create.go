@@ -2,13 +2,12 @@ package app
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/major-technology/cli/clients/api"
-	"github.com/major-technology/cli/clients/git"
 	mjrToken "github.com/major-technology/cli/clients/token"
 	"github.com/major-technology/cli/constants"
 	"github.com/major-technology/cli/errors"
@@ -18,17 +17,41 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// Flag variables for non-interactive mode
+var (
+	flagAppName         string
+	flagAppDescription  string
+	flagTemplate        string
+	flagCreateGithubUser string
+)
+
 // createCmd represents the create command
 var createCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Create a new application",
-	Long:  `Create a new application with a GitHub repository and sets up the basic template.`,
+	Long: `Create a new application with a GitHub repository and sets up the basic template.
+
+By default, this command runs interactively, prompting for application name, description, and template.
+You can also provide these values via flags for non-interactive usage:
+
+  major app create --name "my-app" --description "My application" --template "Vite"
+
+Available templates: Vite, NextJS
+
+GitHub username is auto-detected from your SSH configuration.`,
 	PreRunE: middleware.Compose(
 		middleware.CheckLogin,
 	),
 	RunE: func(cobraCmd *cobra.Command, args []string) error {
 		return runCreate(cobraCmd)
 	},
+}
+
+func init() {
+	createCmd.Flags().StringVar(&flagAppName, "name", "", "Application name (skips interactive prompt)")
+	createCmd.Flags().StringVar(&flagAppDescription, "description", "", "Application description (skips interactive prompt)")
+	createCmd.Flags().StringVar(&flagTemplate, "template", "", "Template name: 'Vite' or 'NextJS' (skips interactive prompt)")
+	createCmd.Flags().StringVar(&flagCreateGithubUser, "github-user", "", "GitHub username for repository access (for non-interactive mode)")
 }
 
 func runCreate(cobraCmd *cobra.Command) error {
@@ -40,43 +63,68 @@ func runCreate(cobraCmd *cobra.Command) error {
 
 	cobraCmd.Printf("Creating application in organization: %s\n\n", orgName)
 
-	// Ask user for application name and description
-	var appName, appDescription string
+	// Use flag values if provided, otherwise prompt interactively
+	appName := flagAppName
+	appDescription := flagAppDescription
 
-	form := huh.NewForm(
-		huh.NewGroup(
-			huh.NewInput().
-				Title("Application Name").
-				Description("Enter a name for your application").
-				Value(&appName).
-				Validate(func(s string) error {
-					if s == "" {
-						return errors.ErrorApplicationNameRequired
-					}
-					return nil
-				}),
-			huh.NewText().
-				Title("Application Description").
-				Description("Enter a description for your application").
-				Value(&appDescription).
-				Validate(func(s string) error {
-					if s == "" {
-						return errors.ErrorApplicationDescriptionRequired
-					}
-					return nil
-				}),
-		),
-	)
+	// Check if we need to prompt for any values
+	needsPrompt := appName == "" || appDescription == ""
 
-	if err := form.Run(); err != nil {
-		return errors.WrapError("failed to collect application details", err)
+	if needsPrompt {
+		// Build form fields only for missing values
+		var formGroups []huh.Field
+
+		if appName == "" {
+			formGroups = append(formGroups,
+				huh.NewInput().
+					Title("Application Name").
+					Description("Enter a name for your application").
+					Value(&appName).
+					Validate(func(s string) error {
+						if s == "" {
+							return errors.ErrorApplicationNameRequired
+						}
+						return nil
+					}),
+			)
+		}
+
+		if appDescription == "" {
+			formGroups = append(formGroups,
+				huh.NewText().
+					Title("Application Description").
+					Description("Enter a description for your application").
+					Value(&appDescription).
+					Validate(func(s string) error {
+						if s == "" {
+							return errors.ErrorApplicationDescriptionRequired
+						}
+						return nil
+					}),
+			)
+		}
+
+		form := huh.NewForm(huh.NewGroup(formGroups...))
+
+		if err := form.Run(); err != nil {
+			return errors.WrapError("failed to collect application details", err)
+		}
+	}
+
+	// Validate that we have both values (in case user provided only one flag)
+	if appName == "" {
+		return errors.ErrorApplicationNameRequired
+	}
+
+	if appDescription == "" {
+		return errors.ErrorApplicationDescriptionRequired
 	}
 
 	// Get the API client
 	apiClient := singletons.GetAPIClient()
 
 	// Fetch and select template
-	templateURL, templateName, templateID, err := selectTemplate(cobraCmd, apiClient)
+	_, templateName, templateID, err := selectTemplate(cobraCmd, apiClient)
 	if err != nil {
 		return errors.WrapError("failed to select template", err)
 	}
@@ -97,54 +145,48 @@ func runCreate(cobraCmd *cobra.Command) error {
 		return err
 	}
 
-	// Check if we have permissions to use SSH or HTTPS
-	useSSH := false
-	if utils.CanUseSSH() {
-		cobraCmd.Println("✓ SSH access detected")
-		useSSH = true
-	} else if createResp.CloneURLHTTPS != "" {
-		cobraCmd.Println("✓ Using HTTPS for git operations")
-		useSSH = false
-	} else {
-		return errors.ErrorNoValidCloneMethodAvailable
-	}
-
-	// Determine which clone URL to use
-	cloneURL := createResp.CloneURLHTTPS
-	if useSSH {
-		cloneURL = createResp.CloneURLSSH
-	}
-
-	// Create a temporary directory for the template
-	tempDir, err := os.MkdirTemp("", "major-template-*")
+	// Push template files to repository using backend (GitHub App credentials)
+	// This bypasses user's SSH access, so template is pushed even if invitation is pending
+	cobraCmd.Println("Pushing template to repository...")
+	pushResp, err := apiClient.PushTemplate(createResp.ApplicationID, templateID)
 	if err != nil {
-		return errors.WrapError("failed to create temp directory", err)
-	}
-	defer os.RemoveAll(tempDir)
-
-	// Clone the template repository
-	if err := git.Clone(templateURL, tempDir); err != nil {
-		return errors.WrapError("failed to clone template repository", err)
+		return errors.WrapError("failed to push template to repository", err)
 	}
 
-	cobraCmd.Println("✓ Template cloned")
-
-	// Remove the existing remote origin
-	if err := git.RemoveRemote(tempDir, "origin"); err != nil {
-		return errors.WrapError("failed to remove remote origin", err)
+	if !pushResp.Success {
+		return errors.WrapError("failed to push template to repository", fmt.Errorf("%s", pushResp.ErrorMsg))
 	}
 
-	cobraCmd.Println("✓ Removed template remote")
+	cobraCmd.Printf("✓ Template pushed (%d files)\n", pushResp.FilesCount)
 
-	// Add the new remote
-	if err := git.AddRemote(tempDir, "origin", cloneURL); err != nil {
-		return errors.WrapError("failed to add new remote", err)
+	// Ensure repository access before cloning
+	// Use non-interactive mode if all required flags were provided
+	isNonInteractive := flagAppName != "" && flagAppDescription != "" && flagTemplate != ""
+	opts := utils.EnsureRepositoryAccessOptions{
+		NonInteractive: isNonInteractive,
+		GithubUsername: flagCreateGithubUser,
+	}
+	err = utils.EnsureRepositoryAccessWithOptions(cobraCmd, createResp.ApplicationID, createResp.CloneURLSSH, createResp.CloneURLHTTPS, opts)
+
+	// Check if invitation is pending (user needs to accept)
+	if invErr, ok := err.(*utils.InvitationPendingError); ok {
+		cobraCmd.Println("")
+		cobraCmd.Println("╭─────────────────────────────────────────────────────────────╮")
+		cobraCmd.Println("│                                                             │")
+		cobraCmd.Println("│  Action Required: Accept GitHub Invitation                  │")
+		cobraCmd.Println("│                                                             │")
+		if invErr.URL != "" {
+			cobraCmd.Printf("│  %-59s │\n", invErr.URL)
+			cobraCmd.Println("│                                                             │")
+		}
+		cobraCmd.Println("│  After accepting, clone the app with:                        │")
+		cobraCmd.Printf("│  major app clone --app-id \"%s\"  │\n", createResp.ApplicationID)
+		cobraCmd.Println("│                                                             │")
+		cobraCmd.Println("╰─────────────────────────────────────────────────────────────╯")
+		return nil // Exit cleanly, template pushed but clone pending user's invitation acceptance
 	}
 
-	cobraCmd.Printf("✓ Added new remote: %s\n", cloneURL)
-
-	// Ensure repository access before pushing
-	if err := utils.EnsureRepositoryAccess(cobraCmd, createResp.ApplicationID, createResp.CloneURLSSH, createResp.CloneURLHTTPS); err != nil {
+	if err != nil {
 		return errors.WrapError("failed to ensure repository access", err)
 	}
 
@@ -155,21 +197,17 @@ func runCreate(cobraCmd *cobra.Command) error {
 		return errors.ErrorFailedToSelectResources
 	}
 
-	// Push to the new remote
-	if err := git.Push(tempDir); err != nil {
-		return errors.WrapError("failed to push to new repository", err)
-	}
-
-	// Move the repository to the current directory
+	// Clone the repository (which now has template content)
 	targetDir := filepath.Join(".", appName)
-	if err := os.Rename(tempDir, targetDir); err != nil {
-		return errors.WrapError("failed to move repository", err)
+	cobraCmd.Printf("\nCloning repository to %s...\n", targetDir)
+	_, gitErr := cloneRepository(createResp.CloneURLSSH, createResp.CloneURLHTTPS, targetDir)
+	if gitErr != nil {
+		return errors.WrapError("failed to clone repository", gitErr)
 	}
 
-	cobraCmd.Printf("\n✓ Application '%s' successfully created in ./%s\n", appName, appName)
-	cobraCmd.Printf("  Clone URL: %s\n", cloneURL)
+	cobraCmd.Printf("✓ Application '%s' successfully created in ./%s\n", appName, appName)
 
-	// If Vite template and resources were selected, add them using major-client
+	// If resources were selected, add them using major-client
 	if len(selectedResources) > 0 {
 		if err := utils.AddResourcesToProject(cobraCmd, targetDir, selectedResources, createResp.ApplicationID, templateName); err != nil {
 			return errors.ErrorFailedToSelectResources
@@ -281,6 +319,22 @@ func selectTemplate(cobraCmd *cobra.Command, apiClient *api.Client) (string, con
 	// Check if there are any templates available
 	if len(orderedTemplates) == 0 {
 		return "", "", "", errors.ErrorNoTemplatesAvailable
+	}
+
+	// If template flag is provided, find and use that template
+	if flagTemplate != "" {
+		for _, template := range templatesResp.Templates {
+			if strings.EqualFold(string(template.Name), flagTemplate) {
+				cobraCmd.Printf("Using template: %s\n", template.Name)
+				return template.TemplateURL, template.Name, template.ID, nil
+			}
+		}
+		// Template not found - list available templates
+		var availableTemplates []string
+		for _, t := range templatesResp.Templates {
+			availableTemplates = append(availableTemplates, string(t.Name))
+		}
+		return "", "", "", fmt.Errorf("template '%s' not found. Available templates: %s", flagTemplate, strings.Join(availableTemplates, ", "))
 	}
 
 	// If only one template, use it automatically

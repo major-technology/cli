@@ -1,6 +1,7 @@
 package app
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -15,14 +16,30 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// Flag variables for non-interactive mode
+var flagAppID string
+var flagGithubUser string
+
 // cloneCmd represents the app clone command
 var cloneCmd = &cobra.Command{
 	Use:   "clone",
 	Short: "Clone an application repository",
-	Long:  `Select and clone an application repository from your organization, then generate env and resources.`,
+	Long: `Select and clone an application repository from your organization, then generate env and resources.
+
+By default, this command runs interactively, prompting you to select an application.
+You can also provide the application ID via flag for non-interactive usage:
+
+  major app clone --app-id "your-application-id"
+
+GitHub username is auto-detected from your SSH configuration.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return runClone(cmd)
 	},
+}
+
+func init() {
+	cloneCmd.Flags().StringVar(&flagAppID, "app-id", "", "Application ID to clone (skips interactive prompt)")
+	cloneCmd.Flags().StringVar(&flagGithubUser, "github-user", "", "GitHub username for repository access (for non-interactive mode)")
 }
 
 func runClone(cmd *cobra.Command) error {
@@ -47,10 +64,28 @@ func runClone(cmd *cobra.Command) error {
 		return errors.ErrorNoApplicationsAvailable
 	}
 
-	// Let user select application
-	selectedApp, err := selectApplication(cmd, appsResp.Applications)
-	if err != nil {
-		return errors.WrapError("failed to select application", err)
+	// Select application: use flag if provided, otherwise prompt interactively
+	var selectedApp *api.ApplicationItem
+
+	if flagAppID != "" {
+		// Find the application by ID
+		for i, app := range appsResp.Applications {
+			if app.ID == flagAppID {
+				selectedApp = &appsResp.Applications[i]
+				break
+			}
+		}
+
+		if selectedApp == nil {
+			return fmt.Errorf("application with ID '%s' not found in your organization", flagAppID)
+		}
+	} else {
+		// Let user select application interactively
+		var err error
+		selectedApp, err = selectApplication(cmd, appsResp.Applications)
+		if err != nil {
+			return errors.WrapError("failed to select application", err)
+		}
 	}
 
 	cmd.Printf("Selected application: %s\n", selectedApp.Name)
@@ -77,8 +112,31 @@ func runClone(cmd *cobra.Command) error {
 	// Handle git authentication errors
 	if gitErr != nil {
 		if isGitAuthError(gitErr) {
-			// Ensure repository access
-			if err := utils.EnsureRepositoryAccess(cmd, selectedApp.ID, selectedApp.CloneURLSSH, selectedApp.CloneURLHTTPS); err != nil {
+			// Ensure repository access with non-interactive mode if --app-id was used
+			opts := utils.EnsureRepositoryAccessOptions{
+				NonInteractive: flagAppID != "",
+				GithubUsername: flagGithubUser,
+			}
+			err := utils.EnsureRepositoryAccessWithOptions(cmd, selectedApp.ID, selectedApp.CloneURLSSH, selectedApp.CloneURLHTTPS, opts)
+
+			// Check if invitation is pending (user needs to accept)
+			if invErr, ok := err.(*utils.InvitationPendingError); ok {
+				cmd.Println("")
+				cmd.Println("╭─────────────────────────────────────────────────────────────╮")
+				cmd.Println("│                                                             │")
+				cmd.Println("│  Action Required: Accept GitHub Invitation                  │")
+				cmd.Println("│                                                             │")
+				if invErr.URL != "" {
+					cmd.Printf("│  %-59s │\n", invErr.URL)
+					cmd.Println("│                                                             │")
+				}
+				cmd.Println("│  After accepting, run this command again.                   │")
+				cmd.Println("│                                                             │")
+				cmd.Println("╰─────────────────────────────────────────────────────────────╯")
+				return nil // Exit cleanly, not as error
+			}
+
+			if err != nil {
 				return errors.WrapError("failed to ensure repository access", err)
 			}
 

@@ -300,3 +300,20 @@ type GetApplicationForLinkResponse struct {
 	CloneURLSSH      string          `json:"cloneUrlSsh,omitempty"`
 	CloneURLHTTPS    string          `json:"cloneUrlHttps,omitempty"`
 }
+
+// --- Push Template structs ---
+
+// PushTemplateRequest represents the request body for POST /applications/push-template
+type PushTemplateRequest struct {
+	ApplicationID string `json:"applicationId"`
+	TemplateID    string `json:"templateId"`
+}
+
+// PushTemplateResponse represents the response from POST /applications/push-template
+type PushTemplateResponse struct {
+	Error      *AppErrorDetail `json:"error,omitempty"`
+	Success    bool            `json:"success"`
+	CommitSha  string          `json:"commitSha,omitempty"`
+	FilesCount int             `json:"filesCount,omitempty"`
+	ErrorMsg   string          `json:"errorMessage,omitempty"`
+}

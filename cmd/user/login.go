@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
 	apiClient "github.com/major-technology/cli/clients/api"
+	"github.com/major-technology/cli/clients/git"
 	mjrToken "github.com/major-technology/cli/clients/token"
 	clierrors "github.com/major-technology/cli/errors"
 	"github.com/major-technology/cli/singletons"
@@ -80,6 +81,17 @@ func doLogin(cobraCmd *cobra.Command, selectOrg bool) error {
 		} else {
 			return clierrors.ErrorNoOrganizationsAvailable
 		}
+	}
+
+	// Auto-detect and store GitHub username from SSH
+	cobraCmd.Println("\nDetecting GitHub configuration...")
+	githubUser, err := git.GetCurrentGithubUser()
+	if err == nil && githubUser != "" {
+		_ = mjrToken.StoreGithubUsername(githubUser)
+		cobraCmd.Printf("✓ GitHub username detected: %s\n", githubUser)
+	} else {
+		cobraCmd.Println("⚠ Could not detect GitHub username from SSH.")
+		cobraCmd.Println("  Run 'major user gitconfig' to set it manually.")
 	}
 
 	return nil

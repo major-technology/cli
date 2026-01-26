@@ -438,3 +438,20 @@ func (c *Client) GetApplicationForLink(applicationID string) (*GetApplicationFor
 	}
 	return &resp, nil
 }
+
+// PushTemplate pushes template files to the application repository using backend GitHub App credentials
+// This bypasses the need for user's SSH access, allowing template push even when
+// the user hasn't accepted the GitHub invitation yet.
+func (c *Client) PushTemplate(applicationID, templateID string) (*PushTemplateResponse, error) {
+	req := PushTemplateRequest{
+		ApplicationID: applicationID,
+		TemplateID:    templateID,
+	}
+
+	var resp PushTemplateResponse
+	err := c.doRequest("POST", "/applications/push-template", req, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
