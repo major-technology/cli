@@ -57,6 +57,9 @@ func runDeploy(cobraCmd *cobra.Command) error {
 
 		// Use flag if provided, otherwise prompt interactively
 		if flagDeployMessage != "" {
+			if strings.TrimSpace(flagDeployMessage) == "" {
+				return fmt.Errorf("commit message cannot be empty or whitespace only")
+			}
 			commitMessage = flagDeployMessage
 		} else {
 			// Interactive prompt for commit message

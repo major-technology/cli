@@ -19,10 +19,9 @@ import (
 
 // Flag variables for non-interactive mode
 var (
-	flagAppName         string
-	flagAppDescription  string
-	flagTemplate        string
-	flagCreateGithubUser string
+	flagAppName        string
+	flagAppDescription string
+	flagTemplate       string
 )
 
 // createCmd represents the create command
@@ -51,7 +50,7 @@ func init() {
 	createCmd.Flags().StringVar(&flagAppName, "name", "", "Application name (skips interactive prompt)")
 	createCmd.Flags().StringVar(&flagAppDescription, "description", "", "Application description (skips interactive prompt)")
 	createCmd.Flags().StringVar(&flagTemplate, "template", "", "Template name: 'Vite' or 'NextJS' (skips interactive prompt)")
-	createCmd.Flags().StringVar(&flagCreateGithubUser, "github-user", "", "GitHub username for repository access (for non-interactive mode)")
+	createCmd.Flags().StringVar(&flagGithubUser, "github-user", "", "GitHub username for repository access (for non-interactive mode)")
 }
 
 func runCreate(cobraCmd *cobra.Command) error {
@@ -164,7 +163,7 @@ func runCreate(cobraCmd *cobra.Command) error {
 	isNonInteractive := flagAppName != "" && flagAppDescription != "" && flagTemplate != ""
 	opts := utils.EnsureRepositoryAccessOptions{
 		NonInteractive: isNonInteractive,
-		GithubUsername: flagCreateGithubUser,
+		GithubUsername: flagGithubUser,
 	}
 	err = utils.EnsureRepositoryAccessWithOptions(cobraCmd, createResp.ApplicationID, createResp.CloneURLSSH, createResp.CloneURLHTTPS, opts)
 
