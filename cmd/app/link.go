@@ -2,10 +2,8 @@ package app
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/major-technology/cli/clients/git"
 	mjrToken "github.com/major-technology/cli/clients/token"
 	"github.com/major-technology/cli/cmd/user"
 	"github.com/major-technology/cli/errors"
@@ -54,44 +52,24 @@ func runLink(cmd *cobra.Command, applicationID string) error {
 		return errors.WrapError("failed to store default organization", err)
 	}
 
-	// Step 3: Clone the repository
-	desiredDir := sanitizeDirName(appInfo.Name)
-	workingDir := desiredDir
+	// Step 3: Clone the repository or ensure existing directory is properly set up
+	workingDir := sanitizeDirName(appInfo.Name)
 
-	// Check if directory exists
-	if _, err := os.Stat(desiredDir); err == nil {
-		cmd.Printf("Directory '%s' already exists. Pulling latest changes...\n", workingDir)
-		if gitErr := git.Pull(workingDir); gitErr != nil {
-			if isGitAuthError(gitErr) {
-				// Ensure repository access
-				if err := utils.EnsureRepositoryAccess(cmd, applicationID, appInfo.CloneURLSSH, appInfo.CloneURLHTTPS); err != nil {
-					return errors.WrapError("failed to ensure repository access", err)
-				}
-				// Retry
-				if err := git.Pull(workingDir); err != nil {
-					return errors.ErrorGitRepositoryAccessFailed
-				}
-			} else {
-				return errors.ErrorGitCloneFailed
+	// Ensure the directory is a properly configured git repository
+	gitErr := ensureGitRepository(cmd, workingDir, appInfo.CloneURLSSH, appInfo.CloneURLHTTPS)
+	if gitErr != nil {
+		if isGitAuthError(gitErr) {
+			// Ensure repository access
+			if err := utils.EnsureRepositoryAccess(cmd, applicationID, appInfo.CloneURLSSH, appInfo.CloneURLHTTPS); err != nil {
+				return errors.WrapError("failed to ensure repository access", err)
 			}
-		}
-	} else {
-		cmd.Printf("Cloning repository to '%s'...\n", workingDir)
-		_, gitErr := cloneRepository(appInfo.CloneURLSSH, appInfo.CloneURLHTTPS, workingDir)
-		if gitErr != nil {
-			if isGitAuthError(gitErr) {
-				// Ensure repository access
-				if err := utils.EnsureRepositoryAccess(cmd, applicationID, appInfo.CloneURLSSH, appInfo.CloneURLHTTPS); err != nil {
-					return errors.WrapError("failed to ensure repository access", err)
-				}
-				// Retry with retries
-				gitErr = pullOrCloneWithRetries(cmd, workingDir, appInfo.CloneURLSSH, appInfo.CloneURLHTTPS)
-				if gitErr != nil {
-					return errors.ErrorGitRepositoryAccessFailed
-				}
-			} else {
-				return errors.ErrorGitCloneFailed
+			// Retry with retries
+			gitErr = ensureGitRepositoryWithRetries(cmd, workingDir, appInfo.CloneURLSSH, appInfo.CloneURLHTTPS)
+			if gitErr != nil {
+				return errors.ErrorGitRepositoryAccessFailed
 			}
+		} else {
+			return errors.ErrorGitCloneFailed
 		}
 	}
 
