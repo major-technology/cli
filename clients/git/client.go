@@ -125,9 +125,54 @@ func GetRepoRoot() (string, error) {
 
 // IsGitRepository checks if the current directory is a git repository
 func IsGitRepository() bool {
+	return IsGitRepositoryDir("")
+}
+
+// IsGitRepositoryDir checks if the specified directory is a git repository.
+// If dir is empty, it uses the current directory.
+func IsGitRepositoryDir(dir string) bool {
 	cmd := exec.Command("git", "rev-parse", "--git-dir")
+	if dir != "" {
+		cmd.Dir = dir
+	}
 	err := cmd.Run()
 	return err == nil
+}
+
+// InitRepository initializes a new git repository in the specified directory.
+// If dir is empty, it uses the current directory.
+func InitRepository(dir string) error {
+	cmd := exec.Command("git", "init")
+	if dir != "" {
+		cmd.Dir = dir
+	}
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return clierrors.WrapError("git init failed: "+string(output), err)
+	}
+	return nil
+}
+
+// SetRemoteURL sets or updates the origin remote URL.
+// If the remote doesn't exist, it adds it. If it exists, it updates it.
+func SetRemoteURL(dir, remoteName, url string) error {
+	// First try to set the URL (works if remote exists)
+	cmd := exec.Command("git", "remote", "set-url", remoteName, url)
+	if dir != "" {
+		cmd.Dir = dir
+	}
+	if err := cmd.Run(); err != nil {
+		// Remote doesn't exist, add it
+		cmd = exec.Command("git", "remote", "add", remoteName, url)
+		if dir != "" {
+			cmd.Dir = dir
+		}
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			return clierrors.WrapError("failed to add remote: "+string(output), err)
+		}
+	}
+	return nil
 }
 
 // HasUncommittedChanges checks if there are uncommitted changes in the repository

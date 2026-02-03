@@ -67,6 +67,55 @@ func getApplicationAndOrgIDFromDir(dir string) (string, string, error) {
 	return appResp.ApplicationID, appResp.OrganizationID, nil
 }
 
+// getPreferredCloneURL returns the preferred clone URL based on SSH availability
+func getPreferredCloneURL(sshURL, httpsURL string) (url string, method string, err error) {
+	if utils.CanUseSSH() && sshURL != "" {
+		return sshURL, "SSH", nil
+	}
+	if httpsURL != "" {
+		return httpsURL, "HTTPS", nil
+	}
+	return "", "", fmt.Errorf("no valid clone method available")
+}
+
+// ensureGitRepository ensures a directory is a properly configured git repository.
+// If the directory doesn't exist, it clones the repo.
+// If it exists but isn't a git repo, it initializes git and sets origin.
+// If it exists and is a git repo, it ensures origin is set correctly and pulls.
+// Returns the working directory path and any error.
+func ensureGitRepository(cmd *cobra.Command, targetDir, sshURL, httpsURL string) error {
+	cloneURL, cloneMethod, err := getPreferredCloneURL(sshURL, httpsURL)
+	if err != nil {
+		return err
+	}
+
+	// Check if directory exists
+	if _, err := os.Stat(targetDir); os.IsNotExist(err) {
+		// Directory doesn't exist - clone fresh
+		cmd.Printf("Cloning repository to '%s' using %s...\n", targetDir, cloneMethod)
+		return git.Clone(cloneURL, targetDir)
+	}
+
+	// Directory exists - check if it's a git repo
+	if !git.IsGitRepositoryDir(targetDir) {
+		// Not a git repo - initialize and set origin
+		cmd.Printf("Directory '%s' exists but is not a git repository. Initializing...\n", targetDir)
+		if err := git.InitRepository(targetDir); err != nil {
+			return errors.WrapError("failed to initialize git repository", err)
+		}
+	}
+
+	// Ensure origin is set correctly
+	cmd.Printf("Ensuring git origin is configured correctly...\n")
+	if err := git.SetRemoteURL(targetDir, "origin", cloneURL); err != nil {
+		return errors.WrapError("failed to set git origin", err)
+	}
+
+	// Pull latest changes
+	cmd.Printf("Pulling latest changes...\n")
+	return git.Pull(targetDir)
+}
+
 // cloneRepository clones a repository using SSH or HTTPS based on availability
 // Returns the clone method used ("SSH" or "HTTPS") and any error
 func cloneRepository(sshURL, httpsURL, targetDir string) (string, error) {
@@ -125,8 +174,8 @@ func isGitAuthError(err error) bool {
 	return false
 }
 
-// pullOrCloneWithRetries retries a git clone or pull operation with exponential backoff
-func pullOrCloneWithRetries(cmd *cobra.Command, workingDir, sshURL, httpsURL string) error {
+// ensureGitRepositoryWithRetries retries ensureGitRepository with exponential backoff
+func ensureGitRepositoryWithRetries(cmd *cobra.Command, workingDir, sshURL, httpsURL string) error {
 	maxRetries := 3
 	baseDelay := 200 * time.Millisecond
 
@@ -136,17 +185,7 @@ func pullOrCloneWithRetries(cmd *cobra.Command, workingDir, sshURL, httpsURL str
 			time.Sleep(delay)
 		}
 
-		var err error
-		if _, statErr := os.Stat(workingDir); statErr == nil {
-			// Directory exists, pull
-			cmd.Printf("Pulling latest changes...\n")
-			err = git.Pull(workingDir)
-		} else {
-			// Directory doesn't exist, clone
-			cmd.Printf("Cloning repository...\n")
-			_, err = cloneRepository(sshURL, httpsURL, workingDir)
-		}
-
+		err := ensureGitRepository(cmd, workingDir, sshURL, httpsURL)
 		if err == nil {
 			return nil
 		}

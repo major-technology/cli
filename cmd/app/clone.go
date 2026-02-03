@@ -8,7 +8,6 @@ import (
 
 	"github.com/charmbracelet/huh"
 	"github.com/major-technology/cli/clients/api"
-	"github.com/major-technology/cli/clients/git"
 	"github.com/major-technology/cli/clients/token"
 	"github.com/major-technology/cli/errors"
 	"github.com/major-technology/cli/singletons"
@@ -62,25 +61,18 @@ func runClone(cmd *cobra.Command) error {
 	// Determine the repository directory (use the repository name for git operations)
 	repoDir := filepath.Join(".", selectedApp.GithubRepositoryName)
 
-	// Check if either directory exists
-	var gitErr error
+	// Determine which directory to use (prefer desiredDir, fall back to repoDir if it exists)
 	var workingDir string
-
-	// Check if desired directory exists
 	if _, err := os.Stat(desiredDir); err == nil {
 		workingDir = desiredDir
-		cmd.Printf("Directory '%s' already exists. Pulling latest changes...\n", workingDir)
-		gitErr = git.Pull(workingDir)
 	} else if _, err := os.Stat(repoDir); err == nil {
 		workingDir = repoDir
-		cmd.Printf("Directory '%s' already exists. Pulling latest changes...\n", workingDir)
-		gitErr = git.Pull(workingDir)
 	} else {
-		// Neither directory exists, clone directly to desired directory
 		workingDir = desiredDir
-		cmd.Printf("Directory '%s' does not exist. Cloning repository...\n", workingDir)
-		_, gitErr = cloneRepository(selectedApp.CloneURLSSH, selectedApp.CloneURLHTTPS, workingDir)
 	}
+
+	// Ensure the directory is a properly configured git repository
+	gitErr := ensureGitRepository(cmd, workingDir, selectedApp.CloneURLSSH, selectedApp.CloneURLHTTPS)
 
 	// Handle git authentication errors
 	if gitErr != nil {
@@ -91,7 +83,7 @@ func runClone(cmd *cobra.Command) error {
 			}
 
 			// For some reason, there's a race where the repo is still not available for clones
-			gitErr = pullOrCloneWithRetries(cmd, workingDir, selectedApp.CloneURLSSH, selectedApp.CloneURLHTTPS)
+			gitErr = ensureGitRepositoryWithRetries(cmd, workingDir, selectedApp.CloneURLSSH, selectedApp.CloneURLHTTPS)
 			// Check if retry succeeded
 			if gitErr != nil {
 				return errors.ErrorGitRepositoryAccessFailed
