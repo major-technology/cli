@@ -15,6 +15,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// Flag variables for non-interactive mode
+var flagDeployMessage string
+
+func init() {
+	deployCmd.Flags().StringVarP(&flagDeployMessage, "message", "m", "", "Commit message for uncommitted changes (skips interactive prompt)")
+}
+
 // deployCmd represents the deploy command
 var deployCmd = &cobra.Command{
 	Use:   "deploy",
@@ -46,25 +53,34 @@ func runDeploy(cobraCmd *cobra.Command) error {
 	if hasChanges {
 		cobraCmd.Println("📝 Uncommitted changes detected")
 
-		// Prompt for commit message
 		var commitMessage string
-		form := huh.NewForm(
-			huh.NewGroup(
-				huh.NewText().
-					Title("Commit Message").
-					Description("Enter a commit message for your changes").
-					Value(&commitMessage).
-					Validate(func(s string) error {
-						if strings.TrimSpace(s) == "" {
-							return fmt.Errorf("commit message is required")
-						}
-						return nil
-					}),
-			),
-		)
 
-		if err := form.Run(); err != nil {
-			return errors.WrapError("failed to collect commit message", err)
+		// Use flag if provided, otherwise prompt interactively
+		if flagDeployMessage != "" {
+			if strings.TrimSpace(flagDeployMessage) == "" {
+				return fmt.Errorf("commit message cannot be empty or whitespace only")
+			}
+			commitMessage = flagDeployMessage
+		} else {
+			// Interactive prompt for commit message
+			form := huh.NewForm(
+				huh.NewGroup(
+					huh.NewText().
+						Title("Commit Message").
+						Description("Enter a commit message for your changes").
+						Value(&commitMessage).
+						Validate(func(s string) error {
+							if strings.TrimSpace(s) == "" {
+								return fmt.Errorf("commit message is required")
+							}
+							return nil
+						}),
+				),
+			)
+
+			if err := form.Run(); err != nil {
+				return errors.WrapError("failed to collect commit message", err)
+			}
 		}
 
 		// Stage all changes

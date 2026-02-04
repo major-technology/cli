@@ -15,6 +15,15 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// InvitationPendingError indicates the user needs to accept a GitHub invitation
+type InvitationPendingError struct {
+	URL string
+}
+
+func (e *InvitationPendingError) Error() string {
+	return fmt.Sprintf("GitHub invitation pending. Accept at: %s", e.URL)
+}
+
 // GetApplicationID retrieves the application ID for the current git repository
 func GetApplicationID() (string, error) {
 	info, err := GetApplicationInfo("")
@@ -121,73 +130,79 @@ func ExtractGitHubURL(cloneURL string) (string, error) {
 	return fmt.Sprintf("https://github.com/%s/%s", remoteInfo.Owner, remoteInfo.Repo), nil
 }
 
+// EnsureRepositoryAccessOptions configures how repository access is ensured
+type EnsureRepositoryAccessOptions struct {
+	// NonInteractive disables interactive prompts (uses stored/provided username)
+	NonInteractive bool
+	// GithubUsername is the GitHub username to use (overrides stored username)
+	GithubUsername string
+}
+
 // EnsureRepositoryAccess ensures the user has access to the repository by inviting them as a collaborator
 // This function prompts for GitHub username, sends an invite, and waits for access to be granted
+// For backwards compatibility, use EnsureRepositoryAccessWithOptions for non-interactive mode
 func EnsureRepositoryAccess(cmd *cobra.Command, appID string, sshURL string, httpsURL string) error {
+	return EnsureRepositoryAccessWithOptions(cmd, appID, sshURL, httpsURL, EnsureRepositoryAccessOptions{})
+}
+
+// EnsureRepositoryAccessWithOptions ensures the user has access to the repository by inviting them as a collaborator
+// Options allow for non-interactive mode with a provided or stored GitHub username
+func EnsureRepositoryAccessWithOptions(cmd *cobra.Command, appID string, sshURL string, httpsURL string, opts EnsureRepositoryAccessOptions) error {
 	// First check if the user already has access to the repository
 	if CheckRepositoryAccess(sshURL, httpsURL) {
 		cmd.Println("✓ You already have access to the repository")
 		return nil
 	}
 
-	// Check if GitHub username is stored in keychain
-	storedUsername, err := mjrToken.GetGithubUsername()
-	if err != nil {
-		return errors.WrapError("failed to check stored GitHub username", err)
-	}
-
-	// If not in keychain, try to get it from git config/ssh
-	if storedUsername == "" {
-		gitUsername, err := git.GetCurrentGithubUser()
-		if err == nil && gitUsername != "" {
-			storedUsername = gitUsername
-		}
-	}
-
 	var githubUsername string
 
-	// If we have a stored username (from keychain or git), confirm with the user
-	if storedUsername != "" {
-		var useStored bool
-		confirmForm := huh.NewForm(
-			huh.NewGroup(
-				huh.NewConfirm().
-					Title(fmt.Sprintf("Use GitHub username: %s?", storedUsername)).
-					Description("We found this GitHub username. Would you like to use it?").
-					Value(&useStored),
-			),
-		)
+	// If username is explicitly provided via flag, use it
+	if opts.GithubUsername != "" {
+		githubUsername = opts.GithubUsername
+	} else {
+		// Try to get stored username
+		storedUsername, _ := mjrToken.GetGithubUsername()
 
-		if err := confirmForm.Run(); err != nil {
-			return errors.WrapError("failed to confirm GitHub username", err)
+		// If not stored, auto-detect from SSH and store it
+		if storedUsername == "" {
+			detectedUsername, err := git.GetCurrentGithubUser()
+			if err == nil && detectedUsername != "" {
+				storedUsername = detectedUsername
+				// Auto-store for future use
+				_ = mjrToken.StoreGithubUsername(detectedUsername)
+				cmd.Printf("✓ GitHub username auto-detected: %s\n", detectedUsername)
+			}
 		}
 
-		if useStored {
+		if storedUsername != "" {
 			githubUsername = storedUsername
-		}
-	}
+		} else {
+			// No username available - in non-interactive mode, fail with clear message
+			if opts.NonInteractive {
+				return fmt.Errorf("could not detect GitHub username. Run 'major user login' to set up GitHub access")
+			}
 
-	if githubUsername == "" {
-		form := huh.NewForm(
-			huh.NewGroup(
-				huh.NewInput().
-					Title("What is your GitHub username?").
-					Value(&githubUsername).
-					Validate(func(s string) error {
-						if s == "" {
-							return fmt.Errorf("GitHub username is required")
-						}
-						return nil
-					}),
-			),
-		)
+			// Interactive mode: prompt for username
+			form := huh.NewForm(
+				huh.NewGroup(
+					huh.NewInput().
+						Title("What is your GitHub username?").
+						Value(&githubUsername).
+						Validate(func(s string) error {
+							if s == "" {
+								return fmt.Errorf("GitHub username is required")
+							}
+							return nil
+						}),
+				),
+			)
 
-		if err := form.Run(); err != nil {
-			return errors.WrapError("failed to get GitHub username", err)
-		}
+			if err := form.Run(); err != nil {
+				return errors.WrapError("failed to get GitHub username", err)
+			}
 
-		if err := mjrToken.StoreGithubUsername(githubUsername); err != nil {
-			return errors.WrapError("failed to save GitHub username", err)
+			// Store for future use
+			_ = mjrToken.StoreGithubUsername(githubUsername)
 		}
 	}
 
@@ -197,21 +212,31 @@ func EnsureRepositoryAccess(cmd *cobra.Command, appID string, sshURL string, htt
 	apiClient := singletons.GetAPIClient()
 
 	// Add user as GitHub collaborator
-	_, err = apiClient.AddGithubCollaborators(appID, githubUsername)
+	_, err := apiClient.AddGithubCollaborators(appID, githubUsername)
 	if err != nil {
 		return errors.WrapError("failed to add GitHub collaborator", err)
 	}
 
 	cmd.Println("✓ Invitation sent!")
 
-	// Try to extract and open the GitHub repository URL
+	// Try to extract GitHub repository URL
 	cloneURL := httpsURL
 	if cloneURL == "" {
 		cloneURL = sshURL
 	}
+	githubURL, _ := ExtractGitHubURL(cloneURL)
 
-	githubURL, urlErr := ExtractGitHubURL(cloneURL)
-	if urlErr == nil {
+	// In non-interactive mode, open browser and return immediately
+	// The caller will display a message to accept the invitation
+	if opts.NonInteractive {
+		if githubURL != "" {
+			_ = OpenBrowser(githubURL)
+		}
+		return &InvitationPendingError{URL: githubURL}
+	}
+
+	// Interactive mode: show URL and open browser
+	if githubURL != "" {
 		cmd.Printf("\nPlease accept the invitation at: %s\n", githubURL)
 		_ = OpenBrowser(githubURL)
 	}
