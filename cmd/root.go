@@ -102,7 +102,6 @@ func init() {
 	app.Cmd.GroupID = "main"
 	rootCmd.AddCommand(app.Cmd)
 
-	demo.Cmd.GroupID = "main"
 	rootCmd.AddCommand(demo.Cmd)
 
 	resource.Cmd.GroupID = "main"

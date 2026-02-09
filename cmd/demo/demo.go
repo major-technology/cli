@@ -8,10 +8,11 @@ import (
 
 // Cmd represents the demo command
 var Cmd = &cobra.Command{
-	Use:   "demo",
-	Short: "Demo application commands",
-	Long:  `Commands for creating demo applications.`,
-	Args:  utils.NoArgs,
+	Use:    "demo",
+	Short:  "Demo application commands",
+	Long:   `Commands for creating demo applications.`,
+	Hidden: true,
+	Args:   utils.NoArgs,
 	PersistentPreRunE: middleware.ChainParent(
 		middleware.CheckNodeInstalled,
 		middleware.CheckNodeVersion("22.12"),

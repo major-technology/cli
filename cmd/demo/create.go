@@ -10,7 +10,6 @@ import (
 	"github.com/major-technology/cli/clients/api"
 	"github.com/major-technology/cli/clients/git"
 	mjrToken "github.com/major-technology/cli/clients/token"
-	"github.com/major-technology/cli/constants"
 	"github.com/major-technology/cli/errors"
 	"github.com/major-technology/cli/middleware"
 	"github.com/major-technology/cli/singletons"
@@ -147,7 +146,7 @@ func runCreate(cobraCmd *cobra.Command) error {
 
 	// Add the demo resource to the project
 	if len(selectedResources) > 0 {
-		if err := utils.AddResourcesToProject(cobraCmd, targetDir, selectedResources, createResp.ApplicationID, constants.ViteTemplate); err != nil {
+		if err := utils.AddResourcesToProject(cobraCmd, targetDir, selectedResources, createResp.ApplicationID); err != nil {
 			return errors.ErrorFailedToSelectResources
 		}
 	}

@@ -12,7 +12,6 @@ import (
 	"github.com/charmbracelet/huh"
 	"github.com/major-technology/cli/clients/api"
 	"github.com/major-technology/cli/clients/git"
-	"github.com/major-technology/cli/constants"
 	"github.com/major-technology/cli/errors"
 	"github.com/major-technology/cli/singletons"
 	"github.com/spf13/cobra"
@@ -149,9 +148,9 @@ func SelectApplicationResources(cmd *cobra.Command, apiClient *api.Client, orgID
 	return selectedResources, nil
 }
 
-// AddResourcesToViteProject adds selected resources to a Vite project using pnpm clients:add
+// AddResourcesToProject adds selected resources to a project using pnpm resource:add
 // It handles differential updates: removes resources that are no longer selected and adds new ones
-func AddResourcesToProject(cmd *cobra.Command, projectDir string, resources []api.ResourceItem, applicationID string, framework constants.TemplateName) error {
+func AddResourcesToProject(cmd *cobra.Command, projectDir string, resources []api.ResourceItem, applicationID string) error {
 	// Read existing resources
 	existingResources, err := ReadLocalResources(projectDir)
 	if err != nil {
@@ -203,12 +202,7 @@ func AddResourcesToProject(cmd *cobra.Command, projectDir string, resources []ap
 		return errors.WrapError("failed to install dependencies", err)
 	}
 
-	var prefix string
-	if framework == constants.ViteTemplate {
-		prefix = "clients"
-	} else if framework == constants.NextJSTemplate {
-		prefix = "resource"
-	}
+	prefix := "resource"
 
 	// Remove old resources
 	removeSuccessCount := 0
