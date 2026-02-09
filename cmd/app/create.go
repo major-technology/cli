@@ -3,7 +3,6 @@ package app
 import (
 	"fmt"
 	"path/filepath"
-	"strings"
 
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
@@ -21,21 +20,18 @@ import (
 var (
 	flagAppName        string
 	flagAppDescription string
-	flagTemplate       string
 )
 
 // createCmd represents the create command
 var createCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Create a new application",
-	Long: `Create a new application with a GitHub repository and sets up the basic template.
+	Long: `Create a new NextJS application with a GitHub repository.
 
-By default, this command runs interactively, prompting for application name, description, and template.
+By default, this command runs interactively, prompting for application name and description.
 You can also provide these values via flags for non-interactive usage:
 
-  major app create --name "my-app" --description "My application" --template "Vite"
-
-Available templates: Vite, NextJS
+  major app create --name "my-app" --description "My application"
 
 GitHub username is auto-detected from your SSH configuration.`,
 	PreRunE: middleware.Compose(
@@ -49,7 +45,6 @@ GitHub username is auto-detected from your SSH configuration.`,
 func init() {
 	createCmd.Flags().StringVar(&flagAppName, "name", "", "Application name (skips interactive prompt)")
 	createCmd.Flags().StringVar(&flagAppDescription, "description", "", "Application description (skips interactive prompt)")
-	createCmd.Flags().StringVar(&flagTemplate, "template", "", "Template name: 'Vite' or 'NextJS' (skips interactive prompt)")
 	createCmd.Flags().StringVar(&flagGithubUser, "github-user", "", "GitHub username for repository access (for non-interactive mode)")
 }
 
@@ -123,7 +118,7 @@ func runCreate(cobraCmd *cobra.Command) error {
 	apiClient := singletons.GetAPIClient()
 
 	// Fetch and select template
-	_, templateName, templateID, err := selectTemplate(cobraCmd, apiClient)
+	_, _, templateID, err := selectTemplate(cobraCmd, apiClient)
 	if err != nil {
 		return errors.WrapError("failed to select template", err)
 	}
@@ -160,7 +155,7 @@ func runCreate(cobraCmd *cobra.Command) error {
 
 	// Ensure repository access before cloning
 	// Use non-interactive mode if all required flags were provided
-	isNonInteractive := flagAppName != "" && flagAppDescription != "" && flagTemplate != ""
+	isNonInteractive := flagAppName != "" && flagAppDescription != ""
 	opts := utils.EnsureRepositoryAccessOptions{
 		NonInteractive: isNonInteractive,
 		GithubUsername: flagGithubUser,
@@ -208,7 +203,7 @@ func runCreate(cobraCmd *cobra.Command) error {
 
 	// If resources were selected, add them using major-client
 	if len(selectedResources) > 0 {
-		if err := utils.AddResourcesToProject(cobraCmd, targetDir, selectedResources, createResp.ApplicationID, templateName); err != nil {
+		if err := utils.AddResourcesToProject(cobraCmd, targetDir, selectedResources, createResp.ApplicationID); err != nil {
 			return errors.ErrorFailedToSelectResources
 		}
 	}
@@ -294,8 +289,8 @@ func printSuccessMessage(cobraCmd *cobra.Command, appName string) {
 	cobraCmd.Println(box)
 }
 
-// selectTemplate prompts the user to select a template for the application
-// Returns the template URL, name, and ID
+// selectTemplate fetches the NextJS template from the API.
+// Returns the template URL, name, and ID.
 func selectTemplate(cobraCmd *cobra.Command, apiClient *api.Client) (string, constants.TemplateName, string, error) {
 	// Fetch available templates
 	templatesResp, err := apiClient.GetTemplates()
@@ -303,82 +298,13 @@ func selectTemplate(cobraCmd *cobra.Command, apiClient *api.Client) (string, con
 		return "", "", "", err
 	}
 
-	// Prioritize the recommended template (this is the vite template rn)
-	recommendedID := "962add46-30fb-48b6-94a6-7b967cdf0d35"
-	var orderedTemplates []*api.TemplateItem
-
-	for _, t := range templatesResp.Templates {
-		if t.ID == recommendedID {
-			orderedTemplates = append([]*api.TemplateItem{t}, orderedTemplates...)
-		} else {
-			orderedTemplates = append(orderedTemplates, t)
-		}
-	}
-
-	// Check if there are any templates available
-	if len(orderedTemplates) == 0 {
-		return "", "", "", errors.ErrorNoTemplatesAvailable
-	}
-
-	// If template flag is provided, find and use that template
-	if flagTemplate != "" {
-		for _, template := range templatesResp.Templates {
-			if strings.EqualFold(string(template.Name), flagTemplate) {
-				cobraCmd.Printf("Using template: %s\n", template.Name)
-				return template.TemplateURL, template.Name, template.ID, nil
-			}
-		}
-		// Template not found - list available templates
-		var availableTemplates []string
-		for _, t := range templatesResp.Templates {
-			availableTemplates = append(availableTemplates, string(t.Name))
-		}
-		return "", "", "", fmt.Errorf("template '%s' not found. Available templates: %s", flagTemplate, strings.Join(availableTemplates, ", "))
-	}
-
-	// If only one template, use it automatically
-	if len(orderedTemplates) == 1 {
-		template := orderedTemplates[0]
-		cobraCmd.Printf("Using template: %s\n", template.Name)
-		return template.TemplateURL, template.Name, template.ID, nil
-	}
-
-	// Create options for the select (add display suffix for recommended template)
-	options := make([]huh.Option[string], len(orderedTemplates))
-	for i, template := range orderedTemplates {
-		displayName := string(template.Name)
-		if template.ID == recommendedID {
-			displayName += " (recommended)"
-		}
-		options[i] = huh.NewOption(displayName, template.TemplateURL)
-	}
-
-	// Prompt user to select a template
-	var selectedTemplateURL string
-	form := huh.NewForm(
-		huh.NewGroup(
-			huh.NewSelect[string]().
-				Title("Select a template for your application").
-				Description("Choose which template to use as a starting point").
-				Options(options...).
-				Value(&selectedTemplateURL),
-		),
-	)
-
-	if err := form.Run(); err != nil {
-		return "", "", "", errors.WrapError("failed to select template", err)
-	}
-
-	// Find the template name and ID for the selected URL
-	var selectedTemplateName constants.TemplateName
-	var selectedTemplateID string
+	// Find the NextJS template
 	for _, template := range templatesResp.Templates {
-		if template.TemplateURL == selectedTemplateURL {
-			selectedTemplateName = template.Name
-			selectedTemplateID = template.ID
-			break
+		if template.Name == constants.NextJSTemplate {
+			cobraCmd.Printf("Using template: %s\n", template.Name)
+			return template.TemplateURL, template.Name, template.ID, nil
 		}
 	}
 
-	return selectedTemplateURL, selectedTemplateName, selectedTemplateID, nil
+	return "", "", "", errors.ErrorNoTemplatesAvailable
 }

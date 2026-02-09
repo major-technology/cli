@@ -39,13 +39,7 @@ func runManage(cobraCmd *cobra.Command) error {
 		return errors.ErrorFailedToSelectResourcesTryAgain
 	}
 
-	if appInfo.TemplateName == nil {
-		return errors.ErrorOldProjectNotSupported
-	}
-
-	templateName := *appInfo.TemplateName
-
-	if err := utils.AddResourcesToProject(cobraCmd, ".", selectedResources, appInfo.ApplicationID, templateName); err != nil {
+	if err := utils.AddResourcesToProject(cobraCmd, ".", selectedResources, appInfo.ApplicationID); err != nil {
 		return errors.ErrorFailedToSelectResourcesTryAgain
 	}
 
