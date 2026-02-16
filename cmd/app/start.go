@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/major-technology/cli/errors"
+	"github.com/major-technology/cli/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -21,9 +22,14 @@ var startCmd = &cobra.Command{
 
 func runStart(cobraCmd *cobra.Command) error {
 	// Generate .env file
-	_, _, err := generateEnvFile("")
+	_, envVars, err := generateEnvFile("")
 	if err != nil {
 		return errors.WrapError("failed to generate .env file", err)
+	}
+
+	// Generate .mcp.json for Claude Code
+	if _, err := utils.GenerateMcpConfig("", envVars); err != nil {
+		cobraCmd.Printf("Warning: Failed to generate .mcp.json: %v\n", err)
 	}
 
 	// Run start in current directory

@@ -210,11 +210,18 @@ func runCreate(cobraCmd *cobra.Command) error {
 
 	// Generate .env file
 	cobraCmd.Println("\nGenerating .env file...")
-	envFilePath, _, err := generateEnvFile(targetDir)
+	envFilePath, envVars, err := generateEnvFile(targetDir)
 	if err != nil {
 		cobraCmd.Printf("Warning: Failed to generate .env file: %v\n", err)
 	} else {
 		cobraCmd.Printf("✓ Generated .env file at: %s\n", envFilePath)
+
+		// Generate .mcp.json for Claude Code
+		if _, err := utils.GenerateMcpConfig(targetDir, envVars); err != nil {
+			cobraCmd.Printf("Warning: Failed to generate .mcp.json: %v\n", err)
+		} else {
+			cobraCmd.Println("✓ Generated .mcp.json for Claude Code")
+		}
 	}
 
 	printSuccessMessage(cobraCmd, appName)

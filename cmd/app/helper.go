@@ -203,25 +203,25 @@ func ensureGitRepositoryWithRetries(cmd *cobra.Command, workingDir, sshURL, http
 
 // generateEnvFile generates a .env file for the application in the specified directory.
 // If targetDir is empty, it uses the current git repository root.
-// Returns the path to the generated file and the number of variables written.
-func generateEnvFile(targetDir string) (string, int, error) {
+// Returns the path to the generated file and the env vars map.
+func generateEnvFile(targetDir string) (string, map[string]string, error) {
 	applicationID, orgID, err := getApplicationAndOrgIDFromDir(targetDir)
 	if err != nil {
-		return "", 0, errors.WrapError("failed to get application ID", err)
+		return "", nil, errors.WrapError("failed to get application ID", err)
 	}
 
 	apiClient := singletons.GetAPIClient()
 
 	envVars, err := apiClient.GetApplicationEnv(orgID, applicationID)
 	if err != nil {
-		return "", 0, errors.WrapError("failed to get environment variables", err)
+		return "", nil, errors.WrapError("failed to get environment variables", err)
 	}
 
 	gitRoot := targetDir
 	if gitRoot == "" {
 		gitRoot, err = git.GetRepoRoot()
 		if err != nil {
-			return "", 0, errors.WrapError("failed to get git repository root", err)
+			return "", nil, errors.WrapError("failed to get git repository root", err)
 		}
 	}
 
@@ -237,8 +237,8 @@ func generateEnvFile(targetDir string) (string, int, error) {
 	// Write to .env file
 	err = os.WriteFile(envFilePath, []byte(envContent.String()), 0644)
 	if err != nil {
-		return "", 0, errors.WrapError("failed to write .env file", err)
+		return "", nil, errors.WrapError("failed to write .env file", err)
 	}
 
-	return envFilePath, len(envVars), nil
+	return envFilePath, envVars, nil
 }
