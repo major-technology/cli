@@ -153,11 +153,18 @@ func runCreate(cobraCmd *cobra.Command) error {
 
 	// Generate .env file
 	cobraCmd.Println("\nGenerating .env file...")
-	envFilePath, _, err := generateEnvFile(targetDir, orgID, createResp.ApplicationID)
+	envFilePath, envVars, err := generateEnvFile(targetDir, orgID, createResp.ApplicationID)
 	if err != nil {
 		cobraCmd.Printf("Warning: Failed to generate .env file: %v\n", err)
 	} else {
 		cobraCmd.Printf("✓ Generated .env file at: %s\n", envFilePath)
+
+		// Generate .mcp.json for Claude Code
+		if _, err := utils.GenerateMcpConfig(targetDir, envVars); err != nil {
+			cobraCmd.Printf("Warning: Failed to generate .mcp.json: %v\n", err)
+		} else {
+			cobraCmd.Println("✓ Generated .mcp.json for Claude Code")
+		}
 	}
 
 	printSuccessMessage(cobraCmd, createResp.RepositoryName)
@@ -228,12 +235,12 @@ func printSuccessMessage(cobraCmd *cobra.Command, appName string) {
 }
 
 // generateEnvFile generates a .env file for the application in the specified directory.
-func generateEnvFile(targetDir, orgID, applicationID string) (string, int, error) {
+func generateEnvFile(targetDir, orgID, applicationID string) (string, map[string]string, error) {
 	apiClient := singletons.GetAPIClient()
 
 	envVars, err := apiClient.GetApplicationEnv(orgID, applicationID)
 	if err != nil {
-		return "", 0, errors.WrapError("failed to get environment variables", err)
+		return "", nil, errors.WrapError("failed to get environment variables", err)
 	}
 
 	// Create .env file path
@@ -248,8 +255,8 @@ func generateEnvFile(targetDir, orgID, applicationID string) (string, int, error
 	// Write to .env file
 	err = os.WriteFile(envFilePath, []byte(envContent.String()), 0644)
 	if err != nil {
-		return "", 0, errors.WrapError("failed to write .env file", err)
+		return "", nil, errors.WrapError("failed to write .env file", err)
 	}
 
-	return envFilePath, len(envVars), nil
+	return envFilePath, envVars, nil
 }
