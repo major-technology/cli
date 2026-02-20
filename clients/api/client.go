@@ -228,9 +228,10 @@ func (c *Client) GetApplicationResources(applicationID string) (*GetApplicationR
 }
 
 // CreateApplicationVersion creates a new version of an application
-func (c *Client) CreateApplicationVersion(applicationID string) (*CreateApplicationVersionResponse, error) {
+func (c *Client) CreateApplicationVersion(applicationID string, appURL string) (*CreateApplicationVersionResponse, error) {
 	req := CreateApplicationVersionRequest{
 		ApplicationID: applicationID,
+		AppURL:        appURL,
 	}
 
 	var resp CreateApplicationVersionResponse
