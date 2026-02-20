@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -38,8 +39,8 @@ func runDeploy(cobraCmd *cobra.Command) error {
 		return errors.ErrorNotInGitRepository
 	}
 
-	// Get application ID and organization ID
-	applicationID, organizationID, err := getApplicationAndOrgID()
+	// Get application ID, organization ID, and URL slug
+	applicationID, organizationID, urlSlug, err := getApplicationAndOrgID()
 	if err != nil {
 		return errors.WrapError("failed to get application ID", err)
 	}
@@ -104,9 +105,18 @@ func runDeploy(cobraCmd *cobra.Command) error {
 		cobraCmd.Println("✓ No uncommitted changes")
 	}
 
+	// Prompt for deploy URL slug on first deploy
+	appURL := urlSlug
+	if appURL == "" {
+		appURL, err = promptForDeployURL(cobraCmd)
+		if err != nil {
+			return errors.WrapError("failed to collect deploy URL", err)
+		}
+	}
+
 	// Call API to create new version
 	apiClient := singletons.GetAPIClient()
-	resp, err := apiClient.CreateApplicationVersion(applicationID)
+	resp, err := apiClient.CreateApplicationVersion(applicationID, appURL)
 	if err != nil {
 		return err
 	}
@@ -359,4 +369,60 @@ func formatDeploymentError(errorMsg string) string {
 	title := titleStyle.Render("Deployment Error Details:")
 
 	return fmt.Sprintf("%s\n\n%s", title, errorMsg)
+}
+
+var reservedSlugs = map[string]bool{
+	"admin": true, "api": true, "www": true, "app": true,
+	"mail": true, "ftp": true, "staging": true, "prod": true,
+	"dev": true, "test": true, "beta": true, "status": true,
+	"help": true, "support": true, "docs": true, "blog": true,
+	"dashboard": true, "internal": true, "major": true,
+}
+
+var slugRegex = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]*[a-z0-9])?$`)
+
+func validateSlug(s string) error {
+	if len(s) < 3 {
+		return fmt.Errorf("slug must be at least 3 characters")
+	}
+	if len(s) > 63 {
+		return fmt.Errorf("slug must be at most 63 characters")
+	}
+	if !slugRegex.MatchString(s) {
+		return fmt.Errorf("slug must be lowercase alphanumeric with hyphens, no leading/trailing hyphens")
+	}
+	if reservedSlugs[s] {
+		return fmt.Errorf("this slug is reserved")
+	}
+	if strings.HasPrefix(s, "s-") || strings.HasPrefix(s, "vs-") {
+		return fmt.Errorf("slugs starting with 's-' or 'vs-' are reserved")
+	}
+	return nil
+}
+
+// promptForDeployURL prompts the user for a deploy URL slug on first deploy.
+func promptForDeployURL(cobraCmd *cobra.Command) (string, error) {
+	cfg := singletons.GetConfig()
+	suffix := cfg.AppURLSuffix
+
+	cobraCmd.Println("\n🌐 First deploy — choose your application URL")
+	cobraCmd.Printf("  Your app will be available at: https://<slug>.%s\n\n", suffix)
+
+	var slug string
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().
+				Title("Deploy URL").
+				Description("Enter a URL slug for your application (e.g. my-app)").
+				Value(&slug).
+				Validate(validateSlug),
+		),
+	)
+
+	if err := form.Run(); err != nil {
+		return "", err
+	}
+
+	cobraCmd.Printf("✓ Deploy URL: https://%s.%s\n", slug, suffix)
+	return slug, nil
 }

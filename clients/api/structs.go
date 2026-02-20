@@ -79,6 +79,7 @@ type GetApplicationByRepoResponse struct {
 	OrganizationID string                  `json:"organizationId,omitempty"`
 	TemplateID     *string                 `json:"templateId,omitempty"`
 	TemplateName   *constants.TemplateName `json:"templateName,omitempty"`
+	URLSlug        *string                 `json:"urlSlug,omitempty"`
 }
 
 // GetApplicationEnvRequest represents the request body for POST /application/env
@@ -110,6 +111,7 @@ type GetApplicationResourcesResponse struct {
 // CreateApplicationVersionRequest represents the request body for POST /applications/versions
 type CreateApplicationVersionRequest struct {
 	ApplicationID string `json:"applicationId"`
+	AppURL        string `json:"appURL,omitempty"`
 }
 
 // CreateApplicationVersionResponse represents the response from POST /applications/versions
