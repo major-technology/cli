@@ -148,17 +148,46 @@ func SelectApplicationResources(cmd *cobra.Command, apiClient *api.Client, orgID
 	return selectedResources, nil
 }
 
-// AddResourcesToProject adds selected resources to a project using pnpm resource:add
-// It handles differential updates: removes resources that are no longer selected and adds new ones
+// detectFramework detects the framework used in the project by checking package.json dependencies
+func detectFramework(projectDir string) string {
+	packageJsonPath := filepath.Join(projectDir, "package.json")
+	data, err := os.ReadFile(packageJsonPath)
+	if err != nil {
+		return ""
+	}
+
+	var pkg struct {
+		Dependencies    map[string]string `json:"dependencies"`
+		DevDependencies map[string]string `json:"devDependencies"`
+	}
+	if err := json.Unmarshal(data, &pkg); err != nil {
+		return ""
+	}
+
+	if _, ok := pkg.Dependencies["next"]; ok {
+		return "nextjs"
+	}
+	if _, ok := pkg.DevDependencies["next"]; ok {
+		return "nextjs"
+	}
+	if _, ok := pkg.Dependencies["vite"]; ok {
+		return "vite"
+	}
+	if _, ok := pkg.DevDependencies["vite"]; ok {
+		return "vite"
+	}
+	return "nextjs"
+}
+
+// AddResourcesToProject adds selected resources to a project using pnpm exec major-client.
+// It handles differential updates: removes resources that are no longer selected and adds new ones.
 func AddResourcesToProject(cmd *cobra.Command, projectDir string, resources []api.ResourceItem, applicationID string) error {
-	// Read existing resources
 	existingResources, err := ReadLocalResources(projectDir)
 	if err != nil {
 		cmd.Printf("Warning: Could not read existing resources: %v\n", err)
 		existingResources = []LocalResource{}
 	}
 
-	// Build maps for comparison
 	newResourceMap := make(map[string]api.ResourceItem)
 	for _, res := range resources {
 		newResourceMap[res.ID] = res
@@ -169,7 +198,6 @@ func AddResourcesToProject(cmd *cobra.Command, projectDir string, resources []ap
 		existingResourceMap[res.ID] = res
 	}
 
-	// Find resources to remove (in old but not in new)
 	var resourcesToRemove []LocalResource
 	for _, existing := range existingResources {
 		if _, found := newResourceMap[existing.ID]; !found {
@@ -177,7 +205,6 @@ func AddResourcesToProject(cmd *cobra.Command, projectDir string, resources []ap
 		}
 	}
 
-	// Find resources to add (in new but not in old)
 	var resourcesToAdd []api.ResourceItem
 	for _, newRes := range resources {
 		if _, found := existingResourceMap[newRes.ID]; !found {
@@ -185,13 +212,11 @@ func AddResourcesToProject(cmd *cobra.Command, projectDir string, resources []ap
 		}
 	}
 
-	// If nothing to change, return early
 	if len(resourcesToRemove) == 0 && len(resourcesToAdd) == 0 {
 		cmd.Println("No changes to resources.")
 		return nil
 	}
 
-	// First, install dependencies to make major-client available
 	cmd.Println("  Installing dependencies...")
 	installCmd := exec.Command("pnpm", "install")
 	installCmd.Dir = projectDir
@@ -202,15 +227,18 @@ func AddResourcesToProject(cmd *cobra.Command, projectDir string, resources []ap
 		return errors.WrapError("failed to install dependencies", err)
 	}
 
-	prefix := "resource"
+	framework := detectFramework(projectDir)
 
-	// Remove old resources
 	removeSuccessCount := 0
 	for _, resource := range resourcesToRemove {
 		cmd.Printf("  Removing resource: %s (%s)...\n", resource.Name, resource.Type)
 
-		// Run: pnpm clients:remove <name>
-		pnpmCmd := exec.Command("pnpm", prefix+":remove", resource.Name)
+		args := []string{"exec", "major-client", "remove", resource.Name}
+		if framework != "" {
+			args = append(args, "--framework", framework)
+		}
+
+		pnpmCmd := exec.Command("pnpm", args...)
 		pnpmCmd.Dir = projectDir
 		pnpmCmd.Stdout = os.Stdout
 		pnpmCmd.Stderr = os.Stderr
@@ -223,17 +251,16 @@ func AddResourcesToProject(cmd *cobra.Command, projectDir string, resources []ap
 		removeSuccessCount++
 	}
 
-	// Add new resources
 	addSuccessCount := 0
 	for _, resource := range resourcesToAdd {
-		// Convert resource name to a valid client name
-		// The major-client tool will convert it to camelCase for the actual client
-		clientName := resource.Name
-
 		cmd.Printf("  Adding resource: %s (%s)...\n", resource.Name, resource.Type)
 
-		// Run: pnpm clients:add <resource_id> <name> <type> <description> <application_id>
-		pnpmCmd := exec.Command("pnpm", prefix+":add", resource.ID, clientName, resource.Type, resource.Description, applicationID)
+		args := []string{"exec", "major-client", "add", resource.ID, resource.Name, resource.Type, resource.Description, applicationID}
+		if framework != "" {
+			args = append(args, "--framework", framework)
+		}
+
+		pnpmCmd := exec.Command("pnpm", args...)
 		pnpmCmd.Dir = projectDir
 		pnpmCmd.Stdout = os.Stdout
 		pnpmCmd.Stderr = os.Stderr
@@ -246,7 +273,6 @@ func AddResourcesToProject(cmd *cobra.Command, projectDir string, resources []ap
 		addSuccessCount++
 	}
 
-	// Report results
 	if removeSuccessCount > 0 {
 		cmd.Printf("✓ Successfully removed %d/%d resource(s)\n", removeSuccessCount, len(resourcesToRemove))
 	}
