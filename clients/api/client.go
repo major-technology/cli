@@ -287,18 +287,6 @@ func (c *Client) GetVersionStatus(applicationID, organizationID, versionID strin
 	return &resp, nil
 }
 
-// --- Template endpoints ---
-
-// GetTemplates retrieves all available templates
-func (c *Client) GetTemplates() (*GetTemplatesResponse, error) {
-	var resp GetTemplatesResponse
-	err := c.doRequest("GET", "/templates", nil, &resp)
-	if err != nil {
-		return nil, err
-	}
-	return &resp, nil
-}
-
 // --- Resource endpoints ---
 
 // GetResources retrieves all resources for an organization
@@ -331,20 +319,6 @@ func (c *Client) SaveApplicationResources(organizationID, applicationID string, 
 	return &resp, nil
 }
 
-// SetApplicationTemplate associates a template with an application
-func (c *Client) SetApplicationTemplate(applicationID, templateID string) (*SetApplicationTemplateResponse, error) {
-	req := SetApplicationTemplateRequest{
-		ApplicationID: applicationID,
-		TemplateID:    templateID,
-	}
-
-	var resp SetApplicationTemplateResponse
-	err := c.doRequest("POST", "/applications/template", req, &resp)
-	if err != nil {
-		return nil, err
-	}
-	return &resp, nil
-}
 
 // --- Version Check endpoints ---
 
@@ -440,19 +414,3 @@ func (c *Client) GetApplicationForLink(applicationID string) (*GetApplicationFor
 	return &resp, nil
 }
 
-// PushTemplate pushes template files to the application repository using backend GitHub App credentials
-// This bypasses the need for user's SSH access, allowing template push even when
-// the user hasn't accepted the GitHub invitation yet.
-func (c *Client) PushTemplate(applicationID, templateID string) (*PushTemplateResponse, error) {
-	req := PushTemplateRequest{
-		ApplicationID: applicationID,
-		TemplateID:    templateID,
-	}
-
-	var resp PushTemplateResponse
-	err := c.doRequest("POST", "/applications/push-template", req, &resp)
-	if err != nil {
-		return nil, err
-	}
-	return &resp, nil
-}

@@ -6,9 +6,7 @@ import (
 
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/major-technology/cli/clients/api"
 	mjrToken "github.com/major-technology/cli/clients/token"
-	"github.com/major-technology/cli/constants"
 	"github.com/major-technology/cli/errors"
 	"github.com/major-technology/cli/middleware"
 	"github.com/major-technology/cli/singletons"
@@ -117,15 +115,8 @@ func runCreate(cobraCmd *cobra.Command) error {
 	// Get the API client
 	apiClient := singletons.GetAPIClient()
 
-	// Fetch and select template
-	_, _, templateID, err := selectTemplate(cobraCmd, apiClient)
-	if err != nil {
-		return errors.WrapError("failed to select template", err)
-	}
-
 	cobraCmd.Printf("\nCreating application '%s'...\n", appName)
 
-	// Call POST /applications (token will be fetched automatically)
 	createResp, err := apiClient.CreateApplication(appName, appDescription, orgID)
 	if err != nil {
 		return err
@@ -133,25 +124,6 @@ func runCreate(cobraCmd *cobra.Command) error {
 
 	cobraCmd.Printf("✓ Application created with ID: %s\n", createResp.ApplicationID)
 	cobraCmd.Printf("✓ Repository: %s\n", createResp.RepositoryName)
-
-	_, err = apiClient.SetApplicationTemplate(createResp.ApplicationID, templateID)
-	if err != nil {
-		return err
-	}
-
-	// Push template files to repository using backend (GitHub App credentials)
-	// This bypasses user's SSH access, so template is pushed even if invitation is pending
-	cobraCmd.Println("Pushing template to repository...")
-	pushResp, err := apiClient.PushTemplate(createResp.ApplicationID, templateID)
-	if err != nil {
-		return errors.WrapError("failed to push template to repository", err)
-	}
-
-	if !pushResp.Success {
-		return errors.WrapError("failed to push template to repository", fmt.Errorf("%s", pushResp.ErrorMsg))
-	}
-
-	cobraCmd.Printf("✓ Template pushed (%d files)\n", pushResp.FilesCount)
 
 	// Ensure repository access before cloning
 	// Use non-interactive mode if all required flags were provided
@@ -296,22 +268,3 @@ func printSuccessMessage(cobraCmd *cobra.Command, appName string) {
 	cobraCmd.Println(box)
 }
 
-// selectTemplate fetches the NextJS template from the API.
-// Returns the template URL, name, and ID.
-func selectTemplate(cobraCmd *cobra.Command, apiClient *api.Client) (string, constants.TemplateName, string, error) {
-	// Fetch available templates
-	templatesResp, err := apiClient.GetTemplates()
-	if err != nil {
-		return "", "", "", err
-	}
-
-	// Find the NextJS template
-	for _, template := range templatesResp.Templates {
-		if template.Name == constants.NextJSTemplate {
-			cobraCmd.Printf("Using template: %s\n", template.Name)
-			return template.TemplateURL, template.Name, template.ID, nil
-		}
-	}
-
-	return "", "", "", errors.ErrorNoTemplatesAvailable
-}

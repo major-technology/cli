@@ -1,6 +1,5 @@
 package api
 
-import "github.com/major-technology/cli/constants"
 
 // LoginStartResponse represents the response from POST /login/start
 type LoginStartResponse struct {
@@ -78,7 +77,7 @@ type GetApplicationByRepoResponse struct {
 	ApplicationID  string                  `json:"applicationId,omitempty"`
 	OrganizationID string                  `json:"organizationId,omitempty"`
 	TemplateID     *string                 `json:"templateId,omitempty"`
-	TemplateName   *constants.TemplateName `json:"templateName,omitempty"`
+	TemplateName   *string                 `json:"templateName,omitempty"`
 	URLSlug        *string                 `json:"urlSlug,omitempty"`
 }
 
@@ -168,21 +167,6 @@ type GetVersionStatusResponse struct {
 	AppURL          string          `json:"app_url,omitempty"`
 }
 
-// --- Template structs ---
-
-// TemplateItem represents a single template
-type TemplateItem struct {
-	ID          string                 `json:"id"`
-	Name        constants.TemplateName `json:"name"`
-	TemplateURL string                 `json:"templateUrl"`
-}
-
-// GetTemplatesResponse represents the response from GET /templates
-type GetTemplatesResponse struct {
-	Error     *AppErrorDetail `json:"error,omitempty"`
-	Templates []*TemplateItem `json:"templates,omitempty"`
-}
-
 // --- Resource structs ---
 
 // GetResourcesRequest represents the request body for POST /resources
@@ -207,19 +191,6 @@ type SaveApplicationResourcesRequest struct {
 type SaveApplicationResourcesResponse struct {
 	Error   *AppErrorDetail `json:"error,omitempty"`
 	Success bool            `json:"success,omitempty"`
-}
-
-// SetApplicationTemplateRequest represents the request body for POST /applications/template
-type SetApplicationTemplateRequest struct {
-	ApplicationID string `json:"applicationId"`
-	TemplateID    string `json:"templateId"`
-}
-
-// SetApplicationTemplateResponse represents the response from POST /applications/template
-type SetApplicationTemplateResponse struct {
-	Error   *AppErrorDetail `json:"error,omitempty"`
-	Success bool            `json:"success,omitempty"`
-	Message string          `json:"message,omitempty"`
 }
 
 // --- Version Check structs ---
@@ -303,19 +274,3 @@ type GetApplicationForLinkResponse struct {
 	CloneURLHTTPS    string          `json:"cloneUrlHttps,omitempty"`
 }
 
-// --- Push Template structs ---
-
-// PushTemplateRequest represents the request body for POST /applications/push-template
-type PushTemplateRequest struct {
-	ApplicationID string `json:"applicationId"`
-	TemplateID    string `json:"templateId"`
-}
-
-// PushTemplateResponse represents the response from POST /applications/push-template
-type PushTemplateResponse struct {
-	Error      *AppErrorDetail `json:"error,omitempty"`
-	Success    bool            `json:"success"`
-	CommitSha  string          `json:"commitSha,omitempty"`
-	FilesCount int             `json:"filesCount,omitempty"`
-	ErrorMsg   string          `json:"errorMessage,omitempty"`
-}
