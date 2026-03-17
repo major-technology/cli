@@ -363,12 +363,6 @@ var ErrorApplicationDescriptionRequired = &CLIError{
 	Err:        errors.New("application description required"),
 }
 
-var ErrorNoTemplatesAvailable = &CLIError{
-	Title:      "No templates available",
-	Suggestion: "No templates are available. Please contact support.",
-	Err:        errors.New("no templates available"),
-}
-
 var ErrorNoValidCloneMethodAvailable = &CLIError{
 	Title:      "No valid clone method available",
 	Suggestion: "Please check your SSH keys are configured correctly. Run 'ssh -T git@github.com' to test your GitHub SSH connection.",
