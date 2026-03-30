@@ -14,6 +14,10 @@ import (
 // If targetDir is empty, it uses the current git repository root.
 // It uses the env vars from the application env endpoint to construct the MCP server config
 // pointing to the Go API's resource MCP endpoint.
+//
+// Deprecated: The "major" Claude Code plugin now provides org-level MCP servers via
+// headersHelper, which doesn't require per-project setup. This function is kept for
+// backward compatibility with users who haven't installed the plugin yet.
 func GenerateMcpConfig(targetDir string, envVars map[string]string) (string, error) {
 	apiBaseURL := envVars["MAJOR_API_BASE_URL"]
 	jwtToken := envVars["MAJOR_JWT_TOKEN"]
