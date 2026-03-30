@@ -1,5 +1,6 @@
 {
     "api_url": "http://localhost:3001/cli",
+    "resource_api_url": "http://localhost:8080",
     "frontend_uri": "http://localhost:3000",
     "app_url_suffix": "localhost:8080"
 }
