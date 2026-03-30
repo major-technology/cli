@@ -3,13 +3,12 @@
 ## Creating an App
 
 ```bash
-major app create --name "app-name" --description "What this app does" --template "Vite"
+major app create --name "app-name" --description "What this app does"
 ```
 
 **Flags:**
 - `--name` — App name (required for non-interactive use)
 - `--description` — App description (required for non-interactive use)
-- `--template` — `Vite` (recommended) or `NextJS`
 
 **What happens:**
 1. API creates the app and a GitHub repository

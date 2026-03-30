@@ -121,7 +121,7 @@ The skill body includes:
 1. **Platform overview** — What Major does (create web apps with GitHub repos, local dev with resources, deploy to production)
 2. **Command reference table** — All commands with brief descriptions, grouped by category
 3. **Interactive vs non-interactive commands** — Which commands Claude can run directly vs which require user interaction
-   - Direct: `user whoami`, `app create --name X --description Y --template Z`, `app clone --app-id X`, `app info`, `app start`, `app deploy --message X`, `resource env`
+   - Direct: `user whoami`, `app create --name X --description Y`, `app clone --app-id X`, `app info`, `app start`, `app deploy --message X`, `resource env`
    - Interactive (user must run): `user login`, `resource manage`
 4. **Critical rules**
    - NEVER use raw `git clone` — always `major app clone`
@@ -141,7 +141,7 @@ The skill body includes:
 - GitHub username setup (`major user gitconfig`)
 
 ### `app-workflows.md`
-- **Create:** `major app create --name "X" --description "Y" --template "Vite|NextJS"` — includes template options, GitHub invitation handling, resource selection
+- **Create:** `major app create --name "X" --description "Y"` — creates NextJS app, GitHub invitation handling, resource selection
 - **Clone:** `major app clone --app-id "UUID"` — never use raw git clone, handles auth + .env generation
 - **Start:** `major app start` — runs pnpm install + pnpm dev
 - **Deploy:** `major app deploy --message "description"` — commits, pushes, deploys, URL slug selection on first deploy

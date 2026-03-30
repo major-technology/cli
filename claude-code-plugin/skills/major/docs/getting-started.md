@@ -40,22 +40,15 @@ Stores the GitHub username in the keychain for app creation. This is auto-detect
 ## Create Your First App
 
 ```bash
-major app create --name "my-app" --description "My first Major app" --template "Vite"
+major app create --name "my-app" --description "My first Major app"
 ```
 
 This will:
-1. Create the app and GitHub repository
+1. Create the app and GitHub repository (NextJS by default)
 2. Ensure GitHub repo access (may trigger invitation flow)
 3. Clone the repository locally
 4. Generate `.env` file with environment variables
 5. Generate `.mcp.json` for Claude Code integration
-
-### Template Options
-
-| Template | Description |
-|----------|-------------|
-| `Vite` | Vite-based SPA (recommended for most apps) |
-| `NextJS` | Next.js full-stack app with SSR |
 
 ## Start Development
 

@@ -18,7 +18,7 @@ Major is a platform for building and deploying web applications. It creates GitH
 
 | Command | Description | Mode |
 |---------|-------------|------|
-| `major app create --name "X" --description "Y" --template "Vite"` | Create a new app | Direct |
+| `major app create --name "X" --description "Y"` | Create a new app | Direct |
 | `major app clone --app-id "UUID"` | Clone an existing app | Direct |
 | `major app start` | Start local dev server | Direct |
 | `major app deploy --message "description"` | Deploy to production | Direct |
@@ -82,7 +82,7 @@ Major is a platform for building and deploying web applications. It creates GitH
    - After they accept, re-run the same command
    - Do NOT try `git clone` directly or retry without user action
 
-5. **Available templates**: `Vite` (recommended), `NextJS`
+5. **App type**: Creates a NextJS application by default
 
 ## Workflow Reference
 
