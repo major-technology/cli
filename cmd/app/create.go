@@ -6,6 +6,7 @@ import (
 
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/major-technology/cli/clients/api"
 	mjrToken "github.com/major-technology/cli/clients/token"
 	"github.com/major-technology/cli/errors"
 	"github.com/major-technology/cli/middleware"
@@ -156,11 +157,14 @@ func runCreate(cobraCmd *cobra.Command) error {
 		return errors.WrapError("failed to ensure repository access", err)
 	}
 
-	// Select resources for the application
-	cobraCmd.Println("\nSelecting resources for your application...")
-	selectedResources, err := utils.SelectApplicationResources(cobraCmd, apiClient, orgID, createResp.ApplicationID)
-	if err != nil {
-		return errors.ErrorFailedToSelectResources
+	// Select resources for the application (skip in non-interactive mode)
+	var selectedResources []api.ResourceItem
+	if !isNonInteractive {
+		cobraCmd.Println("\nSelecting resources for your application...")
+		selectedResources, err = utils.SelectApplicationResources(cobraCmd, apiClient, orgID, createResp.ApplicationID)
+		if err != nil {
+			return errors.ErrorFailedToSelectResources
+		}
 	}
 
 	// Clone the repository (which now has template content)

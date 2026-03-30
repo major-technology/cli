@@ -64,12 +64,16 @@ The dev server has access to connected resources via environment variables.
 major app deploy --message "Add search feature"
 ```
 
-Always use `--message` (or `-m`) to skip the interactive commit prompt.
+Always use `--message` (or `-m`) to skip the interactive commit prompt. On first deploy, also pass `--slug` to set the URL non-interactively:
+
+```bash
+major app deploy --message "Initial deployment" --slug "my-app"
+```
 
 **What happens:**
 1. Checks for uncommitted git changes
 2. Stages, commits, and pushes to main branch
-3. On first deploy, prompts for URL slug
+3. On first deploy, uses `--slug` or prompts for URL slug
 4. Creates application version via API
 5. Shows deployment progress: bundling → building → deploying → deployed
 6. Returns the live app URL on success

@@ -18,7 +18,7 @@ Major is a platform for building and deploying web applications. It creates GitH
 
 | Command | Description | Mode |
 |---------|-------------|------|
-| `major app create --name "X" --description "Y"` | Create a new app | Direct |
+| `major app create --name "X" --description "Y"` | Create a new app (skips resource selection in non-interactive mode) | Direct |
 | `major app clone --app-id "UUID"` | Clone an existing app | Direct |
 | `major app start` | Start local dev server | Direct |
 | `major app deploy --message "description"` | Deploy to production | Direct |
@@ -66,9 +66,9 @@ Major is a platform for building and deploying web applications. It creates GitH
 
 1. **NEVER use raw git commands** (`git clone`, `git push`) — always use Major CLI commands. `major app clone` handles GitHub auth, permissions, and `.env` generation.
 
-2. **Always use `--message` with deploy** to skip the interactive commit prompt:
+2. **Always use `--message` with deploy** to skip the interactive commit prompt. On first deploy, also pass `--slug` to set the URL non-interactively:
    ```bash
-   major app deploy --message "Add search feature"
+   major app deploy --message "Add search feature" --slug "my-app"
    ```
 
 3. **Always check auth first** before running commands:
