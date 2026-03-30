@@ -1,0 +1,19 @@
+{
+  "name": "major-tools",
+  "owner": {
+    "name": "Major Technology",
+    "email": "support@major.build"
+  },
+  "metadata": {
+    "description": "Official Major platform plugins for Claude Code",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "major",
+      "source": "./plugins/major",
+      "description": "Use the Major platform agentically via Claude Code",
+      "version": "1.0.0"
+    }
+  ]
+}
