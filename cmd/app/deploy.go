@@ -17,10 +17,14 @@ import (
 )
 
 // Flag variables for non-interactive mode
-var flagDeployMessage string
+var (
+	flagDeployMessage string
+	flagDeploySlug    string
+)
 
 func init() {
 	deployCmd.Flags().StringVarP(&flagDeployMessage, "message", "m", "", "Commit message for uncommitted changes (skips interactive prompt)")
+	deployCmd.Flags().StringVar(&flagDeploySlug, "slug", "", "URL slug for first deploy (skips interactive prompt)")
 }
 
 // deployCmd represents the deploy command
@@ -108,9 +112,16 @@ func runDeploy(cobraCmd *cobra.Command) error {
 	// Prompt for deploy URL slug on first deploy
 	appURL := urlSlug
 	if appURL == "" {
-		appURL, err = promptForDeployURL(cobraCmd)
-		if err != nil {
-			return errors.WrapError("failed to collect deploy URL", err)
+		if flagDeploySlug != "" {
+			if err := validateSlug(flagDeploySlug); err != nil {
+				return fmt.Errorf("invalid slug: %w", err)
+			}
+			appURL = flagDeploySlug
+		} else {
+			appURL, err = promptForDeployURL(cobraCmd)
+			if err != nil {
+				return errors.WrapError("failed to collect deploy URL", err)
+			}
 		}
 	}
 
