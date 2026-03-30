@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "major-resources": {
+      "type": "http",
+      "url": "https://resource-api.prod.major.build/cli/v1/mcp",
+      "headersHelper": "${CLAUDE_PLUGIN_ROOT}/scripts/get-headers.sh"
+    },
+    "major-platform": {
+      "type": "http",
+      "url": "https://api.prod.major.build/mcp/cli",
+      "headersHelper": "${CLAUDE_PLUGIN_ROOT}/scripts/get-headers.sh"
+    }
+  }
+}
