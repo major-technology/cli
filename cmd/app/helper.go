@@ -8,6 +8,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/charmbracelet/huh"
+	"github.com/charmbracelet/lipgloss"
+	"github.com/major-technology/cli/clients/api"
 	"github.com/major-technology/cli/clients/git"
 	"github.com/major-technology/cli/errors"
 	"github.com/major-technology/cli/singletons"
@@ -246,4 +249,234 @@ func generateEnvFile(targetDir string) (string, map[string]string, error) {
 	}
 
 	return envFilePath, envVars, nil
+}
+
+// generateThemeFiles generates theme files (theme.css, theme.ts, logo.tsx) for the application.
+// If targetDir is empty, it uses the current git repository root.
+func generateThemeFiles(targetDir string) error {
+	applicationID, _, _, err := getApplicationAndOrgIDFromDir(targetDir)
+	if err != nil {
+		return errors.WrapError("failed to get application ID", err)
+	}
+
+	apiClient := singletons.GetAPIClient()
+
+	resp, err := apiClient.GetThemeFiles(applicationID)
+	if err != nil {
+		return errors.WrapError("failed to get theme files", err)
+	}
+
+	// No theme configured — not an error
+	if resp.Css == nil && resp.ThemeModule == nil {
+		return nil
+	}
+
+	gitRoot := targetDir
+	if gitRoot == "" {
+		gitRoot, err = git.GetRepoRoot()
+		if err != nil {
+			return errors.WrapError("failed to get git repository root", err)
+		}
+	}
+
+	// Write theme.css
+	if resp.Css != nil {
+		cssPath := filepath.Join(gitRoot, "app", "theme.css")
+
+		if err := os.MkdirAll(filepath.Dir(cssPath), 0755); err != nil {
+			return errors.WrapError("failed to create app directory", err)
+		}
+
+		if err := os.WriteFile(cssPath, []byte(*resp.Css), 0644); err != nil {
+			return errors.WrapError("failed to write theme.css", err)
+		}
+	}
+
+	// Write lib/theme.ts
+	if resp.ThemeModule != nil {
+		modulePath := filepath.Join(gitRoot, "lib", "theme.ts")
+		if err := os.MkdirAll(filepath.Dir(modulePath), 0755); err != nil {
+			return errors.WrapError("failed to create lib directory", err)
+		}
+
+		if err := os.WriteFile(modulePath, []byte(*resp.ThemeModule), 0644); err != nil {
+			return errors.WrapError("failed to write theme.ts", err)
+		}
+	}
+
+	// Write components/ui/logo.tsx
+	if resp.LogoComponent != nil {
+		logoPath := filepath.Join(gitRoot, "components", "ui", "logo.tsx")
+		if err := os.MkdirAll(filepath.Dir(logoPath), 0755); err != nil {
+			return errors.WrapError("failed to create components/ui directory", err)
+		}
+
+		if err := os.WriteFile(logoPath, []byte(*resp.LogoComponent), 0644); err != nil {
+			return errors.WrapError("failed to write logo.tsx", err)
+		}
+	}
+
+	// Write theme skill for Claude Code
+	if resp.Skill != nil {
+		skillPath := filepath.Join(gitRoot, ".claude", "skills", "theme", "SKILL.md")
+		if err := os.MkdirAll(filepath.Dir(skillPath), 0755); err != nil {
+			return errors.WrapError("failed to create .claude/skills/theme directory", err)
+		}
+
+		if err := os.WriteFile(skillPath, []byte(*resp.Skill), 0644); err != nil {
+			return errors.WrapError("failed to write theme skill", err)
+		}
+	}
+
+	return nil
+}
+
+// handleThemeSync writes theme files on first-time setup, and prompts for upgrade
+// if the app's theme version is behind the latest theme version.
+func handleThemeSync(cmd *cobra.Command) error {
+	applicationID, _, _, err := getApplicationAndOrgIDFromDir("")
+	if err != nil {
+		return err
+	}
+
+	gitRoot, err := git.GetRepoRoot()
+	if err != nil {
+		return err
+	}
+
+	existingCssPath := filepath.Join(gitRoot, "app", "theme.css")
+
+	// First-time setup — write without prompting
+	if _, statErr := os.Stat(existingCssPath); os.IsNotExist(statErr) {
+		if err := generateThemeFiles(""); err != nil {
+			return err
+		}
+
+		cmd.Println("✓ Theme files generated")
+		return nil
+	}
+
+	// Check if upgrade is available
+	apiClient := singletons.GetAPIClient()
+
+	versionResp, err := apiClient.GetThemeVersion(applicationID)
+	if err != nil {
+		return nil // Non-fatal — skip version check
+	}
+
+	if !versionResp.UpgradeAvailable || versionResp.AppThemeVersion == nil || versionResp.LatestThemeVersion == nil {
+		return nil
+	}
+
+	// Prompt for upgrade
+	var confirm bool
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewConfirm().
+				Title(fmt.Sprintf("Theme upgrade available (v%d → v%d). Apply?",
+					*versionResp.AppThemeVersion, *versionResp.LatestThemeVersion)).
+				Value(&confirm),
+		),
+	)
+
+	if err := form.Run(); err != nil {
+		return err
+	}
+
+	if confirm {
+		// Bump the version in the database first
+		if err := apiClient.UpgradeTheme(applicationID); err != nil {
+			return errors.WrapError("failed to upgrade theme", err)
+		}
+
+		// Then write theme files at the new version
+		if err := generateThemeFiles(""); err != nil {
+			return err
+		}
+
+		cmd.Println("✓ Theme files upgraded")
+	}
+
+	return nil
+}
+
+// renderColorBlock renders a colored █ block from a hex string, or plain █ if nil.
+func renderColorBlock(hex *string) string {
+	if hex == nil || *hex == "" {
+		return "█"
+	}
+
+	return lipgloss.NewStyle().Foreground(lipgloss.Color(*hex)).Render("█")
+}
+
+// dimText renders text in gray for secondary info.
+func dimText(s string) string {
+	return lipgloss.NewStyle().Foreground(lipgloss.Color("#888888")).Render(s)
+}
+
+// buildThemeSelectField builds a huh.Select field for theme selection.
+// Returns the field and a pointer to the selected value. Returns nil if no themes available.
+func buildThemeSelectField(apiClient *api.Client, orgID string, selectedID *string) (huh.Field, error) {
+	resp, err := apiClient.ListThemes(orgID)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(resp.Themes) == 0 {
+		return nil, nil
+	}
+
+	options := make([]huh.Option[string], 0, len(resp.Themes)+1)
+
+	// "Use default" option first, pre-selected
+	var defaultThemeName string
+
+	for _, t := range resp.Themes {
+		if t.IsDefault {
+			defaultThemeName = t.Name
+			*selectedID = t.ID
+			break
+		}
+	}
+
+	if defaultThemeName != "" {
+		options = append(options, huh.NewOption("Use default ("+defaultThemeName+")", *selectedID))
+	}
+
+	for _, t := range resp.Themes {
+		if t.IsDefault && defaultThemeName != "" {
+			continue // Already added as "Use default" option
+		}
+
+		var baseSwatch, accentSwatch string
+
+		if t.DisplayColors != nil {
+			baseSwatch = renderColorBlock(t.DisplayColors.BaseColorHex)
+			accentSwatch = renderColorBlock(t.DisplayColors.AccentColorHex)
+		} else {
+			baseSwatch = "█"
+			accentSwatch = "█"
+		}
+
+		label := t.Name
+		label += "  " + dimText("Base") + " " + baseSwatch
+		label += "  " + dimText("Accent") + " " + accentSwatch
+		label += "  " + dimText("Font:") + " " + t.Config.Font
+		label += "  " + dimText("Radius:") + " " + t.Config.Radius
+
+		if t.Config.Elevation != "" {
+			label += "  " + dimText("Elevation:") + " " + t.Config.Elevation
+		}
+
+		options = append(options, huh.NewOption(label, t.ID))
+	}
+
+	field := huh.NewSelect[string]().
+		Title("Theme").
+		Description("Select a theme for your application").
+		Options(options...).
+		Height(5).
+		Value(selectedID)
+
+	return field, nil
 }

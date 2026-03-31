@@ -55,19 +55,23 @@ func runCreate(cobraCmd *cobra.Command) error {
 
 	cobraCmd.Printf("Creating application in organization: %s\n\n", orgName)
 
+	// Get the API client
+	apiClient := singletons.GetAPIClient()
+
 	// Use flag values if provided, otherwise prompt interactively
 	appName := flagAppName
 	appDescription := flagAppDescription
+	var selectedThemeID string
 
 	// Check if we need to prompt for any values
 	needsPrompt := appName == "" || appDescription == ""
 
 	if needsPrompt {
 		// Build form fields only for missing values
-		var formGroups []huh.Field
+		var formFields []huh.Field
 
 		if appName == "" {
-			formGroups = append(formGroups,
+			formFields = append(formFields,
 				huh.NewInput().
 					Title("Application Name").
 					Description("Enter a name for your application").
@@ -82,8 +86,8 @@ func runCreate(cobraCmd *cobra.Command) error {
 		}
 
 		if appDescription == "" {
-			formGroups = append(formGroups,
-				huh.NewText().
+			formFields = append(formFields,
+				huh.NewInput().
 					Title("Application Description").
 					Description("Enter a description for your application").
 					Value(&appDescription).
@@ -96,7 +100,18 @@ func runCreate(cobraCmd *cobra.Command) error {
 			)
 		}
 
-		form := huh.NewForm(huh.NewGroup(formGroups...))
+		// Add theme selection field
+		themeField, themeErr := buildThemeSelectField(apiClient, orgID, &selectedThemeID)
+
+		if themeErr != nil {
+			cobraCmd.Printf("Warning: Failed to load themes: %v\n", themeErr)
+		}
+
+		if themeField != nil {
+			formFields = append(formFields, themeField)
+		}
+
+		form := huh.NewForm(huh.NewGroup(formFields...))
 
 		if err := form.Run(); err != nil {
 			return errors.WrapError("failed to collect application details", err)
@@ -112,12 +127,16 @@ func runCreate(cobraCmd *cobra.Command) error {
 		return errors.ErrorApplicationDescriptionRequired
 	}
 
-	// Get the API client
-	apiClient := singletons.GetAPIClient()
+	// Convert theme ID to pointer for API call
+	var themeIDPtr *string
+
+	if selectedThemeID != "" {
+		themeIDPtr = &selectedThemeID
+	}
 
 	cobraCmd.Printf("\nCreating application '%s'...\n", appName)
 
-	createResp, err := apiClient.CreateApplication(appName, appDescription, orgID)
+	createResp, err := apiClient.CreateApplication(appName, appDescription, orgID, themeIDPtr)
 	if err != nil {
 		return err
 	}
@@ -194,6 +213,14 @@ func runCreate(cobraCmd *cobra.Command) error {
 		} else {
 			cobraCmd.Println("✓ Generated .mcp.json for Claude Code")
 		}
+	}
+
+	// Generate theme files
+	cobraCmd.Println("Generating theme files...")
+	if err := generateThemeFiles(targetDir); err != nil {
+		cobraCmd.Printf("Warning: Failed to generate theme files: %v\n", err)
+	} else {
+		cobraCmd.Println("✓ Theme files generated")
 	}
 
 	printSuccessMessage(cobraCmd, appName)
