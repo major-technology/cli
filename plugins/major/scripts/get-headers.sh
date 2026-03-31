@@ -1,14 +1,13 @@
-#!/bin/bash
-# headersHelper script for Major CLI plugin.
-# Outputs JSON headers for MCP server authentication.
-# Called by Claude Code at MCP connection time.
+#!/usr/bin/env bash
+# Find major CLI - check common install locations
+MAJOR=""
+for p in "$HOME/.major/bin/major" "$HOME/go/bin/major" /usr/local/bin/major; do
+  [ -x "$p" ] && MAJOR="$p" && break
+done
+[ -z "$MAJOR" ] && MAJOR=$(PATH="$HOME/.major/bin:$HOME/go/bin:/usr/local/bin:$PATH" command -v major 2>/dev/null)
+[ -z "$MAJOR" ] && exit 1
 
-TOKEN=$(major user token 2>/dev/null)
-ORG=$(major org id 2>/dev/null)
-
-if [ -z "$TOKEN" ] || [ -z "$ORG" ]; then
-  echo '{"x-major-error": "Not authenticated. Run: major user login"}' >&2
-  exit 1
-fi
-
+TOKEN=$("$MAJOR" user token 2>/dev/null)
+ORG=$("$MAJOR" org id 2>/dev/null)
+[ -z "$TOKEN" ] || [ -z "$ORG" ] && exit 1
 echo "{\"Authorization\": \"Bearer $TOKEN\", \"x-major-org-id\": \"$ORG\"}"

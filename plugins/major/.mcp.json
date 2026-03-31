@@ -1,14 +1,12 @@
 {
-  "mcpServers": {
-    "major-resources": {
-      "type": "http",
-      "url": "https://resource-api.prod.major.build/cli/v1/mcp",
-      "headersHelper": "${CLAUDE_PLUGIN_ROOT}/scripts/get-headers.sh"
-    },
-    "major-platform": {
-      "type": "http",
-      "url": "https://api.prod.major.build/mcp/cli",
-      "headersHelper": "${CLAUDE_PLUGIN_ROOT}/scripts/get-headers.sh"
-    }
+  "major-resources": {
+    "type": "http",
+    "url": "http://localhost:9002/cli/v1/mcp",
+    "headersHelper": "bash -c 'TOKEN=$(major user token 2>/dev/null); ORG=$(major org id 2>/dev/null); echo \"{\\\"Authorization\\\": \\\"Bearer $TOKEN\\\", \\\"x-major-org-id\\\": \\\"$ORG\\\"}\"'"
+  },
+  "major-platform": {
+    "type": "http",
+    "url": "http://localhost:3001/mcp/cli",
+    "headersHelper": "bash -c 'TOKEN=$(major user token 2>/dev/null); ORG=$(major org id 2>/dev/null); echo \"{\\\"Authorization\\\": \\\"Bearer $TOKEN\\\", \\\"x-major-org-id\\\": \\\"$ORG\\\"}\"'"
   }
 }

@@ -9,5 +9,5 @@
   "license": "MIT",
   "skills": "./skills/",
   "mcpServers": "./.mcp.json",
-  "hooks": "./hooks/hooks.json"
+  "hooks": "./hooks/auto-approve.json"
 }

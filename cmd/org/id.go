@@ -1,6 +1,9 @@
 package org
 
 import (
+	"fmt"
+	"os"
+
 	mjrToken "github.com/major-technology/cli/clients/token"
 	"github.com/spf13/cobra"
 )
@@ -10,16 +13,16 @@ var idCmd = &cobra.Command{
 	Short:  "Print the default organization ID",
 	Hidden: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return runID(cmd)
+		return runID()
 	},
 }
 
-func runID(cmd *cobra.Command) error {
+func runID() error {
 	orgID, _, err := mjrToken.GetDefaultOrg()
 	if err != nil {
 		return err
 	}
 
-	cmd.Print(orgID)
+	fmt.Fprint(os.Stdout, orgID)
 	return nil
 }

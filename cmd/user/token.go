@@ -1,6 +1,9 @@
 package user
 
 import (
+	"fmt"
+	"os"
+
 	mjrToken "github.com/major-technology/cli/clients/token"
 	"github.com/spf13/cobra"
 )
@@ -10,16 +13,16 @@ var tokenCmd = &cobra.Command{
 	Short:  "Print the stored CLI token",
 	Hidden: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return runToken(cmd)
+		return runToken()
 	},
 }
 
-func runToken(cmd *cobra.Command) error {
+func runToken() error {
 	token, err := mjrToken.GetToken()
 	if err != nil {
 		return err
 	}
 
-	cmd.Print(token)
+	fmt.Fprint(os.Stdout, token)
 	return nil
 }
