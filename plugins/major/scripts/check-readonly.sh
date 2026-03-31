@@ -10,7 +10,7 @@ if [ -z "$TOOL_NAME" ]; then
 fi
 
 # Strip the MCP server prefix to get the actual tool name
-# e.g., "mcp__major_resources__postgresql_psql" -> "postgresql_psql"
-ACTUAL_TOOL=$(echo "$TOOL_NAME" | sed 's/^mcp__major_resources__//')
+# e.g., "mcp__plugin_major_major-resources__postgresql_psql" -> "postgresql_psql"
+ACTUAL_TOOL=$(echo "$TOOL_NAME" | sed 's/^mcp__plugin_major_major-resources__//')
 
 major mcp check-readonly "$ACTUAL_TOOL" 2>/dev/null

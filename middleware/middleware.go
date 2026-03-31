@@ -74,6 +74,11 @@ func CheckVersion(version string) CommandCheck {
 			return nil
 		}
 
+		// Skip for hidden commands (machine-consumed, stdout must be clean)
+		if cmd.Hidden {
+			return nil
+		}
+
 		client := singletons.GetAPIClient()
 
 		resp, err := client.CheckVersion(version)

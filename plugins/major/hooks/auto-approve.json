@@ -2,7 +2,7 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "mcp__major_resources__*",
+        "matcher": "mcp__plugin_major_major-resources__*",
         "hooks": [
           {
             "type": "command",
