@@ -9,6 +9,8 @@ description: Implements PostgreSQL connections, SQL queries, and migration patte
 
 **Security**: Never connect directly to databases/APIs. Never use credentials in code. Always use generated clients or MCP tools.
 
+**Description field:** Always include a short `description` (~5 words) when calling any resource MCP tool, explaining what the operation does (e.g. "List all user accounts", "Check table schema"). This is displayed to the user in the chat UI.
+
 **Two ways to interact with resources:**
 
 1. **MCP tools** (direct, no code needed): Tools follow the pattern `mcp__resources__<resourcetype>_<toolname>`. Use `mcp__resources__list_resources` to discover available resources and their IDs.

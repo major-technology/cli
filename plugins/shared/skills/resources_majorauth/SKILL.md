@@ -7,6 +7,8 @@ description: Share or revoke application access for users by email. Use whenever
 
 ## Common: Interacting with Resources
 
+**Description field:** Always include a short `description` (~5 words) when calling any resource MCP tool, explaining what the operation does (e.g. "Share access with user", "Revoke user access"). This is displayed to the user in the chat UI.
+
 **Two ways to interact with resources:**
 
 1. **MCP tools** (direct, no code needed): Tools follow the pattern `mcp__resources__<resourcetype>_<toolname>`. Use `mcp__resources__list_resources` to discover available resources and their IDs.
