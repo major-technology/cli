@@ -22,6 +22,7 @@ Major is a platform for building and deploying web applications. It creates GitH
 | `major app clone --app-id "UUID"` | Clone an existing app | Direct |
 | `major app start` | Start local dev server | Direct |
 | `major app deploy --message "description"` | Deploy to production | Direct |
+| `major app list` | List all apps in org (JSON: id, name) | Direct |
 | `major app info` | Show current app ID | Direct |
 | `major app configure` | Open app settings in browser | Direct |
 

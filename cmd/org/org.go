@@ -21,4 +21,5 @@ func init() {
 	Cmd.AddCommand(selectCmd)
 	Cmd.AddCommand(whoamiCmd)
 	Cmd.AddCommand(listCmd)
+	Cmd.AddCommand(idCmd)
 }

@@ -10,6 +10,7 @@ import (
 // Config represents the application configuration
 type Config struct {
 	APIURL             string `mapstructure:"api_url"`
+	ResourceAPIURL     string `mapstructure:"resource_api_url"`
 	FrontendURI        string `mapstructure:"frontend_uri"`
 	AppURLSuffix       string `mapstructure:"app_url_suffix"`
 	AppURLFEOnlySuffix string `mapstructure:"app_url_fe_only_suffix"`
@@ -25,9 +26,12 @@ func Load(configFile string) (*Config, error) {
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
 	var configData []byte
-	if configFile == "configs/prod.json" {
+	switch configFile {
+	case "configs/prod.json":
 		configData = configs.ProdConfig
-	} else {
+	case "configs/staging.json":
+		configData = configs.StagingConfig
+	default:
 		configData = configs.LocalConfig
 	}
 
