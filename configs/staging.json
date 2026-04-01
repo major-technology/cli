@@ -1,0 +1,7 @@
+{
+    "api_url": "https://api.staging.major.build/cli",
+    "resource_api_url": "https://resource-api.staging.major.build",
+    "frontend_uri": "https://app.staging.major.build",
+    "app_url_suffix": "apps.staging.major.build",
+    "app_url_fe_only_suffix": "apps2.staging.major.build"
+}

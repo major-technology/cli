@@ -3,12 +3,15 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/major-technology/cli/clients/api"
 	"github.com/major-technology/cli/clients/config"
 	mjrToken "github.com/major-technology/cli/clients/token"
 	"github.com/major-technology/cli/cmd/app"
+	cliconfig "github.com/major-technology/cli/cmd/config"
 	"github.com/major-technology/cli/cmd/demo"
 	"github.com/major-technology/cli/cmd/mcp"
 	"github.com/major-technology/cli/cmd/org"
@@ -109,9 +112,20 @@ func init() {
 	rootCmd.AddCommand(resource.Cmd)
 
 	rootCmd.AddCommand(mcp.Cmd)
+
+	rootCmd.AddCommand(cliconfig.Cmd)
 }
 
 func initConfig() {
+	// Check for persistent environment override
+	if homeDir, err := os.UserHomeDir(); err == nil {
+		if data, err := os.ReadFile(filepath.Join(homeDir, ".major", "env")); err == nil {
+			if override := strings.TrimSpace(string(data)); override != "" {
+				configFile = override
+			}
+		}
+	}
+
 	var err error
 	cfg, err := config.Load(configFile)
 	cobra.CheckErr(err)

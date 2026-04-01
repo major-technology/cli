@@ -26,9 +26,12 @@ func Load(configFile string) (*Config, error) {
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
 	var configData []byte
-	if configFile == "configs/prod.json" {
+	switch configFile {
+	case "configs/prod.json":
 		configData = configs.ProdConfig
-	} else {
+	case "configs/staging.json":
+		configData = configs.StagingConfig
+	default:
 		configData = configs.LocalConfig
 	}
 
