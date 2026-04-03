@@ -2,8 +2,6 @@ package resource
 
 import (
 	"fmt"
-	"os"
-	"os/exec"
 
 	"github.com/major-technology/cli/errors"
 	"github.com/major-technology/cli/middleware"
@@ -42,49 +40,46 @@ func runRemove(cobraCmd *cobra.Command) error {
 
 	apiClient := singletons.GetAPIClient()
 
-	// Get current app resources
-	appResources, err := apiClient.GetApplicationResources(appInfo.ApplicationID)
+	// Fetch org resources (source of truth for resource metadata)
+	orgResources, err := apiClient.GetResources(appInfo.OrganizationID)
 	if err != nil {
-		return errors.WrapError("failed to get application resources", err)
+		return errors.WrapError("failed to get resources", err)
 	}
 
-	// Find the resource and build filtered list
-	var removedName string
-	var removedType string
-	resourceIDs := make([]string, 0, len(appResources.Resources))
-	for _, r := range appResources.Resources {
+	// Read local resources.json (same as manage does)
+	existingResources, err := utils.ReadLocalResources(".")
+	if err != nil {
+		return errors.WrapError("failed to read existing resources", err)
+	}
+
+	// Verify the resource is currently attached
+	found := false
+	selectedIDs := make([]string, 0, len(existingResources))
+	for _, r := range existingResources {
 		if r.ID == flagRemoveResourceID {
-			removedName = r.Name
-			removedType = r.Type
+			found = true
 			continue
 		}
-		resourceIDs = append(resourceIDs, r.ID)
+		selectedIDs = append(selectedIDs, r.ID)
 	}
 
-	if removedName == "" {
+	if !found {
 		return fmt.Errorf("resource with ID %q is not attached to this application", flagRemoveResourceID)
 	}
 
-	// Save the updated resource list
-	_, err = apiClient.SaveApplicationResources(appInfo.OrganizationID, appInfo.ApplicationID, resourceIDs)
+	// Save to server
+	_, err = apiClient.SaveApplicationResources(appInfo.OrganizationID, appInfo.ApplicationID, selectedIDs)
 	if err != nil {
 		return errors.WrapError("failed to save resources", err)
 	}
 
-	// Remove local client code
-	cobraCmd.Printf("Removing resource: %s (%s)...\n", removedName, removedType)
-	framework := utils.DetectFramework(".")
-	args := []string{"exec", "major-client", "remove", removedName}
-	if framework != "" {
-		args = append(args, "--framework", framework)
-	}
-	pnpmCmd := exec.Command("pnpm", args...)
-	pnpmCmd.Stdout = os.Stdout
-	pnpmCmd.Stderr = os.Stderr
-	if err := pnpmCmd.Run(); err != nil {
-		cobraCmd.Printf("Warning: Failed to remove local resource files: %v\n", err)
+	// Build resource list for AddResourcesToProject (needs ResourceItem details)
+	selectedResources := utils.ResolveResourceItems(selectedIDs, orgResources.Resources)
+
+	// Generate local client code (diffs against resources.json, will remove the target)
+	if err := utils.AddResourcesToProject(cobraCmd, ".", selectedResources, appInfo.ApplicationID); err != nil {
+		return errors.WrapError("failed to update project resources", err)
 	}
 
-	cobraCmd.Printf("Resource %q removed successfully.\n", removedName)
 	return nil
 }

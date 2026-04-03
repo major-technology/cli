@@ -41,12 +41,13 @@ func runAdd(cobraCmd *cobra.Command) error {
 
 	apiClient := singletons.GetAPIClient()
 
-	// Verify the resource exists in the org
+	// Fetch org resources (source of truth for resource metadata)
 	orgResources, err := apiClient.GetResources(appInfo.OrganizationID)
 	if err != nil {
 		return errors.WrapError("failed to get resources", err)
 	}
 
+	// Find the target resource in org resources
 	var targetResource *api.ResourceItem
 	for i, r := range orgResources.Resources {
 		if r.ID == flagAddResourceID {
@@ -59,36 +60,33 @@ func runAdd(cobraCmd *cobra.Command) error {
 		return fmt.Errorf("resource with ID %q not found in organization", flagAddResourceID)
 	}
 
-	// Get current app resources
-	appResources, err := apiClient.GetApplicationResources(appInfo.ApplicationID)
+	// Read local resources.json (same as manage does)
+	existingResources, err := utils.ReadLocalResources(".")
 	if err != nil {
-		return errors.WrapError("failed to get application resources", err)
+		cobraCmd.Printf("Warning: Could not read existing resources: %v\n", err)
+		existingResources = []utils.LocalResource{}
 	}
 
-	// Check if already attached
-	resourceIDs := make([]string, 0, len(appResources.Resources)+1)
-	for _, r := range appResources.Resources {
-		if r.ID == flagAddResourceID {
-			cobraCmd.Printf("Resource %q is already attached to this application.\n", targetResource.Name)
-			return nil
-		}
-		resourceIDs = append(resourceIDs, r.ID)
+	// Build desired resource ID list: existing + new
+	selectedIDs := make([]string, 0, len(existingResources)+1)
+	for _, r := range existingResources {
+		selectedIDs = append(selectedIDs, r.ID)
 	}
+	selectedIDs = append(selectedIDs, flagAddResourceID)
 
-	// Add the new resource
-	resourceIDs = append(resourceIDs, flagAddResourceID)
-
-	_, err = apiClient.SaveApplicationResources(appInfo.OrganizationID, appInfo.ApplicationID, resourceIDs)
+	// Save to server
+	_, err = apiClient.SaveApplicationResources(appInfo.OrganizationID, appInfo.ApplicationID, selectedIDs)
 	if err != nil {
 		return errors.WrapError("failed to save resources", err)
 	}
 
-	// Generate local client code — pass full resource list so the diff works correctly
-	allResources := append(appResources.Resources, *targetResource)
-	if err := utils.AddResourcesToProject(cobraCmd, ".", allResources, appInfo.ApplicationID); err != nil {
+	// Build full resource list for AddResourcesToProject (needs ResourceItem details)
+	selectedResources := utils.ResolveResourceItems(selectedIDs, orgResources.Resources)
+
+	// Generate local client code (diffs against resources.json)
+	if err := utils.AddResourcesToProject(cobraCmd, ".", selectedResources, appInfo.ApplicationID); err != nil {
 		return errors.WrapError("failed to add resource to project", err)
 	}
 
-	cobraCmd.Printf("Resource %q added successfully.\n", targetResource.Name)
 	return nil
 }

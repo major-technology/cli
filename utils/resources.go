@@ -134,18 +134,24 @@ func SelectApplicationResources(cmd *cobra.Command, apiClient *api.Client, orgID
 		return nil, err
 	}
 
-	// Build and return the list of selected resources with full details
-	var selectedResources []api.ResourceItem
-	for _, selectedID := range selectedResourceIDs {
-		for _, resource := range resourcesResp.Resources {
-			if resource.ID == selectedID {
-				selectedResources = append(selectedResources, resource)
-				break
-			}
-		}
+	return ResolveResourceItems(selectedResourceIDs, resourcesResp.Resources), nil
+}
+
+// ResolveResourceItems maps a list of resource IDs to their full ResourceItem details
+// from the org resource list. IDs not found in orgResources are skipped.
+func ResolveResourceItems(ids []string, orgResources []api.ResourceItem) []api.ResourceItem {
+	resourceMap := make(map[string]api.ResourceItem, len(orgResources))
+	for _, r := range orgResources {
+		resourceMap[r.ID] = r
 	}
 
-	return selectedResources, nil
+	var result []api.ResourceItem
+	for _, id := range ids {
+		if r, ok := resourceMap[id]; ok {
+			result = append(result, r)
+		}
+	}
+	return result
 }
 
 // DetectFramework detects the framework used in the project by checking package.json dependencies
