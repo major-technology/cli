@@ -83,8 +83,9 @@ func runAdd(cobraCmd *cobra.Command) error {
 		return errors.WrapError("failed to save resources", err)
 	}
 
-	// Generate local client code
-	if err := utils.AddResourcesToProject(cobraCmd, ".", []api.ResourceItem{*targetResource}, appInfo.ApplicationID); err != nil {
+	// Generate local client code — pass full resource list so the diff works correctly
+	allResources := append(appResources.Resources, *targetResource)
+	if err := utils.AddResourcesToProject(cobraCmd, ".", allResources, appInfo.ApplicationID); err != nil {
 		return errors.WrapError("failed to add resource to project", err)
 	}
 
