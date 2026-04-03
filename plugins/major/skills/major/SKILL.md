@@ -21,7 +21,8 @@ Major is a platform for building and deploying Next.js web applications. It crea
 | `major app create --name "X" --description "Y"` | Create a new app (skips resource selection in non-interactive mode) | Direct |
 | `major app clone --app-id "UUID"` | Clone an existing app | Direct |
 | `major app start` | Start local dev server (warns if behind origin) | Direct |
-| `major app deploy --message "description" --no-wait` | Deploy to production | Direct |
+| `major app deploy --message "description" --no-wait` | Deploy to production (returns version ID) | Direct |
+| `major app deploy-status --version-id "ID"` | Check deployment status (JSON: status, appUrl, error) | Direct |
 | `major app list` | List all apps in org (JSON: id, name) | Direct |
 | `major app info` | Show app ID, name, deploy status, URL | Direct |
 | `major app info --json` | App info as JSON | Direct |
@@ -75,9 +76,11 @@ Major is a platform for building and deploying Next.js web applications. It crea
 
 1. **NEVER use raw git commands** (`git clone`, `git push`) -- always use Major CLI commands. `major app clone` handles GitHub auth, permissions, and `.env` generation.
 
-2. **Always use `--message` and `--no-wait` with deploy** to skip the interactive commit prompt and avoid TUI issues:
+2. **Always use `--message` and `--no-wait` with deploy** to skip the interactive commit prompt and avoid TUI issues. The command returns a version ID you can use to check status:
    ```bash
    major app deploy --message "Add search feature" --no-wait
+   # Returns version ID, then check status:
+   major app deploy-status --version-id "<version-id>"
    ```
    On first deploy, also pass `--slug` to set the URL non-interactively:
    ```bash

@@ -140,7 +140,7 @@ func runDeploy(cobraCmd *cobra.Command) error {
 
 	// If --no-wait, return immediately
 	if flagDeployNoWait {
-		cobraCmd.Println("Deployment started. Use 'major app info' to check status.")
+		cobraCmd.Printf("Deployment started. Use 'major app deploy-status --version-id %s' to check status.\n", resp.VersionID)
 		return nil
 	}
 

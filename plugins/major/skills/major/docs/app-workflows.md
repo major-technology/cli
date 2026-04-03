@@ -80,9 +80,22 @@ major app deploy --message "Initial deployment" --slug "my-app" --no-wait
 1. Checks for uncommitted git changes
 2. Stages, commits, and pushes to main branch
 3. On first deploy, uses `--slug` or prompts for URL slug
-4. Creates application version via API
+4. Creates application version via API and returns a version ID
 5. Without `--no-wait`: shows deployment progress (bundling -> building -> deploying -> deployed)
 6. Returns the live app URL on success
+
+## Checking Deployment Status
+
+```bash
+major app deploy-status --version-id "version-uuid"
+```
+
+Returns JSON with the current status of a specific deployment version:
+```json
+{"status":"DEPLOYED","appUrl":"https://my-app.apps2.prod.major.build"}
+```
+
+Possible statuses: `BUNDLING`, `BUNDLE_FAILED`, `BUILDING`, `BUILD_FAILED`, `DEPLOYING`, `DEPLOY_FAILED`, `DEPLOYED`.
 
 ## Checking App Info
 
