@@ -148,8 +148,8 @@ func SelectApplicationResources(cmd *cobra.Command, apiClient *api.Client, orgID
 	return selectedResources, nil
 }
 
-// detectFramework detects the framework used in the project by checking package.json dependencies
-func detectFramework(projectDir string) string {
+// DetectFramework detects the framework used in the project by checking package.json dependencies
+func DetectFramework(projectDir string) string {
 	packageJsonPath := filepath.Join(projectDir, "package.json")
 	data, err := os.ReadFile(packageJsonPath)
 	if err != nil {
@@ -227,7 +227,7 @@ func AddResourcesToProject(cmd *cobra.Command, projectDir string, resources []ap
 		return errors.WrapError("failed to install dependencies", err)
 	}
 
-	framework := detectFramework(projectDir)
+	framework := DetectFramework(projectDir)
 
 	removeSuccessCount := 0
 	for _, resource := range resourcesToRemove {

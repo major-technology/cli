@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -10,6 +11,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
+	xt "github.com/charmbracelet/x/term"
 	"github.com/major-technology/cli/clients/git"
 	"github.com/major-technology/cli/errors"
 	"github.com/major-technology/cli/singletons"
@@ -20,11 +22,13 @@ import (
 var (
 	flagDeployMessage string
 	flagDeploySlug    string
+	flagDeployNoWait  bool
 )
 
 func init() {
 	deployCmd.Flags().StringVarP(&flagDeployMessage, "message", "m", "", "Commit message for uncommitted changes (skips interactive prompt)")
 	deployCmd.Flags().StringVar(&flagDeploySlug, "slug", "", "URL slug for first deploy (skips interactive prompt)")
+	deployCmd.Flags().BoolVar(&flagDeployNoWait, "no-wait", false, "Don't wait for deployment to complete (returns immediately after triggering)")
 }
 
 // deployCmd represents the deploy command
@@ -110,15 +114,15 @@ func runDeploy(cobraCmd *cobra.Command) error {
 	}
 
 	// Prompt for deploy URL slug on first deploy
-	appURL := urlSlug
-	if appURL == "" {
+	deploySlug := urlSlug
+	if deploySlug == "" {
 		if flagDeploySlug != "" {
 			if err := validateSlug(flagDeploySlug); err != nil {
 				return fmt.Errorf("invalid slug: %w", err)
 			}
-			appURL = flagDeploySlug
+			deploySlug = flagDeploySlug
 		} else {
-			appURL, err = promptForDeployURL(cobraCmd)
+			deploySlug, err = promptForDeployURL(cobraCmd)
 			if err != nil {
 				return errors.WrapError("failed to collect deploy URL", err)
 			}
@@ -127,15 +131,26 @@ func runDeploy(cobraCmd *cobra.Command) error {
 
 	// Call API to create new version
 	apiClient := singletons.GetAPIClient()
-	resp, err := apiClient.CreateApplicationVersion(applicationID, appURL)
+	resp, err := apiClient.CreateApplicationVersion(applicationID, deploySlug)
 	if err != nil {
 		return err
 	}
 
 	cobraCmd.Printf("\n✓ Version created: %s\n", resp.VersionID)
 
-	// Poll deployment status with beautiful UI
-	finalStatus, deploymentError, appURL, err := pollDeploymentStatus(applicationID, organizationID, resp.VersionID)
+	// If --no-wait, return immediately
+	if flagDeployNoWait {
+		cobraCmd.Println("Deployment started. Use 'major app info' to check status.")
+		return nil
+	}
+
+	// Poll deployment status -- use simple polling if not a TTY, Bubble Tea otherwise
+	var finalStatus, deploymentError, appURL string
+	if xt.IsTerminal(os.Stdout.Fd()) {
+		finalStatus, deploymentError, appURL, err = pollDeploymentStatus(applicationID, organizationID, resp.VersionID)
+	} else {
+		finalStatus, deploymentError, appURL, err = pollDeploymentStatusSimple(cobraCmd, applicationID, organizationID, resp.VersionID)
+	}
 	if err != nil {
 		return errors.WrapError("failed to track deployment status", err)
 	}
@@ -409,6 +424,31 @@ func validateSlug(s string) error {
 		return fmt.Errorf("slugs starting with 's-' or 'vs-' are reserved")
 	}
 	return nil
+}
+
+// pollDeploymentStatusSimple polls deployment status using simple text output (for non-TTY environments).
+func pollDeploymentStatusSimple(cobraCmd *cobra.Command, applicationID, organizationID, versionID string) (string, string, string, error) {
+	apiClient := singletons.GetAPIClient()
+	lastStatus := ""
+
+	for {
+		resp, err := apiClient.GetVersionStatus(applicationID, organizationID, versionID)
+		if err != nil {
+			return "", "", "", err
+		}
+
+		if resp.Status != lastStatus {
+			statusText, _ := getStatusDisplay(resp.Status)
+			cobraCmd.Printf("Status: %s\n", statusText)
+			lastStatus = resp.Status
+		}
+
+		if isTerminalStatus(resp.Status) {
+			return resp.Status, resp.DeploymentError, resp.AppURL, nil
+		}
+
+		time.Sleep(2 * time.Second)
+	}
 }
 
 // promptForDeployURL prompts the user for a deploy URL slug on first deploy.

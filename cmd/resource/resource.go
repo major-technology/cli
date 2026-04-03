@@ -21,4 +21,8 @@ func init() {
 	Cmd.AddCommand(createCmd)
 	Cmd.AddCommand(manageCmd)
 	Cmd.AddCommand(envCmd)
+	Cmd.AddCommand(envListCmd)
+	Cmd.AddCommand(listCmd)
+	Cmd.AddCommand(addCmd)
+	Cmd.AddCommand(removeCmd)
 }
