@@ -32,6 +32,11 @@ func runStart(cobraCmd *cobra.Command) error {
 		cobraCmd.Printf("Warning: Failed to generate .mcp.json: %v\n", err)
 	}
 
+	// Generate theme files (check for changes)
+	if err := handleThemeSync(cobraCmd); err != nil {
+		cobraCmd.Printf("Warning: Failed to sync theme files: %v\n", err)
+	}
+
 	// Run start in current directory
 	return RunStartInDir(cobraCmd, "")
 }

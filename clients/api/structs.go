@@ -51,9 +51,10 @@ type OrganizationsResponse struct {
 
 // CreateApplicationRequest represents the request body for POST /applications
 type CreateApplicationRequest struct {
-	Name           string `json:"name"`
-	Description    string `json:"description"`
-	OrganizationID string `json:"organizationId"`
+	Name           string  `json:"name"`
+	Description    string  `json:"description"`
+	OrganizationID string  `json:"organizationId"`
+	ThemeID        *string `json:"themeId,omitempty"`
 }
 
 // CreateApplicationResponse represents the response from POST /applications
@@ -272,5 +273,55 @@ type GetApplicationForLinkResponse struct {
 	Name             string          `json:"name,omitempty"`
 	CloneURLSSH      string          `json:"cloneUrlSsh,omitempty"`
 	CloneURLHTTPS    string          `json:"cloneUrlHttps,omitempty"`
+}
+
+// --- Theme structs ---
+
+// ThemeConfig represents the theme configuration
+type ThemeConfig struct {
+	BaseColor   interface{} `json:"baseColor"`
+	AccentTheme interface{} `json:"accentTheme"`
+	Font        string      `json:"font"`
+	Radius      string      `json:"radius"`
+	Elevation   string      `json:"elevation,omitempty"`
+}
+
+// ThemeDisplayColors contains resolved hex colors for terminal rendering.
+type ThemeDisplayColors struct {
+	BaseColorHex   *string `json:"baseColorHex,omitempty"`
+	AccentColorHex *string `json:"accentColorHex,omitempty"`
+}
+
+// ThemeItem represents a single theme
+type ThemeItem struct {
+	ID            string              `json:"id"`
+	Name          string              `json:"name"`
+	IsDefault     bool                `json:"isDefault"`
+	Config        ThemeConfig         `json:"config"`
+	DisplayColors *ThemeDisplayColors `json:"displayColors,omitempty"`
+}
+
+// ListThemesResponse represents the response from GET /themes
+type ListThemesResponse struct {
+	Error  *AppErrorDetail `json:"error,omitempty"`
+	Themes []ThemeItem     `json:"themes,omitempty"`
+}
+
+// GetThemeVersionResponse represents the response from GET /application/:applicationId/theme-version
+type GetThemeVersionResponse struct {
+	Error              *AppErrorDetail `json:"error,omitempty"`
+	AppThemeVersion    *int            `json:"appThemeVersion,omitempty"`
+	LatestThemeVersion *int            `json:"latestThemeVersion,omitempty"`
+	UpgradeAvailable   bool            `json:"upgradeAvailable"`
+}
+
+// GetThemeFilesResponse represents the response from GET /application/:applicationId/theme-files
+type GetThemeFilesResponse struct {
+	Error         *AppErrorDetail `json:"error,omitempty"`
+	Css           *string         `json:"css,omitempty"`
+	ThemeModule   *string         `json:"themeModule,omitempty"`
+	LogoComponent *string         `json:"logoComponent,omitempty"`
+	Skill         *string         `json:"skill,omitempty"`
+	Version       *int            `json:"version,omitempty"`
 }
 
