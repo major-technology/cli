@@ -6,7 +6,7 @@
 ```bash
 major user login
 ```
-User must run this in their terminal — it opens a browser for OAuth.
+User must run this in their terminal -- it opens a browser for OAuth.
 
 **Session expired**
 Run `major user login` again to refresh the token.
@@ -25,22 +25,39 @@ Navigate to the app directory. Verify with `major app info`.
 Use `major app clone` to list and clone available apps.
 
 **Missing `.env` file**
-Run `major app start` — it regenerates the `.env` file automatically.
+Run `major app start` -- it regenerates the `.env` file automatically.
+
+**Branch behind origin**
+`major app start` warns if your branch is behind `origin/main`. Run `git pull` to update.
 
 ## Resource Issues
 
 **Resources not available locally**
-1. Check connected resources: `major resource manage` (user must run)
-2. Verify environment: `major resource env`
+1. Check connected resources: `major resource list`
+2. Verify environment: `major resource env-list`
 3. Restart dev server: `major app start` (regenerates `.env`)
 
 **Wrong environment**
 ```bash
-major resource env
+major resource env-list --json
+major resource env --id "correct-env-id"
 ```
 Switch to the correct environment, then restart the dev server.
 
+**Adding/removing resources programmatically**
+```bash
+major resource list                    # See available resources and their IDs
+major resource add --id "resource-id"  # Add to current app
+major resource remove --id "resource-id"  # Remove from current app
+```
+
 ## Deployment Issues
+
+**Deploy crashes or hangs**
+Use `--no-wait` to skip the TUI progress tracker:
+```bash
+major app deploy --message "description" --no-wait
+```
 
 **Deploy fails**
 1. Check authentication: `major user whoami`
@@ -50,6 +67,14 @@ Switch to the correct environment, then restart the dev server.
 
 **"Not in a git repository"**
 Navigate to the app directory. Major apps are git repositories.
+
+## Organization Issues
+
+**Switch organizations programmatically**
+```bash
+major org list --json                 # Get org IDs
+major org select --id "org-id"        # Switch to a specific org
+```
 
 ## CLI Issues
 

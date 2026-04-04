@@ -1,11 +1,14 @@
 package git
 
 import (
+	"context"
 	"errors"
 	"os"
 	"os/exec"
 	"regexp"
+	"strconv"
 	"strings"
+	"time"
 
 	clierrors "github.com/major-technology/cli/errors"
 )
@@ -223,6 +226,34 @@ func Pull(repoDir string) error {
 		return clierrors.WrapError("git pull failed: "+string(output), err)
 	}
 	return nil
+}
+
+// IsBehindRemote checks if the local branch is behind origin/main.
+// Returns whether it's behind, how many commits behind, and any error.
+// Uses a 5-second timeout to avoid blocking if the network is unavailable.
+func IsBehindRemote() (bool, int, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// Fetch latest from origin
+	fetchCmd := exec.CommandContext(ctx, "git", "fetch", "origin", "main", "--quiet")
+	if err := fetchCmd.Run(); err != nil {
+		return false, 0, err
+	}
+
+	// Count commits local is behind
+	revListCmd := exec.Command("git", "rev-list", "--count", "HEAD..origin/main")
+	output, err := revListCmd.Output()
+	if err != nil {
+		return false, 0, err
+	}
+
+	count, err := strconv.Atoi(strings.TrimSpace(string(output)))
+	if err != nil {
+		return false, 0, err
+	}
+
+	return count > 0, count, nil
 }
 
 // GetCurrentGithubUser attempts to retrieve the GitHub username of the current user

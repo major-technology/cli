@@ -134,22 +134,28 @@ func SelectApplicationResources(cmd *cobra.Command, apiClient *api.Client, orgID
 		return nil, err
 	}
 
-	// Build and return the list of selected resources with full details
-	var selectedResources []api.ResourceItem
-	for _, selectedID := range selectedResourceIDs {
-		for _, resource := range resourcesResp.Resources {
-			if resource.ID == selectedID {
-				selectedResources = append(selectedResources, resource)
-				break
-			}
-		}
-	}
-
-	return selectedResources, nil
+	return ResolveResourceItems(selectedResourceIDs, resourcesResp.Resources), nil
 }
 
-// detectFramework detects the framework used in the project by checking package.json dependencies
-func detectFramework(projectDir string) string {
+// ResolveResourceItems maps a list of resource IDs to their full ResourceItem details
+// from the org resource list. IDs not found in orgResources are skipped.
+func ResolveResourceItems(ids []string, orgResources []api.ResourceItem) []api.ResourceItem {
+	resourceMap := make(map[string]api.ResourceItem, len(orgResources))
+	for _, r := range orgResources {
+		resourceMap[r.ID] = r
+	}
+
+	var result []api.ResourceItem
+	for _, id := range ids {
+		if r, ok := resourceMap[id]; ok {
+			result = append(result, r)
+		}
+	}
+	return result
+}
+
+// DetectFramework detects the framework used in the project by checking package.json dependencies
+func DetectFramework(projectDir string) string {
 	packageJsonPath := filepath.Join(projectDir, "package.json")
 	data, err := os.ReadFile(packageJsonPath)
 	if err != nil {
@@ -227,7 +233,7 @@ func AddResourcesToProject(cmd *cobra.Command, projectDir string, resources []ap
 		return errors.WrapError("failed to install dependencies", err)
 	}
 
-	framework := detectFramework(projectDir)
+	framework := DetectFramework(projectDir)
 
 	removeSuccessCount := 0
 	for _, resource := range resourcesToRemove {

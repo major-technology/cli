@@ -5,6 +5,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	"github.com/major-technology/cli/clients/git"
 	"github.com/major-technology/cli/errors"
 	"github.com/major-technology/cli/utils"
 	"github.com/spf13/cobra"
@@ -21,6 +22,14 @@ var startCmd = &cobra.Command{
 }
 
 func runStart(cobraCmd *cobra.Command) error {
+	// Check if local branch is behind origin/main
+	isBehind, count, err := git.IsBehindRemote()
+	if err != nil {
+		cobraCmd.Printf("Warning: Could not check remote status: %v\n", err)
+	} else if isBehind {
+		cobraCmd.Printf("Warning: Your local branch is %d commit(s) behind origin/main. Consider running 'git pull' first.\n", count)
+	}
+
 	// Generate .env file
 	_, envVars, err := generateEnvFile("")
 	if err != nil {
