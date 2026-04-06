@@ -16,6 +16,17 @@ Google Calendar requires OAuth authentication before use.
 
 ---
 
+## Per-User OAuth
+
+Google Calendar uses per-user OAuth — each user must connect their own Google account before calendar tools will work. Before using any Google Calendar MCP tools:
+
+1. Call `mcp__user-oauth-setup__setup-user-oauth` with the `resourceId` of the Google Calendar resource
+2. This will check if the user already has credentials — if so, it returns immediately
+3. If the user needs to connect, it will prompt them to authenticate with Google and block until complete
+4. Once setup completes (or if already connected), proceed with calendar tool calls
+
+---
+
 ## Common: Interacting with Resources
 
 **Security**: Never connect directly to databases/APIs. Never use credentials in code. Always use generated clients or MCP tools.
