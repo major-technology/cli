@@ -170,11 +170,12 @@ func (c *Client) GetOrganizations() (*OrganizationsResponse, error) {
 // --- Application endpoints ---
 
 // CreateApplication creates a new application with a GitHub repository
-func (c *Client) CreateApplication(name, description, organizationID string) (*CreateApplicationResponse, error) {
+func (c *Client) CreateApplication(name, description, organizationID string, themeID *string) (*CreateApplicationResponse, error) {
 	req := CreateApplicationRequest{
 		Name:           name,
 		Description:    description,
 		OrganizationID: organizationID,
+		ThemeID:        themeID,
 	}
 
 	var resp CreateApplicationResponse
@@ -412,5 +413,49 @@ func (c *Client) GetApplicationForLink(applicationID string) (*GetApplicationFor
 		return nil, err
 	}
 	return &resp, nil
+}
+
+// --- Theme endpoints ---
+
+// GetThemeFiles retrieves the generated theme files for an application
+func (c *Client) GetThemeFiles(applicationID string) (*GetThemeFilesResponse, error) {
+	path := fmt.Sprintf("/application/%s/theme-files", applicationID)
+	var resp GetThemeFilesResponse
+	err := c.doRequest("GET", path, nil, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+// ListThemes retrieves all themes for an organization
+func (c *Client) ListThemes(orgID string) (*ListThemesResponse, error) {
+	path := fmt.Sprintf("/themes?organizationId=%s", orgID)
+	var resp ListThemesResponse
+	err := c.doRequest("GET", path, nil, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+// GetThemeVersion retrieves the theme version for an application
+func (c *Client) GetThemeVersion(applicationID string) (*GetThemeVersionResponse, error) {
+	path := fmt.Sprintf("/application/%s/theme-version", applicationID)
+	var resp GetThemeVersionResponse
+	err := c.doRequest("GET", path, nil, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+// UpgradeTheme bumps the app's theme version to the latest
+func (c *Client) UpgradeTheme(applicationID string) error {
+	path := fmt.Sprintf("/application/%s/upgrade-theme", applicationID)
+	var resp struct {
+		Error *AppErrorDetail `json:"error,omitempty"`
+	}
+	return c.doRequest("POST", path, struct{}{}, &resp)
 }
 
