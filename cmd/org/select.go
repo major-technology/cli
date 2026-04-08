@@ -1,12 +1,16 @@
 package org
 
 import (
+	"fmt"
+
 	mjrToken "github.com/major-technology/cli/clients/token"
 	"github.com/major-technology/cli/cmd/user"
 	"github.com/major-technology/cli/errors"
 	"github.com/major-technology/cli/singletons"
 	"github.com/spf13/cobra"
 )
+
+var flagSelectOrgID string
 
 // selectCmd represents the org select command
 var selectCmd = &cobra.Command{
@@ -16,6 +20,10 @@ var selectCmd = &cobra.Command{
 	RunE: func(cobraCmd *cobra.Command, args []string) error {
 		return runSelect(cobraCmd)
 	},
+}
+
+func init() {
+	selectCmd.Flags().StringVar(&flagSelectOrgID, "id", "", "Organization ID to select non-interactively")
 }
 
 func runSelect(cobraCmd *cobra.Command) error {
@@ -32,7 +40,21 @@ func runSelect(cobraCmd *cobra.Command) error {
 		return errors.ErrorNoOrganizationsAvailable
 	}
 
-	// Let user select organization
+	// Non-interactive mode: select by ID
+	if flagSelectOrgID != "" {
+		for _, org := range orgsResp.Organizations {
+			if org.ID == flagSelectOrgID {
+				if err := mjrToken.StoreDefaultOrg(org.ID, org.Name); err != nil {
+					return errors.WrapError("failed to store default organization", err)
+				}
+				cobraCmd.Printf("Default organization set to: %s\n", org.Name)
+				return nil
+			}
+		}
+		return fmt.Errorf("organization with ID %q not found", flagSelectOrgID)
+	}
+
+	// Interactive mode: let user select organization
 	selectedOrg, err := user.SelectOrganization(cobraCmd, orgsResp.Organizations)
 	if err != nil {
 		return errors.WrapError("failed to select organization", err)

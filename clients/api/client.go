@@ -404,6 +404,17 @@ func (c *Client) SetApplicationEnvironment(applicationID, environmentID string) 
 	return &resp, nil
 }
 
+// GetApplicationInfo retrieves application info including deploy status and URL
+func (c *Client) GetApplicationInfo(applicationID string) (*GetApplicationInfoResponse, error) {
+	var resp GetApplicationInfoResponse
+	path := fmt.Sprintf("/applications/%s/info", applicationID)
+	err := c.doRequest("GET", path, nil, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
 // GetApplicationForLink retrieves application info needed for the link command
 func (c *Client) GetApplicationForLink(applicationID string) (*GetApplicationForLinkResponse, error) {
 	var resp GetApplicationForLinkResponse

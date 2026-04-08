@@ -13,6 +13,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var flagEnvID string
+
 // envCmd represents the env command
 var envCmd = &cobra.Command{
 	Use:   "env",
@@ -24,6 +26,10 @@ var envCmd = &cobra.Command{
 	RunE: func(cobraCmd *cobra.Command, args []string) error {
 		return runEnv(cobraCmd)
 	},
+}
+
+func init() {
+	envCmd.Flags().StringVar(&flagEnvID, "id", "", "Environment ID to select non-interactively")
 }
 
 func runEnv(cobraCmd *cobra.Command) error {
@@ -53,6 +59,21 @@ func runEnv(cobraCmd *cobra.Command) error {
 			Title:      "No environments available",
 			Suggestion: "Your organization doesn't have any environments configured.",
 		}
+	}
+
+	// Non-interactive mode: select by ID
+	if flagEnvID != "" {
+		for i, env := range envListResp.Environments {
+			if env.ID == flagEnvID {
+				setResp, err := apiClient.SetApplicationEnvironment(appInfo.ApplicationID, envListResp.Environments[i].ID)
+				if err != nil {
+					return errors.WrapError("failed to set environment", err)
+				}
+				cobraCmd.Printf("Environment set to: %s\n", setResp.EnvironmentName)
+				return nil
+			}
+		}
+		return fmt.Errorf("environment with ID %q not found", flagEnvID)
 	}
 
 	// If only one environment, just show current and exit

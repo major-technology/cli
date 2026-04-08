@@ -264,6 +264,15 @@ type SetEnvironmentChoiceResponse struct {
 	EnvironmentName string          `json:"environmentName,omitempty"`
 }
 
+// GetApplicationInfoResponse represents the response from GET /applications/:applicationId/info
+type GetApplicationInfoResponse struct {
+	Error        *AppErrorDetail `json:"error,omitempty"`
+	ApplicationID string         `json:"applicationId,omitempty"`
+	Name          string         `json:"name,omitempty"`
+	AppURL        *string        `json:"appUrl,omitempty"`
+	DeployStatus  string         `json:"deployStatus,omitempty"`
+}
+
 // GetApplicationForLinkResponse represents the response from GET /application/:applicationId/link-info
 type GetApplicationForLinkResponse struct {
 	Error            *AppErrorDetail `json:"error,omitempty"`
