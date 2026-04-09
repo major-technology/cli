@@ -86,3 +86,14 @@ const createResult = await googleCalendarClient.invoke("POST", "calendars/primar
 - **Scope presets**: The resource may be configured as "readonly" (can only read) or "readwrite" (can read and create/modify events). Write operations will fail with 403 if the resource is readonly.
 
 **Docs**: [Google Calendar API Reference](https://developers.google.com/calendar/api/v3/reference)
+
+---
+
+## Per-User OAuth
+
+Google Calendar uses per-user OAuth — each user must connect their own Google account (`requiresUserOAuth: true` in `list_resources`). Before using Google Calendar tools:
+
+1. Call `setup-user-oauth` with the resource ID
+2. If credentials are missing, present the user with the connect URL
+3. **CLI users:** Tell them to run `major resource connect <resourceId> --environment <envId>`
+4. Wait for the user to confirm they've connected, then retry the resource tools

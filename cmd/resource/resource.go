@@ -21,4 +21,5 @@ func init() {
 	Cmd.AddCommand(createCmd)
 	Cmd.AddCommand(manageCmd)
 	Cmd.AddCommand(envCmd)
+	Cmd.AddCommand(connectCmd)
 }
