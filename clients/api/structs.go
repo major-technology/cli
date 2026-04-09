@@ -100,6 +100,7 @@ type ResourceItem struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	Type        string `json:"type"`
+	AuthMode    string `json:"authMode"`
 }
 
 // GetApplicationResourcesResponse represents the response from GET /applications/:applicationId/resources
