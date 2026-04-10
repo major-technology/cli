@@ -1,7 +1,7 @@
 ---
 name: resources
 description: >
-  How resources work on the Major platform -- two access modes (MCP tools and TypeScript clients),
+  How resources work on the Major platform -- two access modes (MCP tools and resource clients),
   security rules, write operation safety, and a directory of all resource-specific skills.
   Load this skill when working with any resource or when you need to understand the resource model.
 ---
@@ -24,18 +24,9 @@ Tools follow the pattern `mcp__resources__<resourcetype>_<toolname>`. Use these 
 
 Example: `mcp__resources__postgresql_query`, `mcp__resources__s3_list_objects`
 
-### 2. Generated TypeScript Clients (for app code)
+### 2. Resource Clients (for app code)
 
-Call `mcp__resource-tools__add-resource-client` with a `resourceId` to generate a typed client. Clients are created in `/clients/` (Next.js) or `/src/clients/` (Vite).
-
-```typescript
-import { dbClient } from "./clients";
-
-const result = await dbClient.query({ sql: "SELECT * FROM users" }, "list-users");
-if (result.ok) {
-  const rows = result.result;
-}
-```
+Each resource attached to an app has a typed client that your application code uses to communicate with it. These clients handle authentication and connection details automatically -- you never use credentials directly in code. Load the resource-specific skill (see directory below) for client usage details, method signatures, and examples.
 
 ## Rules
 
@@ -44,8 +35,7 @@ if (result.ok) {
 - Always use generated clients or MCP tools.
 
 **Client usage**:
-- **Do NOT guess client method names or signatures.** Always read the generated client source in `/clients/` to verify available methods and their exact signatures.
-- Next.js: resource clients must be used in server-side code only (Server Components, Server Actions, API Routes). Vite: call directly from frontend.
+- **Do NOT guess client method names or signatures.** Always read the client source to verify available methods and their exact signatures.
 - Always check `result.ok` before accessing `result.result`.
 - Invocation keys must be static strings (e.g., `"fetch-user-orders"`), never dynamic values.
 
