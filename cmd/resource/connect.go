@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/major-technology/cli/errors"
 	"github.com/major-technology/cli/middleware"
 	"github.com/major-technology/cli/singletons"
 	"github.com/major-technology/cli/utils"
@@ -20,8 +19,9 @@ var connectCmd = &cobra.Command{
 per-user OAuth resources. Resource IDs can be found via the web UI connectors page
 or from the list_resources MCP tool.
 
-If --environment is not provided, the app's current environment is used
-(resolved from the git remote in the current directory).`,
+If --environment is not provided, the environment is auto-resolved from
+the app's git remote. If that also fails, the connect page will use
+the org's default environment.`,
 	Args: cobra.MinimumNArgs(1),
 	PreRunE: middleware.Compose(
 		middleware.CheckLogin,
@@ -41,39 +41,28 @@ func runConnect(cmd *cobra.Command, resourceIds []string) error {
 		return fmt.Errorf("configuration not initialized")
 	}
 
+	// Build the connect URL
+	resources := strings.Join(resourceIds, ",")
+	connectURL := fmt.Sprintf("%s/connect?resources=%s", cfg.FrontendURI, resources)
+
+	// Append environment if explicitly provided or resolvable from app context
 	envID := environmentFlag
 
 	if envID == "" {
-		// Resolve environment from app context
 		appInfo, err := utils.GetApplicationInfo("")
-		if err != nil {
-			return &errors.CLIError{
-				Title:      "Could not resolve environment",
-				Suggestion: "Use --environment <envId> or run this command from an app directory with a git remote.",
-				Err:        err,
+		if err == nil {
+			apiClient := singletons.GetAPIClient()
+
+			envResp, err := apiClient.GetApplicationEnvironment(appInfo.ApplicationID)
+			if err == nil && envResp.EnvironmentID != nil {
+				envID = *envResp.EnvironmentID
 			}
 		}
-
-		apiClient := singletons.GetAPIClient()
-
-		envResp, err := apiClient.GetApplicationEnvironment(appInfo.ApplicationID)
-		if err != nil {
-			return errors.WrapError("failed to get application environment", err)
-		}
-
-		if envResp.EnvironmentID == nil {
-			return &errors.CLIError{
-				Title:      "No environment set",
-				Suggestion: "Use --environment <envId> or run 'major resource env' to choose one.",
-			}
-		}
-
-		envID = *envResp.EnvironmentID
 	}
 
-	// Build the connect URL
-	resources := strings.Join(resourceIds, ",")
-	connectURL := fmt.Sprintf("%s/connect?resources=%s&environmentId=%s", cfg.FrontendURI, resources, envID)
+	if envID != "" {
+		connectURL += fmt.Sprintf("&environmentId=%s", envID)
+	}
 
 	if err := utils.OpenBrowser(connectURL); err != nil {
 		cmd.Printf("Failed to open browser automatically. Please visit:\n%s\n", connectURL)
