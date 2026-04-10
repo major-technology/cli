@@ -5,6 +5,8 @@ description: Use this skill whenever you need to discover or work with resources
 
 # Discovering and Using Resources
 
+> For the complete resource interaction model (MCP tools, TypeScript clients, write safety, security rules), load the `resources` skill.
+
 The application has been granted access to resources — external services (databases, APIs, storage, etc.) that your application can interact with through Major's secure clients.
 
 ## Step 1: List available resources

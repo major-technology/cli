@@ -100,7 +100,7 @@ Major is a platform for building and deploying Next.js web applications. It crea
 
 5. **App type**: Creates a Next.js application by default
 
-6. **Resource management**: Use `major resource list` to see available resources, then `major resource add --id <id>` or `major resource remove --id <id>` to manage them programmatically. Use `major resource env-list --json` to see environments and `major resource env --id <id>` to switch.
+6. **Resource management**: Use `major resource list` to see available resources, then `major resource add --id <id>` or `major resource remove --id <id>` to manage them programmatically. Use `major resource env-list --json` to see environments and `major resource env --id <id>` to switch. To learn how resources work in code (MCP tools, generated clients, write safety), load the `resources` skill.
 
 7. **Organization selection**: Use `major org list --json` to get org IDs, then `major org select --id <id>` to switch orgs programmatically.
 
@@ -111,5 +111,6 @@ For detailed workflows, see the docs below:
 - [Getting Started](docs/getting-started.md) -- Install, auth, first app
 - [App Workflows](docs/app-workflows.md) -- Create, clone, start, deploy
 - [Resource Workflows](docs/resource-workflows.md) -- Create, manage, environments
+- **Resources in Code** -- Load the `resources` skill for interacting with resources from code (MCP tools, TypeScript clients, safety rules)
 - [Org Management](docs/org-management.md) -- Organizations and teams
 - [Troubleshooting](docs/troubleshooting.md) -- Common issues and fixes
