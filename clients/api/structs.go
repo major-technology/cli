@@ -234,9 +234,57 @@ type GetDemoResourceResponse struct {
 
 // EnvironmentItem represents a single environment
 type EnvironmentItem struct {
-	ID        string `json:"id"`
-	Name      string `json:"name"`
-	IsDefault bool   `json:"isDefault"`
+	ID             string `json:"id"`
+	Name           string `json:"name"`
+	IsDefault      bool   `json:"isDefault"`
+	IsDefaultBuild bool   `json:"isDefaultBuild"`
+}
+
+// --- Env variable structs ---
+
+// EnvVariableValue represents a per-environment value for an env variable
+type EnvVariableValue struct {
+	EnvironmentID string `json:"environmentId"`
+	Value         string `json:"value"`
+}
+
+// EnvVariable represents an env variable row as returned by the server
+type EnvVariable struct {
+	ID             string             `json:"id"`
+	OrganizationID string             `json:"organizationId"`
+	ApplicationID  string             `json:"applicationId"`
+	Key            string             `json:"key"`
+	Values         []EnvVariableValue `json:"values"`
+	CreatedAt      string             `json:"createdAt,omitempty"`
+	UpdatedAt      string             `json:"updatedAt,omitempty"`
+}
+
+// GetEnvVariablesResponse represents the response from GET /cli/application/:applicationId/env-variables
+type GetEnvVariablesResponse struct {
+	Error        *AppErrorDetail `json:"error,omitempty"`
+	EnvVariables []EnvVariable   `json:"envVariables,omitempty"`
+}
+
+// SetEnvVariableRequest represents the request body for POST /cli/application/:applicationId/env-variables/set
+type SetEnvVariableRequest struct {
+	Key           string `json:"key"`
+	EnvironmentID string `json:"environmentId"`
+	Value         string `json:"value"`
+}
+
+// SetEnvVariableResponse represents the response from POST /cli/application/:applicationId/env-variables/set
+type SetEnvVariableResponse struct {
+	Error   *AppErrorDetail `json:"error,omitempty"`
+	ID      string          `json:"id,omitempty"`
+	Key     string          `json:"key,omitempty"`
+	Created bool            `json:"created,omitempty"`
+}
+
+// DeleteEnvVariableResponse represents the response from DELETE /cli/application/:applicationId/env-variables/by-key/:key
+type DeleteEnvVariableResponse struct {
+	Error      *AppErrorDetail `json:"error,omitempty"`
+	Deleted    bool            `json:"deleted"`
+	RemovedRow bool            `json:"removedRow"`
 }
 
 // GetApplicationEnvironmentResponse represents the response from GET /application/:applicationId/environment
