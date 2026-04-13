@@ -431,7 +431,7 @@ func (c *Client) GetApplicationForLink(applicationID string) (*GetApplicationFor
 
 // GetEnvVariables retrieves all env variables for an application, including per-environment values
 func (c *Client) GetEnvVariables(applicationID string) (*GetEnvVariablesResponse, error) {
-	path := fmt.Sprintf("/cli/application/%s/env-variables", applicationID)
+	path := fmt.Sprintf("/application/%s/env-variables", applicationID)
 	var resp GetEnvVariablesResponse
 	if err := c.doRequest("GET", path, nil, &resp); err != nil {
 		return nil, err
@@ -441,7 +441,7 @@ func (c *Client) GetEnvVariables(applicationID string) (*GetEnvVariablesResponse
 
 // SetEnvVariable creates or updates a single env variable's value for a specific environment
 func (c *Client) SetEnvVariable(applicationID, key, environmentID, value string) (*SetEnvVariableResponse, error) {
-	path := fmt.Sprintf("/cli/application/%s/env-variables/set", applicationID)
+	path := fmt.Sprintf("/application/%s/env-variables/set", applicationID)
 	req := SetEnvVariableRequest{
 		Key:           key,
 		EnvironmentID: environmentID,
@@ -458,7 +458,7 @@ func (c *Client) SetEnvVariable(applicationID, key, environmentID, value string)
 // Pass environmentID for single-env removal (and allEnvironments=false), or allEnvironments=true
 // (with empty environmentID) to remove the entire row across all environments.
 func (c *Client) DeleteEnvVariableByKey(applicationID, key, environmentID string, allEnvironments bool) (*DeleteEnvVariableResponse, error) {
-	path := fmt.Sprintf("/cli/application/%s/env-variables/by-key/%s", applicationID, url.PathEscape(key))
+	path := fmt.Sprintf("/application/%s/env-variables/by-key/%s", applicationID, url.PathEscape(key))
 	query := url.Values{}
 	if allEnvironments {
 		query.Set("allEnvironments", "true")
