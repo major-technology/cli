@@ -17,4 +17,6 @@ var Cmd = &cobra.Command{
 
 func init() {
 	Cmd.AddCommand(checkReadonlyCmd)
+	Cmd.AddCommand(checkReadonlyHookCmd)
+	Cmd.AddCommand(getHeadersCmd)
 }

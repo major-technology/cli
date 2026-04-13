@@ -64,6 +64,22 @@ func runInstall(cmd *cobra.Command) error {
 		return errors.WrapError("failed to get user home dir", err)
 	}
 
+	// Create completions directory
+	completionsDir := filepath.Join(home, ".major", "completions")
+	if err := os.MkdirAll(completionsDir, 0755); err != nil {
+		return errors.WrapError("failed to create completions directory", err)
+	}
+
+	cmd.Println(stepStyle.Render("+ Generating shell completions..."))
+
+	if runtime.GOOS == "windows" {
+		return installWindows(cmd, binDir, completionsDir, successStyle)
+	}
+
+	return installUnix(cmd, binDir, home, completionsDir, successStyle)
+}
+
+func installUnix(cmd *cobra.Command, binDir, home, completionsDir string, successStyle lipgloss.Style) error {
 	shell := os.Getenv("SHELL")
 	var configFile string
 	var shellType string
@@ -87,15 +103,6 @@ func runInstall(cmd *cobra.Command) error {
 		cmd.Printf("  export PATH=\"%s:$PATH\"\n", binDir)
 		return nil
 	}
-
-	// Create completions directory
-	completionsDir := filepath.Join(home, ".major", "completions")
-	if err := os.MkdirAll(completionsDir, 0755); err != nil {
-		return errors.WrapError("failed to create completions directory", err)
-	}
-
-	// Generate completion script
-	cmd.Println(stepStyle.Render("▸ Generating shell completions..."))
 
 	var completionEntry string
 	switch shellType {
@@ -179,4 +186,110 @@ source "%s"
 	cmd.Println(boxStyle.Render(msg))
 
 	return nil
+}
+
+func installWindows(cmd *cobra.Command, binDir, completionsDir string, successStyle lipgloss.Style) error {
+	// Generate PowerShell completion script
+	completionFile := filepath.Join(completionsDir, "major.ps1")
+	f, err := os.Create(completionFile)
+	if err != nil {
+		return errors.WrapError("failed to create powershell completion file", err)
+	}
+	defer f.Close()
+
+	if err := cmd.Root().GenPowerShellCompletionWithDesc(f); err != nil {
+		return errors.WrapError("failed to generate powershell completion", err)
+	}
+
+	// Add binDir to User PATH if not already present
+	if err := addToWindowsPath(binDir); err != nil {
+		cmd.Println(fmt.Sprintf("Could not update PATH automatically: %v", err))
+		cmd.Println(fmt.Sprintf("Please add %s to your PATH manually.", binDir))
+	}
+
+	// Set up PowerShell profile to source completion
+	if err := setupPowerShellProfile(cmd, completionFile, successStyle); err != nil {
+		// Non-fatal -- PATH is the important part
+		cmd.Println(fmt.Sprintf("Could not set up PowerShell completions: %v", err))
+	}
+
+	boxStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("#00FF00")).
+		Padding(1, 2).
+		MarginTop(1)
+
+	msg := fmt.Sprintf("%s\n\nPlease restart your terminal to start using 'major'.",
+		successStyle.Render("Major CLI installed successfully!"))
+
+	cmd.Println(boxStyle.Render(msg))
+
+	return nil
+}
+
+func addToWindowsPath(binDir string) error {
+	// Use PowerShell's [Environment] API -- locale-independent and safe.
+	out, err := exec.Command("powershell", "-NoProfile", "-Command",
+		`[Environment]::GetEnvironmentVariable('Path','User')`).Output()
+	if err != nil {
+		// PowerShell not available; set PATH directly
+		return exec.Command("powershell", "-NoProfile", "-Command",
+			fmt.Sprintf(`[Environment]::SetEnvironmentVariable('Path','%s','User')`, binDir)).Run()
+	}
+
+	currentPath := strings.TrimSpace(string(out))
+
+	// Check if already in PATH (case-insensitive on Windows)
+	for _, p := range strings.Split(currentPath, ";") {
+		if strings.EqualFold(strings.TrimSpace(p), binDir) {
+			return nil // already there
+		}
+	}
+
+	newPath := currentPath + ";" + binDir
+
+	// Guard against PATH exceeding Windows limit
+	if len(newPath) > 32760 {
+		return fmt.Errorf("PATH would exceed Windows limit (%d chars)", len(newPath))
+	}
+
+	return exec.Command("powershell", "-NoProfile", "-Command",
+		fmt.Sprintf(`[Environment]::SetEnvironmentVariable('Path','%s','User')`, newPath)).Run()
+}
+
+func setupPowerShellProfile(cmd *cobra.Command, completionFile string, successStyle lipgloss.Style) error {
+	// Get PowerShell profile path
+	out, err := exec.Command("powershell", "-NoProfile", "-Command", "$PROFILE").Output()
+	if err != nil {
+		return fmt.Errorf("powershell not found")
+	}
+
+	profilePath := strings.TrimSpace(string(out))
+	if profilePath == "" {
+		return fmt.Errorf("empty profile path")
+	}
+
+	marker := "# Major CLI"
+	completionEntry := fmt.Sprintf("\n%s\n. '%s'\n", marker, completionFile)
+
+	// Check if already configured
+	content, err := os.ReadFile(profilePath)
+	if err == nil && strings.Contains(string(content), marker) {
+		cmd.Println(successStyle.Render("PowerShell completions already configured!"))
+		return nil
+	}
+
+	// Ensure profile directory exists
+	if err := os.MkdirAll(filepath.Dir(profilePath), 0755); err != nil {
+		return err
+	}
+
+	f, err := os.OpenFile(profilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	_, err = f.WriteString(completionEntry)
+	return err
 }

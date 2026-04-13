@@ -39,6 +39,13 @@ Fish:
 
   # To load completions for each session, execute once:
   $ major completion fish > ~/.config/fish/completions/major.fish
+
+PowerShell:
+
+  PS> major completion powershell | Out-String | Invoke-Expression
+
+  # To load completions for each session, add to your profile:
+  PS> major completion powershell >> $PROFILE
 `,
 	DisableFlagsInUseLine: true,
 	ValidArgs:             []string{"bash", "zsh", "fish", "powershell"},
