@@ -68,7 +68,9 @@ func (c *Client) doRequestInternal(method, path string, body interface{}, respon
 		return clierrors.WrapError("failed to create request", err)
 	}
 
-	req.Header.Set("Content-Type", "application/json")
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
 	if token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
