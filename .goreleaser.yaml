@@ -15,11 +15,14 @@ builds:
       - -s -w
       - -X github.com/major-technology/cli/cmd.Version={{.Version}}
       - -X github.com/major-technology/cli/cmd.configFile=configs/prod.json
-    goos: [darwin, linux]
+    goos: [darwin, linux, windows]
     goarch: [amd64, arm64]
 
 archives:
   - formats: [tar.gz]     # <- v2 syntax
+    format_overrides:
+      - goos: windows
+        formats: [zip]
     files:
       - LICENSE
       - README.md

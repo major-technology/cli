@@ -3,9 +3,11 @@ package mcp
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	mjrToken "github.com/major-technology/cli/clients/token"
@@ -20,6 +22,34 @@ var checkReadonlyCmd = &cobra.Command{
 	Args:   cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return runCheckReadonly(args[0])
+	},
+}
+
+var checkReadonlyHookCmd = &cobra.Command{
+	Use:    "check-readonly-hook",
+	Short:  "Hook entry point: reads PreToolUse JSON from stdin",
+	Hidden: true,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		input, err := io.ReadAll(os.Stdin)
+		if err != nil || len(input) == 0 {
+			return nil
+		}
+
+		var payload struct {
+			ToolName string `json:"tool_name"`
+		}
+		if err := json.Unmarshal(input, &payload); err != nil || payload.ToolName == "" {
+			return nil
+		}
+
+		// Strip MCP server prefix
+		actualTool := payload.ToolName
+		const prefix = "mcp__plugin_major_major-resources__"
+		if strings.HasPrefix(actualTool, prefix) {
+			actualTool = actualTool[len(prefix):]
+		}
+
+		return runCheckReadonly(actualTool)
 	},
 }
 

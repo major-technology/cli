@@ -156,7 +156,16 @@ print_step "Setting up shell integration..."
 print_step "Verifying installation..."
 
 # We verify using the absolute path since PATH might not be updated in the current shell yet
-INSTALLED_VERSION=$("$INSTALL_DIR/$BINARY" --version 2>&1 | head -n 1 || echo "unknown")
+if ! INSTALLED_VERSION=$("$INSTALL_DIR/$BINARY" --version 2>&1 | head -n 1); then
+    print_error "Installed binary failed to execute: $INSTALLED_VERSION"
+    exit 1
+fi
+
+if ! echo "$INSTALLED_VERSION" | grep -q "$VERSION"; then
+    print_error "Version mismatch. Expected $VERSION, got: $INSTALLED_VERSION"
+    exit 1
+fi
+
 print_success "Successfully installed ${BINARY} v${VERSION}"
 
 # Print welcome message

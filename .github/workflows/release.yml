@@ -46,5 +46,6 @@ jobs:
           # Upload latest version pointer
           aws s3 cp latest-version s3://major-cli-releases/latest-version --acl public-read --content-type "text/plain"
 
-          # Upload install script
+          # Upload install scripts
           aws s3 cp install.sh s3://major-cli-releases/install.sh --acl public-read --content-type "text/plain"
+          aws s3 cp install.ps1 s3://major-cli-releases/install.ps1 --acl public-read --content-type "text/plain"

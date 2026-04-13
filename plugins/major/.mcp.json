@@ -2,11 +2,11 @@
   "major-resources": {
     "type": "http",
     "url": "https://go-api.prod.major.build/cli/v1/mcp",
-    "headersHelper": "bash -c 'TOKEN=$(major user token 2>/dev/null); ORG=$(major org id 2>/dev/null); echo \"{\\\"Authorization\\\": \\\"Bearer $TOKEN\\\", \\\"x-major-org-id\\\": \\\"$ORG\\\"}\"'"
+    "headersHelper": "major mcp get-headers"
   },
   "major-platform": {
     "type": "http",
     "url": "https://api.prod.major.build/mcp/cli",
-    "headersHelper": "bash -c 'TOKEN=$(major user token 2>/dev/null); ORG=$(major org id 2>/dev/null); echo \"{\\\"Authorization\\\": \\\"Bearer $TOKEN\\\", \\\"x-major-org-id\\\": \\\"$ORG\\\"}\"'"
+    "headersHelper": "major mcp get-headers"
   }
 }

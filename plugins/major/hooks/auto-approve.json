@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/check-readonly.sh"
+            "command": "major mcp check-readonly-hook"
           }
         ]
       }
