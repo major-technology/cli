@@ -124,6 +124,32 @@ MAJOR_JWT_TOKEN="eyJ..."
 
 User-defined keys are sorted alphabetically first, followed by `MAJOR_*` system vars. Values containing special characters (`$`, `#`, spaces, quotes, newlines) are double-quoted with proper escaping.
 
+## Listing Available Environments
+
+Before targeting a specific environment with `--env`, you can see what's available:
+
+```bash
+major resource env-list
+```
+
+Or as JSON (useful for scripting):
+
+```bash
+major resource env-list --json
+```
+
+To switch your active environment interactively:
+
+```bash
+major resource env
+```
+
+Or non-interactively by ID:
+
+```bash
+major resource env --id "<environment-uuid>"
+```
+
 ## Common Patterns
 
 ### Set Up a New Environment Locally
