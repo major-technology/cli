@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"time"
 
 	mjrToken "github.com/major-technology/cli/clients/token"
@@ -67,7 +68,9 @@ func (c *Client) doRequestInternal(method, path string, body interface{}, respon
 		return clierrors.WrapError("failed to create request", err)
 	}
 
-	req.Header.Set("Content-Type", "application/json")
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
 	if token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
@@ -421,6 +424,54 @@ func (c *Client) GetApplicationForLink(applicationID string) (*GetApplicationFor
 	path := fmt.Sprintf("/application/%s/link-info", applicationID)
 	err := c.doRequest("GET", path, nil, &resp)
 	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+// --- Env variable endpoints ---
+
+// GetEnvVariables retrieves all env variables for an application, including per-environment values
+func (c *Client) GetEnvVariables(applicationID string) (*GetEnvVariablesResponse, error) {
+	path := fmt.Sprintf("/application/%s/env-variables", applicationID)
+	var resp GetEnvVariablesResponse
+	if err := c.doRequest("GET", path, nil, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+// SetEnvVariable creates or updates a single env variable's value for a specific environment
+func (c *Client) SetEnvVariable(applicationID, key, environmentID, value string) (*SetEnvVariableResponse, error) {
+	path := fmt.Sprintf("/application/%s/env-variables/set", applicationID)
+	req := SetEnvVariableRequest{
+		Key:           key,
+		EnvironmentID: environmentID,
+		Value:         value,
+	}
+	var resp SetEnvVariableResponse
+	if err := c.doRequest("POST", path, req, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+// DeleteEnvVariableByKey deletes an env variable's value for a single environment, or the entire row.
+// Pass environmentID for single-env removal (and allEnvironments=false), or allEnvironments=true
+// (with empty environmentID) to remove the entire row across all environments.
+func (c *Client) DeleteEnvVariableByKey(applicationID, key, environmentID string, allEnvironments bool) (*DeleteEnvVariableResponse, error) {
+	path := fmt.Sprintf("/application/%s/env-variables/by-key/%s", applicationID, url.PathEscape(key))
+	query := url.Values{}
+	if allEnvironments {
+		query.Set("allEnvironments", "true")
+	} else if environmentID != "" {
+		query.Set("environmentId", environmentID)
+	}
+	if encoded := query.Encode(); encoded != "" {
+		path = path + "?" + encoded
+	}
+	var resp DeleteEnvVariableResponse
+	if err := c.doRequest("DELETE", path, nil, &resp); err != nil {
 		return nil, err
 	}
 	return &resp, nil

@@ -28,6 +28,24 @@ Major is a platform for building and deploying Next.js web applications. It crea
 | `major app info --json` | App info as JSON | Direct |
 | `major app configure` | Open app settings in browser | Direct |
 
+### Environment Variable Commands
+
+| Command | Description | Mode |
+|---------|-------------|------|
+| `major vars list` | List env vars for current environment (masked values) | Direct |
+| `major vars list --show-values` | List env vars with full values | Direct |
+| `major vars list --json` | List env vars as JSON (includes full values) | Direct |
+| `major vars get KEY` | Print a single env var's raw value | Direct |
+| `major vars get KEY --json` | Print a single env var as JSON | Direct |
+| `major vars set KEY=VALUE` | Create or update an env var | Direct |
+| `major vars unset KEY` | Remove an env var from current env | Interactive |
+| `major vars unset KEY --yes` | Remove an env var without prompting | Direct |
+| `major vars unset KEY --all-environments --yes` | Remove an env var from all environments | Direct |
+| `major vars pull` | Download env vars to local .env file | Direct |
+| `major vars pull --file .env.staging` | Download to a custom file path | Direct |
+
+All vars commands accept `--env <name>` to target a specific environment (case-insensitive). Without it, they use the user's currently-selected environment.
+
 ### Resource Commands
 
 | Command | Description | Mode |
@@ -102,6 +120,8 @@ Major is a platform for building and deploying Next.js web applications. It crea
 
 6. **Resource management**: Use `major resource list` to see available resources, then `major resource add --id <id>` or `major resource remove --id <id>` to manage them programmatically. Use `major resource env-list --json` to see environments and `major resource env --id <id>` to switch.
 
+8. **Environment variable management**: Use `major vars` commands to manage env vars. Keys must match `^[A-Za-z_][A-Za-z0-9_]*$` and cannot start with `MAJOR_` (reserved for the platform). Always use `--yes` with `major vars unset` to avoid interactive prompts. Use `major vars pull` to sync env vars to a local `.env` file -- it auto-updates `.gitignore`.
+
 7. **Organization selection**: Use `major org list --json` to get org IDs, then `major org select --id <id>` to switch orgs programmatically.
 
 ## Workflow Reference
@@ -110,6 +130,7 @@ For detailed workflows, see the docs below:
 
 - [Getting Started](docs/getting-started.md) -- Install, auth, first app
 - [App Workflows](docs/app-workflows.md) -- Create, clone, start, deploy
+- [Env Variables](docs/env-variables.md) -- Set, list, pull, and manage env vars per environment
 - [Resource Workflows](docs/resource-workflows.md) -- Create, manage, environments
 - [Org Management](docs/org-management.md) -- Organizations and teams
 - [Troubleshooting](docs/troubleshooting.md) -- Common issues and fixes
