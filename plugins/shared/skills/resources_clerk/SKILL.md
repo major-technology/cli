@@ -52,6 +52,55 @@ await clerkClient.invoke("POST", "/v1/invitations", "create-invitation", {
 });
 ```
 
+## Example: Search for Users by Email
+
+**Using MCP tools (no code needed):**
+
+Call `mcp__resources__clerk_list_users` with the `emailAddress` filter:
+
+```
+mcp__resources__clerk_list_users({
+    resourceId: "<your-clerk-resource-id>",
+    emailAddress: "jane@example.com",
+    limit: "10"
+})
+```
+
+**Using the TypeScript client in a Next.js Server Action:**
+
+```typescript
+"use server";
+
+import { clerkClient } from "./clients";
+
+interface ClerkUser {
+    id: string;
+    first_name: string | null;
+    last_name: string | null;
+    email_addresses: { email_address: string }[];
+    created_at: number;
+}
+
+export async function searchUsersByEmail(email: string) {
+    const result = await clerkClient.invoke("GET", "/v1/users", "search-users-by-email", {
+        query: { email_address: email, limit: "20" },
+    });
+
+    if (!result.ok) {
+        throw new Error(result.error.message);
+    }
+
+    const users = result.result.body.value as ClerkUser[];
+
+    return users.map((u) => ({
+        id: u.id,
+        name: [u.first_name, u.last_name].filter(Boolean).join(" "),
+        email: u.email_addresses[0]?.email_address ?? "",
+        createdAt: new Date(u.created_at),
+    }));
+}
+```
+
 ## Tips
 
 - **Base URL is always `https://api.clerk.com`** — paths should include the version prefix (e.g. `/v1/users`)
