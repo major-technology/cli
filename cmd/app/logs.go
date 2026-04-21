@@ -15,16 +15,18 @@ var (
 	flagLogsLimit     int
 	flagLogsSearch    string
 	flagLogsSince     string
-	flagLogsUntil     string
+	flagLogsUntil     time.Time
 	flagLogsNextToken string
 	flagLogsJSON      bool
 )
+
+var logsTimeFormats = []string{time.RFC3339Nano, time.RFC3339}
 
 func init() {
 	logsCmd.Flags().IntVar(&flagLogsLimit, "limit", 0, "Maximum number of log lines to return (1-5000, default 500)")
 	logsCmd.Flags().StringVar(&flagLogsSearch, "search", "", "Filter log lines by substring (case-sensitive)")
 	logsCmd.Flags().StringVar(&flagLogsSince, "since", "", "Show logs since a duration (e.g. 30m, 1h) or RFC3339 timestamp")
-	logsCmd.Flags().StringVar(&flagLogsUntil, "until", "", "Show logs up until an RFC3339 timestamp")
+	logsCmd.Flags().TimeVar(&flagLogsUntil, "until", time.Time{}, logsTimeFormats, "Show logs up until an RFC3339 timestamp")
 	logsCmd.Flags().StringVar(&flagLogsNextToken, "next-token", "", "Pagination cursor from a previous response")
 	logsCmd.Flags().BoolVar(&flagLogsJSON, "json", false, "Output in JSON format")
 }
@@ -52,9 +54,9 @@ func runLogs(cmd *cobra.Command) error {
 		return errors.WrapError("invalid --since value", err)
 	}
 
-	until, err := parseRFC3339(flagLogsUntil)
-	if err != nil {
-		return errors.WrapError("invalid --until value", err)
+	var until string
+	if !flagLogsUntil.IsZero() {
+		until = flagLogsUntil.UTC().Format(time.RFC3339Nano)
 	}
 
 	req := api.GetApplicationLogsRequest{

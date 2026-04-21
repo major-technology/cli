@@ -27,6 +27,9 @@ Major is a platform for building and deploying Next.js web applications. It crea
 | `major app info` | Show app ID, name, deploy status, URL | Direct |
 | `major app info --json` | App info as JSON | Direct |
 | `major app configure` | Open app settings in browser | Direct |
+| `major app logs` | Show recent application logs (newest-first) | Direct |
+| `major app logs --since 30m --search "error"` | Filter logs by time window and substring | Direct |
+| `major app logs --json` | Output logs as JSON (includes `nextToken` for pagination) | Direct |
 
 ### Environment Variable Commands
 
