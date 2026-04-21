@@ -521,3 +521,36 @@ func (c *Client) UpgradeTheme(applicationID string) error {
 	return c.doRequest("POST", path, struct{}{}, &resp)
 }
 
+// --- Application log endpoints ---
+
+// GetApplicationLogs retrieves paginated logs for an application.
+func (c *Client) GetApplicationLogs(applicationID string, req GetApplicationLogsRequest) (*GetApplicationLogsResponse, error) {
+	query := url.Values{}
+	if req.Limit > 0 {
+		query.Set("limit", fmt.Sprintf("%d", req.Limit))
+	}
+	if req.Search != "" {
+		query.Set("search", req.Search)
+	}
+	if req.NextToken != "" {
+		query.Set("nextToken", req.NextToken)
+	}
+	if req.Since != "" {
+		query.Set("since", req.Since)
+	}
+	if req.Until != "" {
+		query.Set("until", req.Until)
+	}
+
+	path := fmt.Sprintf("/applications/%s/logs", applicationID)
+	if encoded := query.Encode(); encoded != "" {
+		path = path + "?" + encoded
+	}
+
+	var resp GetApplicationLogsResponse
+	if err := c.doRequest("GET", path, nil, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
