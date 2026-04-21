@@ -86,7 +86,7 @@ const transcription = await client.audio.transcriptions.create({
 
 **Anthropic:**
 
-- `claude-opus-4-6` (flagship)
+- `claude-opus-4-7` (flagship)
 - `claude-sonnet-4-6` (mid-tier)
 - `claude-haiku-4-5-20251001` (fast/cheap)
 

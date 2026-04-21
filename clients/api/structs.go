@@ -382,3 +382,28 @@ type GetThemeFilesResponse struct {
 	Version       *int            `json:"version,omitempty"`
 }
 
+// --- Application log structs ---
+
+// GetApplicationLogsRequest holds the query parameters for fetching app logs.
+// All fields are optional.
+type GetApplicationLogsRequest struct {
+	Limit     int
+	Search    string
+	NextToken string
+	Since     string // RFC3339 timestamp
+	Until     string // RFC3339 timestamp
+}
+
+// LogEntry represents a single log line.
+type LogEntry struct {
+	Ts  string `json:"ts"`
+	Log string `json:"log"`
+}
+
+// GetApplicationLogsResponse represents the response from GET /applications/:applicationId/logs
+type GetApplicationLogsResponse struct {
+	Error     *AppErrorDetail `json:"error,omitempty"`
+	Logs      []LogEntry      `json:"logs"`
+	NextToken string          `json:"nextToken,omitempty"`
+}
+
