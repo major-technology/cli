@@ -1,1 +1,0 @@
-# MySQL Connector\n\nNo CLI changes required. The CLI interacts with resources via MCP tools served by go-api, which will automatically pick up the new MySQL tools once the monorepo changes are deployed.
