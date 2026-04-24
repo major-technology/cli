@@ -26,7 +26,7 @@ description: Implements MySQL database connections, SQL queries, and data operat
 
 ## MCP Tools
 
-- `mcp__resources__mysql_query` — Execute read-only SQL queries and MySQL commands. Supports SQL queries and introspection commands like `SHOW TABLES`, `DESCRIBE table_name`, `SHOW DATABASES`, `SHOW CREATE TABLE table_name`, etc. **Does not require user approval — prefer this tool for all read-only operations.** Args: `resourceId`, `command`, `description`, `timeoutMs?`
+- `mcp__resources__mysql_query` — Execute a read-only MySQL query. Supports SELECT and introspection statements like `SHOW TABLES`, `DESCRIBE table_name`, `SHOW DATABASES`, `SHOW CREATE TABLE table_name`, and `EXPLAIN`. **Does not require user approval — prefer this tool for all read-only operations.** Args: `resourceId`, `statement`, `params?`, `description`, `timeoutMs?`
 - `mcp__resources__mysql_invoke` — Execute any SQL statement including write operations (INSERT, UPDATE, DELETE, CREATE TABLE, ALTER TABLE, DROP, etc.). Returns rows and rowsAffected. **Requires user approval — only use when you need to write data.** Args: `resourceId`, `sql`, `params?`, `description`, `timeoutMs?`
 
 **IMPORTANT: Always use `mysql_query` for read-only operations.** It does not require user approval, making the workflow faster and smoother. Only use `mysql_invoke` when you actually need to perform writes (INSERT, UPDATE, DELETE, DDL). Never use `mysql_invoke` for SELECT queries or schema exploration.
