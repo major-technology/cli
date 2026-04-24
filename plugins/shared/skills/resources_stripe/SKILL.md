@@ -37,7 +37,7 @@ description: Implements Stripe payment API access for customers, payments, subsc
 
 ## TypeScript Client
 
-The client exposes a single `invoke<T>(method, path, invocationKey, options?)` method. The generic `T` types the parsed JSON response, available directly on `.json`. All request bodies are sent as JSON.
+The client exposes a single `invoke<T>(method, path, invocationKey, options?)` method. The generic `T` types the parsed JSON response, available directly on `.json`.
 
 ### Reading data
 
@@ -82,21 +82,42 @@ if (sub.ok) {
 
 ### Writing data
 
+Stripe's v1 API expects `application/x-www-form-urlencoded` bodies for write operations. Use `type: "form"` with a **flat** object whose keys match the Stripe docs. For nested parameters, use Stripe's bracket notation in the key name (e.g. `"metadata[order_id]"`). Do NOT use nested objects or arrays — the platform rejects them. Values must be primitives (string, number, boolean) or null (omitted).
+
 ```typescript
-// Create a customer
+// Create a customer — form-encoded body
 const created = await stripeClient.invoke<{ id: string }>(
   "POST", "/v1/customers", "create-customer",
-  { body: { type: "json", value: { email: "jane@example.com", name: "Jane Doe" } } },
+  {
+    body: {
+      type: "form",
+      value: {
+        email: "jane@example.com",
+        name: "Jane Doe",
+        "metadata[source]": "onboarding",
+      },
+    },
+  },
 );
 
 if (created.ok) {
   console.log("Created:", created.json.id);
 }
 
-// Create a payment intent
+// Create a payment intent with nested params via bracket keys
 const payment = await stripeClient.invoke<{ id: string; client_secret: string }>(
   "POST", "/v1/payment_intents", "create-payment-intent",
-  { body: { type: "json", value: { amount: 2000, currency: "usd", customer: "cus_abc123" } } },
+  {
+    body: {
+      type: "form",
+      value: {
+        amount: 2000,
+        currency: "usd",
+        customer: "cus_abc123",
+        "automatic_payment_methods[enabled]": true,
+      },
+    },
+  },
 );
 
 if (payment.ok) {
@@ -138,9 +159,28 @@ while (hasMore) {
 }
 ```
 
+## Body Types
+
+The `body` option supports multiple types:
+
+| Type | Content-Type | When to use |
+|------|-------------|-------------|
+| `"form"` | `application/x-www-form-urlencoded` | **Default for Stripe writes.** All v1 POST/PUT/PATCH endpoints expect form encoding. Use flat keys with bracket notation for nested params. |
+| `"json"` | `application/json` | v2 API endpoints that accept JSON. |
+| `"text"` | `text/plain` | Rarely needed. |
+| `"bytes"` | Custom (set via `contentType`) | Binary payloads (base64-encoded in `base64` field). |
+
+### Form body rules
+- **Flat keys only.** Use Stripe's bracket notation for nested params: `"metadata[order_id]"`, `"items[0][price]"`.
+- **No nested objects or arrays** in the value — the platform rejects them with a clear error. This avoids hidden flattening ambiguity.
+- **Primitive values:** `string`, `number` (converted to decimal string), `boolean` (converted to `"true"` / `"false"`).
+- **Empty string** is preserved (sends `key=`).
+- **Null values** are omitted from the encoded body.
+
 ## Tips
 
-- **All request bodies are JSON.** The platform sends `Content-Type: application/json` for all Stripe requests. This works for both v1 and v2 Stripe API endpoints.
+- **Use `type: "form"` for Stripe v1 writes.** Stripe's v1 API natively expects form-encoded bodies. While `type: "json"` also works (Stripe accepts both), `type: "form"` is the canonical encoding documented by Stripe.
+- **Paths must start with `/v1/` or `/v2/`.** The platform validates paths and rejects absolute URLs, protocol-relative paths, and paths outside `/v1/` or `/v2/`.
 - **Pagination**: Stripe uses cursor-based pagination. Pass `starting_after` with the last object's ID to get the next page. Check `has_more` in the response.
 - **All list endpoints** support `limit` (default 10, max 100).
 - **Expand related objects**: Use the `expand[]` query param to inline related objects instead of just their IDs.
