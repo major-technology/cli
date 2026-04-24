@@ -67,6 +67,17 @@ const balance = await stripeClient.invoke<{
 if (balance.ok) {
   console.log("Available:", balance.json.available);
 }
+
+// Get a single subscription
+const sub = await stripeClient.invoke<{
+  id: string;
+  status: string;
+  current_period_end: number;
+}>("GET", "/v1/subscriptions/sub_abc123", "get-subscription");
+
+if (sub.ok) {
+  console.log(`Status: ${sub.json.status}`);
+}
 ```
 
 ### Writing data
@@ -91,6 +102,9 @@ const payment = await stripeClient.invoke<{ id: string; client_secret: string }>
 if (payment.ok) {
   console.log("Client secret:", payment.json.client_secret);
 }
+
+// Cancel a subscription
+await stripeClient.invoke("DELETE", "/v1/subscriptions/sub_xyz789", "cancel-subscription");
 ```
 
 ### Pagination
@@ -126,11 +140,12 @@ while (hasMore) {
 
 ## Tips
 
-- **All request bodies are JSON.** The platform sends `Content-Type: application/json` for all Stripe requests.
+- **All request bodies are JSON.** The platform sends `Content-Type: application/json` for all Stripe requests. This works for both v1 and v2 Stripe API endpoints.
 - **Pagination**: Stripe uses cursor-based pagination. Pass `starting_after` with the last object's ID to get the next page. Check `has_more` in the response.
 - **All list endpoints** support `limit` (default 10, max 100).
 - **Expand related objects**: Use the `expand[]` query param to inline related objects instead of just their IDs.
-- **Test vs live keys**: Test mode keys start with `sk_test_`, live mode with `sk_live_`. The connector works with either.
-- **Common endpoints**: `/v1/customers`, `/v1/payment_intents`, `/v1/subscriptions`, `/v1/invoices`, `/v1/charges`, `/v1/balance`, `/v1/refunds`, `/v1/products`, `/v1/prices`
+- **Test vs live keys**: Test mode keys start with `sk_test_`, live mode with `sk_live_`. The connector works with either — just provide the right key.
+- **Stripe API versioning**: The platform does not send a `Stripe-Version` header by default, so Stripe uses your account's default API version. Pass a custom `Stripe-Version` header via the options if you need a specific version.
+- **Common v1 endpoints**: `/v1/customers`, `/v1/payment_intents`, `/v1/subscriptions`, `/v1/invoices`, `/v1/charges`, `/v1/balance`, `/v1/refunds`, `/v1/products`, `/v1/prices`
 
 **Docs**: [Stripe API Reference](https://docs.stripe.com/api)
