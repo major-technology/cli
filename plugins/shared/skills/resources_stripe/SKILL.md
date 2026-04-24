@@ -33,7 +33,7 @@ description: Implements Stripe payment API access for customers, payments, subsc
 - `mcp__resources__stripe_get_balance` — Get the current account balance. Args: `resourceId`
 - `mcp__resources__stripe_list_subscriptions` — List subscriptions with optional filters. Args: `resourceId`, `customer?`, `status?`, `limit?`, `startingAfter?`
 - `mcp__resources__stripe_list_invoices` — List invoices with optional filters. Args: `resourceId`, `customer?`, `status?`, `limit?`, `startingAfter?`
-- `mcp__resources__stripe_invoke` — Make any HTTP request (GET/POST/PUT/DELETE) for write operations. Args: `resourceId`, `method`, `path`, `query?`, `body?`, `timeoutMs?`
+- `mcp__resources__stripe_invoke` — Make any HTTP request (GET/POST/PUT/DELETE) for write operations. Args: `resourceId`, `method`, `path`, `query?`, `headers?`, `body?`, `timeoutMs?`
 
 ## TypeScript Client
 
@@ -126,6 +126,24 @@ if (payment.ok) {
 
 // Cancel a subscription
 await stripeClient.invoke("DELETE", "/v1/subscriptions/sub_xyz789", "cancel-subscription");
+
+// Create a customer session using a preview API version with idempotency
+const session = await stripeClient.invoke<{ client_secret: string }>(
+  "POST", "/v1/customer_sessions", "create-customer-session",
+  {
+    headers: {
+      "Stripe-Version": "2026-03-25.preview",
+      "Idempotency-Key": "session-abc-123",
+    },
+    body: {
+      type: "form",
+      value: {
+        customer: "cus_abc123",
+        "components[pricing_table][enabled]": true,
+      },
+    },
+  },
+);
 ```
 
 ### Pagination
@@ -159,6 +177,24 @@ while (hasMore) {
 }
 ```
 
+## Headers
+
+Pass custom HTTP headers via the `headers` option. Common Stripe headers:
+
+| Header | Purpose |
+|--------|---------|
+| `Stripe-Version` | Pin a specific API version (e.g. `"2026-03-25.preview"` for preview features). |
+| `Idempotency-Key` | Ensure POST requests are idempotent — Stripe deduplicates by this key. |
+| `Stripe-Account` | Make requests on behalf of a connected account (Stripe Connect). |
+
+**Protected headers:** `Authorization` and `Content-Type` are managed by the connector and **cannot** be set via `headers`. Attempting to do so returns an error.
+
+```typescript
+await stripeClient.invoke("GET", "/v1/balance", "get-connected-balance", {
+  headers: { "Stripe-Account": "acct_connected123" },
+});
+```
+
 ## Body Types
 
 The `body` option supports multiple types:
@@ -185,7 +221,7 @@ The `body` option supports multiple types:
 - **All list endpoints** support `limit` (default 10, max 100).
 - **Expand related objects**: Use the `expand[]` query param to inline related objects instead of just their IDs.
 - **Test vs live keys**: Test mode keys start with `sk_test_`, live mode with `sk_live_`. The connector works with either — just provide the right key.
-- **Stripe API versioning**: The platform does not send a `Stripe-Version` header by default, so Stripe uses your account's default API version. Pass a custom `Stripe-Version` header via the options if you need a specific version.
+- **Stripe API versioning**: No `Stripe-Version` header is sent by default, so Stripe uses your account's default API version. Pass `headers: { "Stripe-Version": "..." }` to pin a specific version.
 - **Common v1 endpoints**: `/v1/customers`, `/v1/payment_intents`, `/v1/subscriptions`, `/v1/invoices`, `/v1/charges`, `/v1/balance`, `/v1/refunds`, `/v1/products`, `/v1/prices`
 
 **Docs**: [Stripe API Reference](https://docs.stripe.com/api)
