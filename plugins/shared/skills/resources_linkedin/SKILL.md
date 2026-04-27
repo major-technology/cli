@@ -100,7 +100,7 @@ if (!analytics.ok) {
 
 - Use numeric IDs returned by LinkedIn tools when available. The connector handles LinkedIn REST headers and URN formatting for typed tools.
 - Ad account and campaign IDs may appear either as plain IDs or URNs in LinkedIn responses. Preserve IDs exactly unless the generated client documents a normalized field.
-- Analytics date ranges use LinkedIn date objects: `{ year, month, day }`.
+- Analytics date ranges: pass `dateRange: { start: "YYYY-MM-DD", end: "YYYY-MM-DD" }`. The connector converts to LinkedIn's internal date-object format internally.
 - Analytics metrics can be expensive. Keep date ranges and fields narrow.
 - LinkedIn Marketing API responses commonly return `{ elements, paging }`.
 
