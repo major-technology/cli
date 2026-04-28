@@ -1,9 +1,11 @@
 ---
 name: using-linkedin-connector
-description: Implements LinkedIn Marketing Advertising API access for ad accounts, campaigns, creatives, and ad analytics using generated clients and MCP tools. Use when doing ANYTHING that touches LinkedIn Ads, LinkedIn Marketing API, ad accounts, campaigns, creatives, or LinkedIn ad analytics in any way, load this skill.
+description: Implements LinkedIn Marketing API access for ad accounts, campaigns, creatives, and ad analytics using generated clients and MCP tools. Use when doing ANYTHING that touches the LinkedIn Marketing API — ad accounts, campaigns, creatives, or ad analytics — in any way, load this skill.
 ---
 
-# Major Platform Resource: LinkedIn Ads
+# Major Platform Resource: LinkedIn Marketing API
+
+Reference: https://learn.microsoft.com/en-us/linkedin/marketing/
 
 ## Common: Interacting with Resources
 
@@ -26,16 +28,15 @@ description: Implements LinkedIn Marketing Advertising API access for ad account
 
 ## Scope And Permissions
 
-The v1 LinkedIn connector supports the LinkedIn Marketing **Advertising API** only.
+The v1 LinkedIn Marketing API connector exposes the **Advertising API** surface. Lead Sync and Conversions API will ship as separate Major connectors when LinkedIn approval lands; do not assume they are reachable through this resource.
 
 Available scope sets:
 
 - Read only: `r_ads`, `r_ads_reporting`
 - Read + write: `r_ads`, `r_ads_reporting`, `rw_ads`
+- Custom: any subset of the above (admins pick at connector creation time)
 
-Do not assume Lead Sync, Conversions API, Share on LinkedIn, or organization social access is available. Those products require separate LinkedIn approval and are not part of this connector unless the app explicitly exposes them.
-
-If LinkedIn refresh fails because the refresh token is revoked or expired, the connector may become disconnected and require the user to reconnect OAuth. Do not ask users for tokens.
+If LinkedIn refresh fails because the refresh token is revoked or expired, the connector call will fail and the admin will see a Reconnect prompt in the connector panel. Do not ask users for tokens — every LinkedIn call goes through the connector.
 
 ---
 
