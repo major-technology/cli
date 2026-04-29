@@ -105,26 +105,29 @@ if (!report.ok) {
 
 ### Response shape — DO NOT GUESS
 
-A successful response has this exact shape (this is the `BaseResourceClient` contract, not TikTok-specific):
+Every typed method returns `TikTokAdsInvokeResponse`, which is
+`BaseInvokeSuccess<ApiTikTokAdsResult> | InvokeFailure`:
 
 ```typescript
 {
 	ok: true,
 	requestId: "...",
 	result: {
-		kind: "api",
-		status: 200,
-		body: {
-			kind: "json",
-			value: { code: 0, message: "OK", request_id: "...", data: { ... } }
+		kind: "tiktokads",
+		operation: "listAdvertisers",          // matches the called method
+		data: {                                  // TikTok envelope, verbatim
+			code: 0,
+			message: "OK",
+			request_id: "...",
+			data: { list: [...], page_info: {...} }   // the actual payload
 		}
 	}
 }
 ```
 
-**The TikTok envelope lives at `result.result.body.value`.** It is itself `{ code, message, request_id, data }` per TikTok's convention, so the actual payload (campaigns list, advertiser list, report rows, etc.) is at `result.result.body.value.data`.
+**`res.result.data` IS the TikTok envelope** (`{ code, message, request_id, data }`). The actual payload (advertiser list, campaigns array, report rows, etc.) is one level deeper at `res.result.data.data`. There is no `body.value`, no `kind: "api"`, no triple-nested `.data`.
 
-There is no `result.data` shortcut. There is no `body.value` at the top level. Read this section instead of guessing — every typed method returns `ApiInvokeResponse`, which is `BaseInvokeSuccess<ApiResult> | InvokeFailure` from `@major-tech/resource-client`. Read the source if unsure.
+`code: 0` means success. Non-zero codes carry a human-readable `message` that you should surface to the user.
 
 Concrete example for `listAdvertisers`:
 
@@ -135,10 +138,17 @@ if (!res.ok) {
 	throw new Error(res.error.message);
 }
 
-// TikTok envelope
-const tiktokBody = res.result.body.kind === "json" ? res.result.body.value : null;
-const advertiserList = (tiktokBody as { data?: { list?: Array<{ advertiser_id: string; advertiser_name: string }> } })
-	?.data?.list ?? [];
+const envelope = res.result.data as {
+	code: number;
+	message: string;
+	data?: { list?: Array<{ advertiser_id: string; advertiser_name: string }> };
+};
+
+if (envelope.code !== 0) {
+	throw new Error(`TikTok error: ${envelope.message}`);
+}
+
+const advertiserList = envelope.data?.list ?? [];
 ```
 
 ---
