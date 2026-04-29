@@ -33,6 +33,15 @@ Reference: https://business-api.tiktok.com/portal/docs
 - Most TikTok endpoints take an `advertiser_id` query param. Call `tiktokads_list_advertisers` first to discover authorized IDs.
 - The connector's `accessMode` setting (`readonly` or `readwrite`) controls write safety — write methods are blocked when set to `readonly`.
 
+### What the connector injects automatically
+
+You never pass these — the connector adds them at call time:
+
+- **Access token**: every request gets the `Access-Token` header.
+- **`app_id` and `secret`**: only for `/oauth2/advertiser/get/` (the list-advertisers endpoint), which authenticates the *app* in addition to the user. Both `tiktokads_list_advertisers` and `tikTokAdsClient.listAdvertisers()` get them automatically.
+
+What you DO need to pass yourself for advertiser-scoped endpoints (campaigns, ads, reports, etc.): `advertiser_id` in the query or body. Typed tools/methods take `advertiserId` as a positional arg; raw `invoke` callers must include it in `query` or `body` themselves.
+
 ### Empty advertiser list
 
 If `tiktokads_list_advertisers` returns `data.list: []` with `code: 0, message: "OK"`, the OAuth grant succeeded but the user did not authorize any ad accounts on TikTok's consent screen. Almost every Marketing API endpoint needs an `advertiser_id`, so most tools will fail until they reconnect and pick at least one advertiser. Endpoints that don't need an advertiser (e.g. `/user/info/`) will still work. Tell the user to reconnect via the connector settings rather than retrying API calls.
@@ -92,6 +101,44 @@ const report = await tiktokAdsClient.runReport(
 if (!report.ok) {
 	throw new Error(report.error.message);
 }
+```
+
+### Response shape — DO NOT GUESS
+
+A successful response has this exact shape (this is the `BaseResourceClient` contract, not TikTok-specific):
+
+```typescript
+{
+	ok: true,
+	requestId: "...",
+	result: {
+		kind: "api",
+		status: 200,
+		body: {
+			kind: "json",
+			value: { code: 0, message: "OK", request_id: "...", data: { ... } }
+		}
+	}
+}
+```
+
+**The TikTok envelope lives at `result.result.body.value`.** It is itself `{ code, message, request_id, data }` per TikTok's convention, so the actual payload (campaigns list, advertiser list, report rows, etc.) is at `result.result.body.value.data`.
+
+There is no `result.data` shortcut. There is no `body.value` at the top level. Read this section instead of guessing — every typed method returns `ApiInvokeResponse`, which is `BaseInvokeSuccess<ApiResult> | InvokeFailure` from `@major-tech/resource-client`. Read the source if unsure.
+
+Concrete example for `listAdvertisers`:
+
+```typescript
+const res = await tiktokAdsClient.listAdvertisers("fetch-tiktok-advertisers");
+
+if (!res.ok) {
+	throw new Error(res.error.message);
+}
+
+// TikTok envelope
+const tiktokBody = res.result.body.kind === "json" ? res.result.body.value : null;
+const advertiserList = (tiktokBody as { data?: { list?: Array<{ advertiser_id: string; advertiser_name: string }> } })
+	?.data?.list ?? [];
 ```
 
 ---
