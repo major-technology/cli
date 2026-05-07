@@ -25,4 +25,5 @@ func init() {
 	Cmd.AddCommand(listCmd)
 	Cmd.AddCommand(addCmd)
 	Cmd.AddCommand(removeCmd)
+	Cmd.AddCommand(connectCmd)
 }

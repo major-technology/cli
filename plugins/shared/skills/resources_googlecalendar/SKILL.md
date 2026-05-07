@@ -5,14 +5,16 @@ description: Implements Google Calendar event management and scheduling using ge
 
 # Major Platform Resource: Google Calendar
 
-## Setting Up a Google Calendar Connector
+## Per-User OAuth (required before use)
 
-Google Calendar requires OAuth authentication before use.
+Google Calendar uses per-user OAuth — each user must connect their own Google account before any tools will work (`requiresUserOAuth: true` in `list_resources`).
 
-### When the user asks you to set up Google Calendar or connect their calendar:
+**Before calling any Google Calendar tools**, check if the `mcp__user-oauth-setup__setup-user-oauth` tool is available:
 
-1. Call `mcp__resource-setup__request-resource-setup` with `subtype: "googlecalendar"` — this prompts the user to authenticate with Google
-2. Once setup completes, the resource is ready to use
+- **If available** (web ai-coder): Call `setup-user-oauth` with the resource ID. It will prompt the user to connect via a popup.
+- **If not available** (CLI): Run `major resource connect <resourceId>` via the Bash tool — this opens the user's browser to complete OAuth. Then ask the user to confirm they've connected before retrying the resource tools.
+
+Do NOT attempt to call Google Calendar tools without completing this step — the calls will fail.
 
 ---
 
@@ -86,3 +88,4 @@ const createResult = await googleCalendarClient.invoke("POST", "calendars/primar
 - **Scope presets**: The resource may be configured as "readonly" (can only read) or "readwrite" (can read and create/modify events). Write operations will fail with 403 if the resource is readonly.
 
 **Docs**: [Google Calendar API Reference](https://developers.google.com/calendar/api/v3/reference)
+
