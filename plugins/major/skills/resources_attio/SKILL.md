@@ -9,10 +9,11 @@ description: Implements Attio CRM data access for people, companies, lists, note
 
 **Security**: Never connect directly to databases/APIs. Never use credentials in code. Always use generated clients or MCP tools.
 
-**Two ways to interact with resources:**
+**Three ways to interact with Attio:**
 
 1. **MCP tools** (direct, no code needed): Tools follow the pattern `mcp__resources__<resourcetype>_<toolname>`. Use `mcp__resources__list_resources` to discover available resources and their IDs.
 2. **Generated TypeScript clients** (for app code): Call `mcp__resource-tools__add-resource-client` with a `resourceId` to generate a typed client. Clients are created in `/clients/` (Next.js) or `/src/clients/` (Vite).
+3. **HTTP proxy** (Next.js apps): Use `createProxyFetch` from `@major-tech/resource-client/next` to call the Attio API directly with automatic auth injection. See [using-http-proxy](../../shared/skills/http-proxy/SKILL.md) for setup and usage — preferred when you need to hit endpoints not covered by MCP tools or the typed client, or when using an official SDK that accepts a custom `fetch`.
 
 **CRITICAL: Do NOT guess client method names or signatures.** After generating a client, ALWAYS read the generated client file to discover the exact API. Different resource types have completely different methods and calling conventions.
 
