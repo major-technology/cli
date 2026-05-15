@@ -9,10 +9,11 @@ description: Executes GraphQL queries and mutations against a configured endpoin
 
 **Security**: Never connect directly to databases/APIs. Never use credentials in code. Always use generated clients or MCP tools.
 
-**Two ways to interact with resources:**
+**Three ways to interact with this resource:**
 
 1. **MCP tools** (direct, no code needed): Tools follow the pattern `mcp__resources__<resourcetype>_<toolname>`. Use `mcp__resources__list_resources` to discover available resources and their IDs.
 2. **Generated TypeScript clients** (for app code): Call `mcp__resource-tools__add-resource-client` with a `resourceId` to generate a typed client. Clients are created in `/clients/` (Next.js) or `/src/clients/` (Vite).
+3. **Apollo Client via the HTTP proxy** (GraphQL-specific): Pass `createProxyFetch({ resourceId, ... })` as Apollo's `fetch` so the proxy resolves the endpoint and injects auth at request time. Use this when the app needs Apollo's normalized cache, optimistic updates, or fragments. See "Apollo Client via the HTTP Proxy" below.
 
 **CRITICAL: Do NOT guess client method names or signatures.** The TypeScript clients in `@major-tech/resource-client` have strongly typed inputs and outputs. ALWAYS read the actual client source code in the generated `/clients/` directory (or the package itself) to verify available methods and their exact signatures before writing any client code.
 
@@ -67,6 +68,35 @@ if (createResult.ok) {
 	console.log(createResult.result.body);
 }
 ```
+
+## Apollo Client via the HTTP Proxy
+
+For apps that need Apollo Client (normalized cache, optimistic updates, subscriptions over HTTP, etc.), wire it up by passing the proxy fetch as Apollo's `fetch`. The proxy injects the configured auth header upstream — the client code never sees credentials.
+
+```typescript
+import { ApolloClient, HttpLink, InMemoryCache } from "@apollo/client";
+import { createProxyFetch } from "@major-tech/resource-client/next";
+
+const client = new ApolloClient({
+	link: new HttpLink({
+		uri: "/", // proxy resolves to the resource's configured endpoint
+		fetch: createProxyFetch({
+			baseUrl: process.env.MAJOR_API_BASE_URL!,
+			resourceId: "<graphql-resource-id>",
+			majorJwtToken: process.env.MAJOR_JWT_TOKEN!,
+		}),
+	}),
+	cache: new InMemoryCache(),
+});
+```
+
+**Key points:**
+
+- **`uri: "/"`** — the proxy reads the endpoint from the resource at request time; you do not (and should not) hardcode the upstream URL on the client.
+- **Auth is injected server-side** — never set `Authorization` on the Apollo link; the proxy strips reserved request headers and replaces them with the resource's configured auth (`bearer`, `apiKey`, or `none`).
+- **Resource ID must be static** — `createProxyFetch` is detected by the query extractor only when `resourceId` is a string literal; dynamic IDs are skipped at deploy time.
+- **Next.js**: use Apollo on the server (RSC, Route Handlers, Server Actions) so the JWT stays out of the browser. For client-side Apollo, route the request through your own server endpoint.
+- **Same auth/policy as MCP/client paths** — URLPolicy admits only the configured endpoint host + path, so misconfigured URIs 403 rather than leaking traffic elsewhere.
 
 ## Tips
 
