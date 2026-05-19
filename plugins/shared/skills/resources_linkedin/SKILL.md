@@ -50,6 +50,8 @@ If LinkedIn refresh fails because the refresh token is revoked or expired, the c
 
 Prefer typed list and analytics tools over `linkedin_invoke` when they cover the use case.
 
+When using `linkedin_invoke` directly, pass query values as arrays because the connector backend expects `Record<string, string[]>`, for example `{ q: ["search"], pageSize: ["25"] }`.
+
 ---
 
 ## TypeScript Client
@@ -101,7 +103,8 @@ if (!analytics.ok) {
 
 - Use numeric IDs returned by LinkedIn tools when available. The connector handles LinkedIn REST headers and URN formatting for typed tools.
 - Ad account and campaign IDs may appear either as plain IDs or URNs in LinkedIn responses. Preserve IDs exactly unless the generated client documents a normalized field.
-- Analytics date ranges: pass `dateRange: { start: "YYYY-MM-DD", end: "YYYY-MM-DD" }`. The connector converts to LinkedIn's internal date-object format internally.
+- Campaigns are listed from `/adAccounts/{adAccountId}/adCampaigns?q=search`; creatives are listed from `/adAccounts/{adAccountId}/creatives?q=criteria`.
+- Analytics date ranges: pass singular `dateRange: { start: "YYYY-MM-DD", end: "YYYY-MM-DD" }` and singular `pivot: "ACCOUNT" | "CAMPAIGN" | "CREATIVE"`. Do not use LinkedIn's batched `dateRanges` or `pivots` query names with this connector.
 - Analytics metrics can be expensive. Keep date ranges and fields narrow.
 - LinkedIn Marketing API responses commonly return `{ elements, paging }`.
 
