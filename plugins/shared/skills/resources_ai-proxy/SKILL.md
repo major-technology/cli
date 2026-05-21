@@ -191,7 +191,7 @@ const imageBytes = imagen.generatedImages?.[0]?.image?.imageBytes;
 ## Rules
 
 - Always use the native provider SDK (`@anthropic-ai/sdk`, `openai`, or `@google/genai`) — never a unified SDK
-- Set the base URL to `process.env.MAJOR_AI_PROXY_URL + "/<provider>"` (`/anthropic`, `/openai`, or `/genai`). For Gemini, this is the SDK's `httpOptions.baseUrl`; for Anthropic and OpenAI, it's `baseURL`.
+- Set the base URL to `MAJOR_AI_PROXY_URL + "/<provider>"` — `/anthropic`, `/openai`, or `/genai`. For Anthropic and OpenAI, this is the SDK's `baseURL`; for Gemini, it's `httpOptions.baseUrl`.
 - **Set `apiKey` to `process.env.MAJOR_JWT_TOKEN`** — this is required for authentication. Without it, all requests will be rejected.
 - Never hardcode API keys or proxy URLs
 - Only use models from the allowlist above
