@@ -32,6 +32,7 @@ Once you have a `resourceId`, use it directly with the tools and client below.
 
 2. **Generated TypeScript client** (for app code):
    - Call `mcp__resource-tools__add-resource-client` with the `resourceId` to generate a typed client into `/clients/` (Next.js) or `/src/clients/` (Vite).
+   - **The `resourceType` you pass MUST be `"blob"`** — that is the underlying resource subtype. It is NOT `"managed_file_store"` / `"managed-file-storage"`; those are only the product name and will fail with `Invalid type`. The generated client class is `BlobResourceClient`.
 
 **CRITICAL: Do NOT guess client method names or signatures.** ALWAYS read the actual generated client source (or the `@major-tech/resource-client` package) before writing client code.
 
