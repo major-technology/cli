@@ -43,6 +43,22 @@ import { createProxyFetch } from "@major-tech/resource-client/next";
 
 `x-major-user-jwt` is auto-forwarded by reading `headers().get("x-major-user-jwt")` from the incoming Next request, so per-user-OAuth resources (Gmail, Calendar, Drive) work transparently. Outside a Next request scope (e.g. background jobs) the lookup is skipped.
 
+### Non-Next runtimes (plain Node, agent skill scripts)
+
+The `/next` entry imports `next/headers`, so it only loads inside a Next app. In a plain Node runtime — standalone scripts, background workers, agent skill scripts — import `createProxyFetch` from the package ROOT instead:
+
+```typescript
+import { createProxyFetch } from "@major-tech/resource-client";
+```
+
+Same config and behaviour, with one extra optional field, `getUserJwt`, in place of the automatic Next lookup:
+
+| Field        | Type                                                          | Required | Notes                                                                            |
+| ------------ | ------------------------------------------------------------- | -------- | -------------------------------------------------------------------------------- |
+| `getUserJwt` | `() => Promise<string \| null \| undefined> \| string \| ...` | no       | Resolver for `x-major-user-jwt` (per-user-OAuth resources). Omit if you don't need it. |
+
+Most non-Next callers act as the deployment identity and don't have a user JWT, so omit `getUserJwt` entirely — the proxy still injects the resource's shared auth. Only pass it when you must target a specific user's connected account and have a way to fetch their token.
+
 ### Drop-in with a third-party SDK
 
 ```typescript
