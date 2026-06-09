@@ -261,7 +261,13 @@ func AddResourcesToProject(cmd *cobra.Command, projectDir string, resources []ap
 	for _, resource := range resourcesToAdd {
 		cmd.Printf("  Adding resource: %s (%s)...\n", resource.Name, resource.Type)
 
-		args := []string{"exec", "major-client", "add", resource.ID, resource.Name, resource.Type, resource.Description, applicationID}
+		// Older resource-client versions reject an empty description, so fall back to the name
+		description := resource.Description
+		if description == "" {
+			description = resource.Name
+		}
+
+		args := []string{"exec", "major-client", "add", resource.ID, resource.Name, resource.Type, description, applicationID}
 		if framework != "" {
 			args = append(args, "--framework", framework)
 		}
