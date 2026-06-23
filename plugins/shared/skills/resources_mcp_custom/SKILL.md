@@ -9,7 +9,7 @@ A custom MCP connector points at an external remote MCP server you bring. Its to
 
 ## Common: Interacting with Resources
 
-**Security**: Never connect directly to the upstream MCP server. Never put credentials in code. The connector's auth is injected server-side using its shared credential.
+**Security**: Never connect directly to the upstream MCP server. Never put credentials in code. The connector's auth is injected server-side using the resolved shared or per-user credential.
 
 **Two ways to interact with a custom MCP connector:**
 
@@ -61,4 +61,4 @@ try {
 - **mcp_custom connectors are callable from app code.** They used to be reachable only through in-session MCP tools; app code can now call their tools at runtime via `MCPResourceClient.callTool()`. Don't tell the user a custom MCP connector "can't be used from the app."
 - **Result shape** mirrors the MCP `CallToolResult`: read `result.structuredContent` (typed via the `<T>` you pass) for structured payloads, or `result.content` for unstructured blocks; check `result.isError` for tool-level failures.
 - **Args are forwarded verbatim** to the upstream tool — match the upstream server's expected schema exactly.
-- **Auth is injected server-side** using the connector's shared credential; never set auth headers yourself.
+- **Auth is injected server-side** using the resolved shared or per-user credential; never set auth headers yourself.
