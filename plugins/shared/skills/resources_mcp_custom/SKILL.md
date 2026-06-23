@@ -22,7 +22,7 @@ A custom MCP connector points at an external remote MCP server you bring. Its to
 
 **App context required**: `callTool()` needs the app's `baseUrl` / `applicationId` / JWT, which are injected into the deployed app's environment. In a coding session, reach the connector through the `mcp__<slug>__*` tools instead.
 
-**Error handling**: unlike other resource clients, `callTool()` **throws** `ResourceInvokeError` on a transport failure or an error response — there is **no `result.ok` envelope** to check. Wrap calls in `try/catch`. A tool-level failure that the upstream reports successfully comes back as a normal result with `isError: true`.
+**Return + error handling**: `callTool<T>()` returns the tool's **structured result typed as `T`** directly (it's `undefined` for tools that return only unstructured text). Unlike other resource clients, it **throws** `ResourceInvokeError` on transport failure, an error response, **or** a tool-level error — there is no `result.ok` / `isError` envelope to inspect. Wrap calls in `try/catch`.
 
 ---
 
@@ -43,29 +43,22 @@ const mcp = createMcpClient({
 	majorJwtToken: process.env.MAJOR_JWT_TOKEN!,
 });
 
-// callTool<T>(tool, args?) — `tool` is the upstream MCP tool name; `args` is
-// forwarded verbatim. Throws ResourceInvokeError on transport/server error.
+// callTool<T>(tool, args?) returns the tool's structured result typed as T.
+// `tool` is the upstream MCP tool name; `args` is forwarded verbatim. Throws
+// ResourceInvokeError on transport / server / tool-level errors.
 try {
-	const result = await mcp.callTool<{ tickets: Ticket[] }>(
+	const { tickets } = await mcp.callTool<{ tickets: Ticket[] }>(
 		"search_tickets",
 		{ customerId, limit: 20 },
 	);
-
-	if (result.isError) {
-		// the tool itself reported an error — detail is in result.content
-		console.error(result.content);
-		return;
-	}
-
-	const data = result.structuredContent; // typed as { tickets: Ticket[] } | undefined
-	// or read result.content (text/other blocks) when the tool returns no structured payload
+	// use tickets…
 } catch (err) {
-	// ResourceInvokeError: transport failure or an error envelope from the proxy
+	// ResourceInvokeError — transport failure, error envelope, or tool isError
 }
 ```
 
 ## Tips
 
-- **Result shape** mirrors the MCP `CallToolResult`: read `result.structuredContent` (typed via the `<T>` you pass) for structured payloads, or `result.content` for unstructured blocks; check `result.isError` for tool-level failures.
+- **`callTool<T>` returns the tool's structured result** typed as `T` (the MCP `structuredContent`), or `undefined` if the tool returns only unstructured text. Tool-level errors throw rather than returning a flag.
 - **Args are forwarded verbatim** to the upstream tool — match the upstream server's expected schema exactly.
 - **Auth is injected server-side** using the resolved shared or per-user credential; never set auth headers yourself.
