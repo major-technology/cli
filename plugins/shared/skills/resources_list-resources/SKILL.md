@@ -29,3 +29,14 @@ For each resource you plan to use:
    The agent will download the file, read it, and return a summary plus the local file path.
 4. If the context document contains schema or API information, use it directly — do not make redundant queries (e.g. do not run `\d` table commands if the schema is already in the context doc)
 5. Tell the user which context documents you read and what you learned, so they know their context is being used
+
+## Step 3: Handle per-user OAuth resources
+
+Some resources require each user to connect their own account (`requiresUserOAuth: true` in the `list_resources` response). **You must handle this before attempting to use those resources.**
+
+Check if the `mcp__user-oauth-setup__setup-user-oauth` tool is available:
+
+- **If available** (web ai-coder): Call `setup-user-oauth` with the resource ID. It will prompt the user to connect via a popup and block until complete.
+- **If not available** (CLI): Run `major resource connect <resourceId>` via the Bash tool — this opens the user's browser to complete OAuth. Then ask the user to confirm they've connected before retrying the resource tools.
+
+Do NOT attempt to call resource tools for a `requiresUserOAuth: true` resource without completing this step first — the calls will fail with an authentication error.
