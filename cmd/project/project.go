@@ -27,4 +27,5 @@ func init() {
 	Cmd.AddCommand(newCompileCmd())
 	Cmd.AddCommand(newViewCmd())
 	Cmd.AddCommand(newDeployCmd())
+	Cmd.AddCommand(newCompileAndReportCmd())
 }
