@@ -450,14 +450,25 @@ type ProjectVersionItem struct {
 	CreatedAt       string `json:"createdAt"`
 }
 
+// ProjectVersionDetail is the project's latest version as embedded in
+// GetProjectResponse, including the compiled config for that version.
+type ProjectVersionDetail struct {
+	ID              string          `json:"id"`
+	CommitHash      string          `json:"commitHash"`
+	CompileStatus   string          `json:"compileStatus"`
+	CompileError    string          `json:"compileError,omitempty"`
+	CompilerVersion string          `json:"compilerVersion,omitempty"`
+	CreatedAt       string          `json:"createdAt"`
+	CompiledConfig  json.RawMessage `json:"compiledConfig,omitempty"`
+}
+
 // GetProjectResponse represents the response from GET /projects/:id
 type GetProjectResponse struct {
-	Error          *AppErrorDetail     `json:"error,omitempty"`
-	ProjectID      string              `json:"projectId,omitempty"`
-	Name           string              `json:"name,omitempty"`
-	RepositoryName string              `json:"repositoryName,omitempty"`
-	LatestVersion  *ProjectVersionItem `json:"latestVersion,omitempty"`
-	CompiledConfig json.RawMessage     `json:"compiledConfig,omitempty"`
+	Error                *AppErrorDetail       `json:"error,omitempty"`
+	ID                   string                `json:"id,omitempty"`
+	Name                 string                `json:"name,omitempty"`
+	GithubRepositoryName string                `json:"githubRepositoryName,omitempty"`
+	LatestVersion        *ProjectVersionDetail `json:"latestVersion,omitempty"`
 }
 
 // ListProjectVersionsResponse represents the response from GET /projects/:id/versions
@@ -478,6 +489,7 @@ type GetProjectDeployPlanResponse struct {
 
 // CreateProjectDeployRequest represents the request body for POST /projects/:id/deploys
 type CreateProjectDeployRequest struct {
+	OrganizationID   string `json:"organizationId"`
 	ProjectVersionID string `json:"projectVersionId"`
 }
 
@@ -494,10 +506,11 @@ type CreateProjectDeployResponse struct {
 	DeployID  string                 `json:"deployId,omitempty"`
 	Status    string                 `json:"status,omitempty"`
 	Artifacts []DeployArtifactResult `json:"artifacts,omitempty"`
+	Warnings  []string               `json:"warnings,omitempty"`
 }
 
 // AddProjectGithubCollaboratorsRequest represents the request body for POST /projects/:id/add-gh-collaborators
 type AddProjectGithubCollaboratorsRequest struct {
+	OrganizationID string `json:"organizationId"`
 	GithubUsername string `json:"githubUsername"`
 }
-

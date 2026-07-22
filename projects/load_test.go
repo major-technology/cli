@@ -81,6 +81,21 @@ func TestLoadUnknownFieldNotStripped(t *testing.T) {
 	}
 }
 
+// TestLoadDoubleHyphenSlugRejected checks that a slug with consecutive hyphens
+// fails schema validation with a message pointing at /slug.
+func TestLoadDoubleHyphenSlugRejected(t *testing.T) {
+	_, issues := Load("testdata/double-hyphen-slug")
+	if len(issues) == 0 {
+		t.Fatal("expected a validation issue for a slug with consecutive hyphens")
+	}
+	if issues[0].Path != "/slug" {
+		t.Fatalf("expected the issue to be attributed to /slug, got: %+v", issues)
+	}
+	if issues[0].Message == "" {
+		t.Fatalf("expected a readable message, got: %+v", issues)
+	}
+}
+
 func TestLoadMalformedJSON(t *testing.T) {
 	p, issues := Load("testdata/malformed")
 	if p != nil {

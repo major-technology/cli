@@ -65,7 +65,7 @@ func runCreate(cmd *cobra.Command, name, description string) error {
 		return nil
 	}
 
-	inviteResp, err := apiClient.AddProjectGithubCollaborators(resp.ProjectID, githubUser)
+	inviteResp, err := apiClient.AddProjectGithubCollaborators(resp.ProjectID, orgID, githubUser)
 	if err != nil {
 		cmd.Printf("Warning: failed to add you as a repository collaborator: %v\n", err)
 		cmd.Printf("Clone manually once you have access: %s\n", cloneURL)

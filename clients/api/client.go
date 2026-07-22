@@ -592,9 +592,11 @@ func (c *Client) GetProjectByRepo(owner, repo string) (*GetProjectByRepoResponse
 }
 
 // GetProject retrieves a project with its latest version and compiled config
-func (c *Client) GetProject(projectID string) (*GetProjectResponse, error) {
+func (c *Client) GetProject(projectID, organizationID string) (*GetProjectResponse, error) {
+	path := fmt.Sprintf("/projects/%s?organizationId=%s", projectID, url.QueryEscape(organizationID))
+
 	var resp GetProjectResponse
-	err := c.doRequest("GET", fmt.Sprintf("/projects/%s", projectID), nil, &resp)
+	err := c.doRequest("GET", path, nil, &resp)
 	if err != nil {
 		return nil, err
 	}
@@ -602,9 +604,11 @@ func (c *Client) GetProject(projectID string) (*GetProjectResponse, error) {
 }
 
 // ListProjectVersions retrieves the compiled versions of a project, newest first
-func (c *Client) ListProjectVersions(projectID string) (*ListProjectVersionsResponse, error) {
+func (c *Client) ListProjectVersions(projectID, organizationID string) (*ListProjectVersionsResponse, error) {
+	path := fmt.Sprintf("/projects/%s/versions?organizationId=%s", projectID, url.QueryEscape(organizationID))
+
 	var resp ListProjectVersionsResponse
-	err := c.doRequest("GET", fmt.Sprintf("/projects/%s/versions", projectID), nil, &resp)
+	err := c.doRequest("GET", path, nil, &resp)
 	if err != nil {
 		return nil, err
 	}
@@ -612,8 +616,11 @@ func (c *Client) ListProjectVersions(projectID string) (*ListProjectVersionsResp
 }
 
 // GetProjectDeployPlan retrieves the server-computed plan for deploying a version
-func (c *Client) GetProjectDeployPlan(projectID, versionID string) (*GetProjectDeployPlanResponse, error) {
-	path := fmt.Sprintf("/projects/%s/deploy-plan?versionId=%s", projectID, url.QueryEscape(versionID))
+func (c *Client) GetProjectDeployPlan(projectID, organizationID, versionID string) (*GetProjectDeployPlanResponse, error) {
+	query := url.Values{}
+	query.Set("organizationId", organizationID)
+	query.Set("versionId", versionID)
+	path := fmt.Sprintf("/projects/%s/deploy-plan?%s", projectID, query.Encode())
 
 	var resp GetProjectDeployPlanResponse
 	err := c.doRequest("GET", path, nil, &resp)
@@ -624,8 +631,8 @@ func (c *Client) GetProjectDeployPlan(projectID, versionID string) (*GetProjectD
 }
 
 // CreateProjectDeploy deploys a compiled project version
-func (c *Client) CreateProjectDeploy(projectID, versionID string) (*CreateProjectDeployResponse, error) {
-	req := CreateProjectDeployRequest{ProjectVersionID: versionID}
+func (c *Client) CreateProjectDeploy(projectID, organizationID, versionID string) (*CreateProjectDeployResponse, error) {
+	req := CreateProjectDeployRequest{OrganizationID: organizationID, ProjectVersionID: versionID}
 
 	var resp CreateProjectDeployResponse
 	err := c.doRequest("POST", fmt.Sprintf("/projects/%s/deploys", projectID), req, &resp)
@@ -636,8 +643,8 @@ func (c *Client) CreateProjectDeploy(projectID, versionID string) (*CreateProjec
 }
 
 // AddProjectGithubCollaborators adds the user as a collaborator to the project repository
-func (c *Client) AddProjectGithubCollaborators(projectID, githubUsername string) (*AddGithubCollaboratorsResponse, error) {
-	req := AddProjectGithubCollaboratorsRequest{GithubUsername: githubUsername}
+func (c *Client) AddProjectGithubCollaborators(projectID, organizationID, githubUsername string) (*AddGithubCollaboratorsResponse, error) {
+	req := AddProjectGithubCollaboratorsRequest{OrganizationID: organizationID, GithubUsername: githubUsername}
 
 	var resp AddGithubCollaboratorsResponse
 	err := c.doRequest("POST", fmt.Sprintf("/projects/%s/add-gh-collaborators", projectID), req, &resp)
@@ -646,4 +653,3 @@ func (c *Client) AddProjectGithubCollaborators(projectID, githubUsername string)
 	}
 	return &resp, nil
 }
-

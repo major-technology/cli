@@ -125,14 +125,14 @@ func renderPlan(plan *api.GetProjectDeployPlanResponse) string {
 }
 
 func runDeploy(cmd *cobra.Command, versionFlag string, yes bool) error {
-	projectID, _, err := getProjectAndOrgID()
+	projectID, orgID, err := getProjectAndOrgID()
 	if err != nil {
 		return err
 	}
 
 	apiClient := singletons.GetAPIClient()
 
-	versionsResp, err := apiClient.ListProjectVersions(projectID)
+	versionsResp, err := apiClient.ListProjectVersions(projectID, orgID)
 	if err != nil {
 		return err
 	}
@@ -148,7 +148,7 @@ func runDeploy(cmd *cobra.Command, versionFlag string, yes bool) error {
 
 	cmd.Printf("Deploying version %s\n\n", shortHash(version.CommitHash))
 
-	plan, err := apiClient.GetProjectDeployPlan(projectID, version.ID)
+	plan, err := apiClient.GetProjectDeployPlan(projectID, orgID, version.ID)
 	if err != nil {
 		return err
 	}
@@ -174,7 +174,7 @@ func runDeploy(cmd *cobra.Command, versionFlag string, yes bool) error {
 		}
 	}
 
-	deployResp, err := apiClient.CreateProjectDeploy(projectID, version.ID)
+	deployResp, err := apiClient.CreateProjectDeploy(projectID, orgID, version.ID)
 	if err != nil {
 		return err
 	}
@@ -186,7 +186,18 @@ func runDeploy(cmd *cobra.Command, versionFlag string, yes bool) error {
 		case "deployed", "unchanged", "deleted":
 			cmd.Printf("✓ %s: %s\n", artifact.Slug, artifact.Status)
 		default:
-			cmd.Printf("✗ %s: %s %s\n", artifact.Slug, artifact.Status, artifact.Error)
+			if artifact.Error != "" {
+				cmd.Printf("✗ %s: %s %s\n", artifact.Slug, artifact.Status, artifact.Error)
+			} else {
+				cmd.Printf("✗ %s: %s\n", artifact.Slug, artifact.Status)
+			}
+		}
+	}
+
+	if len(deployResp.Warnings) > 0 {
+		cmd.Println("\nWarnings:")
+		for _, warning := range deployResp.Warnings {
+			cmd.Printf("  ⚠ %s\n", warning)
 		}
 	}
 

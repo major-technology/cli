@@ -15,7 +15,7 @@ func newCompileCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "compile",
 		Short: "Compile the project into its canonical config JSON",
-		Long:  `Validates and compiles the project directory, printing the compiled config JSON to stdout.`,
+		Long:  `Validates and compiles the project directory. With --json, prints the canonical single-line config JSON to stdout; otherwise prints the pretty-printed config and its hash.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			result, issues := projects.Compile(dir)
 

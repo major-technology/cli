@@ -25,20 +25,20 @@ func newViewCmd() *cobra.Command {
 }
 
 func runView(cmd *cobra.Command) error {
-	projectID, _, err := getProjectAndOrgID()
+	projectID, orgID, err := getProjectAndOrgID()
 	if err != nil {
 		return err
 	}
 
 	apiClient := singletons.GetAPIClient()
 
-	resp, err := apiClient.GetProject(projectID)
+	resp, err := apiClient.GetProject(projectID, orgID)
 	if err != nil {
 		return err
 	}
 
 	cmd.Printf("Project:    %s\n", resp.Name)
-	cmd.Printf("Repository: %s\n", resp.RepositoryName)
+	cmd.Printf("Repository: %s\n", resp.GithubRepositoryName)
 
 	if resp.LatestVersion == nil {
 		cmd.Println("\nNo compiled versions yet. Push to main to trigger a compile.")
@@ -52,8 +52,8 @@ func runView(cmd *cobra.Command) error {
 		return nil
 	}
 
-	if len(resp.CompiledConfig) > 0 {
-		var pretty json.RawMessage = resp.CompiledConfig
+	if len(resp.LatestVersion.CompiledConfig) > 0 {
+		var pretty json.RawMessage = resp.LatestVersion.CompiledConfig
 		out, err := json.MarshalIndent(pretty, "", "  ")
 		if err == nil {
 			cmd.Printf("\n%s\n", string(out))

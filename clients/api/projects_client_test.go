@@ -88,36 +88,36 @@ func TestGetProjectByRepoRequestShape(t *testing.T) {
 }
 
 func TestGetProjectPath(t *testing.T) {
-	_, client := newTestServer(t, "GET", "/projects/p-1", 200, GetProjectResponse{
-		ProjectID:      "p-1",
-		Name:           "proj",
-		RepositoryName: "staging-org-proj",
-		LatestVersion: &ProjectVersionItem{
+	_, client := newTestServer(t, "GET", "/projects/p-1?organizationId=org-1", 200, GetProjectResponse{
+		ID:                   "p-1",
+		Name:                 "proj",
+		GithubRepositoryName: "staging-org-proj",
+		LatestVersion: &ProjectVersionDetail{
 			ID:            "v-9",
 			CommitHash:    "abc123",
-			CompileStatus: "success",
+			CompileStatus: "compiled",
 			CreatedAt:     "2026-07-21T00:00:00Z",
 		},
 	})
 
-	resp, err := client.GetProject("p-1")
+	resp, err := client.GetProject("p-1", "org-1")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if resp.ProjectID != "p-1" || resp.LatestVersion == nil || resp.LatestVersion.ID != "v-9" {
+	if resp.ID != "p-1" || resp.LatestVersion == nil || resp.LatestVersion.ID != "v-9" {
 		t.Fatalf("bad response mapping: %+v", resp)
 	}
 }
 
 func TestListProjectVersionsPath(t *testing.T) {
-	_, client := newTestServer(t, "GET", "/projects/p-1/versions", 200, ListProjectVersionsResponse{
+	_, client := newTestServer(t, "GET", "/projects/p-1/versions?organizationId=org-1", 200, ListProjectVersionsResponse{
 		Versions: []ProjectVersionItem{
-			{ID: "v-1", CommitHash: "aaa", CompileStatus: "success", CreatedAt: "2026-07-20T00:00:00Z"},
+			{ID: "v-1", CommitHash: "aaa", CompileStatus: "compiled", CreatedAt: "2026-07-20T00:00:00Z"},
 			{ID: "v-2", CommitHash: "bbb", CompileStatus: "failed", CompileError: "bad schema", CreatedAt: "2026-07-21T00:00:00Z"},
 		},
 	})
 
-	resp, err := client.ListProjectVersions("p-1")
+	resp, err := client.ListProjectVersions("p-1", "org-1")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -127,13 +127,13 @@ func TestListProjectVersionsPath(t *testing.T) {
 }
 
 func TestGetProjectDeployPlanPath(t *testing.T) {
-	_, client := newTestServer(t, "GET", "/projects/p-1/deploy-plan?versionId=v-9", 200, GetProjectDeployPlanResponse{
+	_, client := newTestServer(t, "GET", "/projects/p-1/deploy-plan?organizationId=org-1&versionId=v-9", 200, GetProjectDeployPlanResponse{
 		Creates:  []string{"triage"},
 		Deletes:  []string{"old"},
 		Warnings: []string{"env var FOO declared null but no value set"},
 	})
 
-	resp, err := client.GetProjectDeployPlan("p-1", "v-9")
+	resp, err := client.GetProjectDeployPlan("p-1", "org-1", "v-9")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -154,6 +154,9 @@ func TestCreateProjectDeployBody(t *testing.T) {
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			t.Errorf("bad body: %v", err)
 		}
+		if body.OrganizationID != "org-1" {
+			t.Errorf("organizationId = %q, want org-1", body.OrganizationID)
+		}
 		if body.ProjectVersionID != "v-9" {
 			t.Errorf("projectVersionId = %q, want v-9", body.ProjectVersionID)
 		}
@@ -162,7 +165,7 @@ func TestCreateProjectDeployBody(t *testing.T) {
 	defer srv.Close()
 
 	client := NewClient(srv.URL)
-	resp, err := client.CreateProjectDeploy("p-1", "v-9")
+	resp, err := client.CreateProjectDeploy("p-1", "org-1", "v-9")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -183,6 +186,9 @@ func TestAddProjectGithubCollaboratorsBody(t *testing.T) {
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			t.Errorf("bad body: %v", err)
 		}
+		if body.OrganizationID != "org-1" {
+			t.Errorf("organizationId = %q, want org-1", body.OrganizationID)
+		}
 		if body.GithubUsername != "octocat" {
 			t.Errorf("githubUsername = %q, want octocat", body.GithubUsername)
 		}
@@ -191,7 +197,7 @@ func TestAddProjectGithubCollaboratorsBody(t *testing.T) {
 	defer srv.Close()
 
 	client := NewClient(srv.URL)
-	resp, err := client.AddProjectGithubCollaborators("p-1", "octocat")
+	resp, err := client.AddProjectGithubCollaborators("p-1", "org-1", "octocat")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -210,7 +216,7 @@ func TestProjectEndpointsErrorMapping(t *testing.T) {
 			name:   "GetProject not found",
 			status: http.StatusNotFound,
 			call: func(client *Client) error {
-				_, err := client.GetProject("missing")
+				_, err := client.GetProject("missing", "org-1")
 				return err
 			},
 		},
