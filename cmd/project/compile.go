@@ -25,7 +25,7 @@ func newCompileCmd() *cobra.Command {
 			}
 
 			if asJSON {
-				cmd.Println(string(result.ConfigJSON))
+				fmt.Fprintln(cmd.OutOrStdout(), string(result.ConfigJSON))
 				return nil
 			}
 

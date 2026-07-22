@@ -2,6 +2,7 @@ package project
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -38,6 +39,19 @@ func runCommand(t *testing.T, cmd *cobra.Command, args ...string) (string, error
 	return buf.String(), err
 }
 
+// runCommandSplit captures stdout and stderr in separate buffers, so tests
+// can assert which stream machine-readable output actually lands on.
+func runCommandSplit(t *testing.T, cmd *cobra.Command, args ...string) (stdout string, stderr string, err error) {
+	t.Helper()
+	outBuf := &bytes.Buffer{}
+	errBuf := &bytes.Buffer{}
+	cmd.SetOut(outBuf)
+	cmd.SetErr(errBuf)
+	cmd.SetArgs(args)
+	err = cmd.Execute()
+	return outBuf.String(), errBuf.String(), err
+}
+
 func TestValidateCommandValidProject(t *testing.T) {
 	dir := writeValidProject(t)
 	out, err := runCommand(t, newValidateCmd(), "--dir", dir)
@@ -68,5 +82,62 @@ func TestCompileCommandOutputsJSON(t *testing.T) {
 	}
 	if !strings.Contains(out, `"configVersion":1`) && !strings.Contains(out, `"configVersion": 1`) {
 		t.Fatalf("expected compiled config JSON, got: %s", out)
+	}
+}
+
+func TestValidateCommandJSONGoesToStdout(t *testing.T) {
+	dir := writeValidProject(t)
+	stdout, _, err := runCommandSplit(t, newValidateCmd(), "--dir", dir, "--json")
+	if err != nil {
+		t.Fatalf("expected success, got %v (stdout: %s)", err, stdout)
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(stdout), &payload); err != nil {
+		t.Fatalf("stdout is not parseable JSON: %v (stdout: %q)", err, stdout)
+	}
+	if payload["valid"] != true {
+		t.Fatalf("expected valid:true, got: %s", stdout)
+	}
+}
+
+func TestValidateCommandInvalidJSONGoesToStdout(t *testing.T) {
+	dir := t.TempDir() // no project.json
+	stdout, _, err := runCommandSplit(t, newValidateCmd(), "--dir", dir, "--json")
+	if err == nil {
+		t.Fatalf("expected error exit, stdout: %s", stdout)
+	}
+
+	// Decode (rather than Unmarshal) the leading value only: this bare,
+	// parent-less *cobra.Command appends its own "Usage: ..." text after our
+	// write when RunE errors (cobra treats it as its own root here). The real
+	// CLI never hits that path - project.Cmd is always mounted under rootCmd,
+	// which sets SilenceUsage/SilenceErrors - so this is a standalone-test
+	// artifact, not something the JSON consumer sees in production.
+	var payload map[string]any
+	if err := json.NewDecoder(strings.NewReader(stdout)).Decode(&payload); err != nil {
+		t.Fatalf("stdout does not start with parseable JSON: %v (stdout: %q)", err, stdout)
+	}
+	if payload["valid"] != false {
+		t.Fatalf("expected valid:false, got: %s", stdout)
+	}
+}
+
+func TestCompileCommandJSONGoesToStdoutOnly(t *testing.T) {
+	dir := writeValidProject(t)
+	stdout, stderr, err := runCommandSplit(t, newCompileCmd(), "--dir", dir, "--json")
+	if err != nil {
+		t.Fatalf("expected success, got %v (stdout: %s)", err, stdout)
+	}
+	if stderr != "" {
+		t.Fatalf("expected empty stderr, got: %q", stderr)
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(strings.TrimSpace(stdout)), &payload); err != nil {
+		t.Fatalf("stdout is not pure parseable JSON: %v (stdout: %q)", err, stdout)
+	}
+	if payload["configVersion"] != float64(1) {
+		t.Fatalf("expected configVersion 1, got: %s", stdout)
 	}
 }

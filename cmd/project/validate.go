@@ -13,7 +13,7 @@ import (
 func printIssues(cmd *cobra.Command, issues []projects.Issue, asJSON bool) {
 	if asJSON {
 		out, _ := json.MarshalIndent(map[string]any{"valid": len(issues) == 0, "issues": issues}, "", "  ")
-		cmd.Println(string(out))
+		fmt.Fprintln(cmd.OutOrStdout(), string(out))
 		return
 	}
 
