@@ -48,6 +48,37 @@ func TestLoadReservedFieldRejected(t *testing.T) {
 	if !findIssue(issues, "schedules") {
 		t.Fatalf("expected message to name the field, got: %+v", issues)
 	}
+	if len(issues) != 1 {
+		t.Fatalf("expected exactly one issue (no duplicate additionalProperties error), got: %+v", issues)
+	}
+}
+
+// TestLoadReservedFieldAndSchemaViolation checks that a reserved field and a
+// genuine schema violation in the same file both get reported: the dedicated
+// reserved-field message for the reserved key, and a readable schema message
+// for the missing required field. Stripping the reserved key before schema
+// validation must not swallow other real errors.
+func TestLoadReservedFieldAndSchemaViolation(t *testing.T) {
+	_, issues := Load("testdata/reserved-and-invalid")
+	if !findIssue(issues, "reserved for a future version") || !findIssue(issues, "schedules") {
+		t.Fatalf("expected reserved-field message naming schedules, got: %+v", issues)
+	}
+	if !findIssue(issues, "missing property") || !findIssue(issues, "name") {
+		t.Fatalf("expected readable schema message for missing name, got: %+v", issues)
+	}
+}
+
+// TestLoadUnknownFieldNotStripped checks that a non-reserved unknown key still
+// trips the schema's additionalProperties error with a readable message,
+// proving stripReservedFields only removes the seven reserved keys.
+func TestLoadUnknownFieldNotStripped(t *testing.T) {
+	_, issues := Load("testdata/unknown-field")
+	if !findIssue(issues, "notAField") {
+		t.Fatalf("expected additional-properties error naming the field, got: %+v", issues)
+	}
+	if !findIssue(issues, "not allowed") {
+		t.Fatalf("expected readable additional-properties message, got: %+v", issues)
+	}
 }
 
 func TestLoadMalformedJSON(t *testing.T) {
@@ -62,7 +93,7 @@ func TestLoadMalformedJSON(t *testing.T) {
 
 func TestLoadMissingRequired(t *testing.T) {
 	_, issues := Load("testdata/missing-required")
-	if !findIssue(issues, "name") && !findIssue(issues, "systemPrompt") {
+	if !findIssue(issues, "name") || !findIssue(issues, "systemPrompt") {
 		t.Fatalf("expected schema errors naming missing fields, got: %+v", issues)
 	}
 }

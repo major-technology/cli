@@ -9,7 +9,14 @@ import (
 	"strings"
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
+	"golang.org/x/text/language"
+	"golang.org/x/text/message"
 )
+
+// schemaMessagePrinter renders ErrorKind values (e.g. "missing property 'name'")
+// into readable prose. ErrorKind has no String()/Error() method - only
+// LocalizedString(*message.Printer) - so every render site needs a printer.
+var schemaMessagePrinter = message.NewPrinter(language.English)
 
 // reservedAgentFields are agent.json keys claimed by future versions. They are
 // rejected with a dedicated message so v1 can introduce them without silent
@@ -94,7 +101,7 @@ func flattenValidationError(ve *jsonschema.ValidationError) []schemaCause {
 	if len(ve.Causes) == 0 {
 		return []schemaCause{{
 			path:    "/" + strings.Join(ve.InstanceLocation, "/"),
-			message: fmt.Sprintf("%v", ve.ErrorKind),
+			message: ve.ErrorKind.LocalizedString(schemaMessagePrinter),
 		}}
 	}
 
