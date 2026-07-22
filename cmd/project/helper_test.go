@@ -50,3 +50,35 @@ func TestIsProjectNotFoundError(t *testing.T) {
 		})
 	}
 }
+
+func TestShortHash(t *testing.T) {
+	tests := []struct {
+		name string
+		hash string
+		want string
+	}{
+		{
+			name: "full-length hash truncates to 12",
+			hash: "abcdef0123456789abcdef0123456789abcdef01",
+			want: "abcdef012345",
+		},
+		{
+			name: "hash shorter than 12 chars is returned unchanged",
+			hash: "ab12",
+			want: "ab12",
+		},
+		{
+			name: "empty hash is returned unchanged",
+			hash: "",
+			want: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := shortHash(tt.hash); got != tt.want {
+				t.Fatalf("shortHash(%q) = %q, want %q", tt.hash, got, tt.want)
+			}
+		})
+	}
+}

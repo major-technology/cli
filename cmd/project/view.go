@@ -45,7 +45,7 @@ func runView(cmd *cobra.Command) error {
 		return nil
 	}
 
-	cmd.Printf("\nLatest version: %s (%s)\n", resp.LatestVersion.CommitHash[:12], resp.LatestVersion.CompileStatus)
+	cmd.Printf("\nLatest version: %s (%s)\n", shortHash(resp.LatestVersion.CommitHash), resp.LatestVersion.CompileStatus)
 
 	if resp.LatestVersion.CompileStatus == "failed" {
 		cmd.Printf("Compile error:\n%s\n", resp.LatestVersion.CompileError)

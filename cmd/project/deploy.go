@@ -36,14 +36,38 @@ func newDeployCmd() *cobra.Command {
 }
 
 // resolveVersion picks the version to deploy from the project's version list.
+// An exact commit-hash match is always a direct hit. A prefix match must be
+// unique: an ambiguous prefix (matching more than one version) is refused
+// with the candidates listed, rather than silently picking one on a command
+// that can delete agents.
 func resolveVersion(versions []api.ProjectVersionItem, commitFlag string) (*api.ProjectVersionItem, error) {
 	if commitFlag != "" {
 		for i := range versions {
-			if strings.HasPrefix(versions[i].CommitHash, commitFlag) {
+			if versions[i].CommitHash == commitFlag {
 				return &versions[i], nil
 			}
 		}
-		return nil, fmt.Errorf("no version found for commit %q", commitFlag)
+
+		var matches []*api.ProjectVersionItem
+		for i := range versions {
+			if strings.HasPrefix(versions[i].CommitHash, commitFlag) {
+				matches = append(matches, &versions[i])
+			}
+		}
+
+		switch len(matches) {
+		case 0:
+			return nil, fmt.Errorf("no version found for commit %q", commitFlag)
+		case 1:
+			return matches[0], nil
+		default:
+			var b strings.Builder
+			fmt.Fprintf(&b, "commit %q matches %d versions, use a longer prefix to disambiguate:\n", commitFlag, len(matches))
+			for _, v := range matches {
+				fmt.Fprintf(&b, "  %s (%s)\n", shortHash(v.CommitHash), v.CreatedAt)
+			}
+			return nil, fmt.Errorf("%s", strings.TrimRight(b.String(), "\n"))
+		}
 	}
 
 	for i := range versions {
@@ -58,7 +82,7 @@ func resolveVersion(versions []api.ProjectVersionItem, commitFlag string) (*api.
 // renderPlan formats a deploy plan for the terminal.
 func renderPlan(plan *api.GetProjectDeployPlanResponse) string {
 	total := len(plan.Creates) + len(plan.Updates) + len(plan.Unchanged) + len(plan.Deletes)
-	if total == 0 {
+	if total == 0 && len(plan.Warnings) == 0 {
 		return "No changes: the project has no agents in this version.\n"
 	}
 
@@ -66,21 +90,35 @@ func renderPlan(plan *api.GetProjectDeployPlanResponse) string {
 	yellow := lipgloss.NewStyle().Foreground(lipgloss.Color("220"))
 	gray := lipgloss.NewStyle().Foreground(lipgloss.Color("245"))
 	red := lipgloss.NewStyle().Foreground(lipgloss.Color("196"))
+	orange := lipgloss.NewStyle().Foreground(lipgloss.Color("208"))
 
 	var b strings.Builder
-	b.WriteString("Deploy plan:\n")
 
-	for _, slug := range plan.Creates {
-		b.WriteString(green.Render("  + create    ") + slug + "\n")
+	if total > 0 {
+		b.WriteString("Deploy plan:\n")
+
+		for _, slug := range plan.Creates {
+			b.WriteString(green.Render("  + create    ") + slug + "\n")
+		}
+		for _, slug := range plan.Updates {
+			b.WriteString(yellow.Render("  ~ update    ") + slug + "\n")
+		}
+		for _, slug := range plan.Unchanged {
+			b.WriteString(gray.Render("  = unchanged ") + slug + "\n")
+		}
+		for _, slug := range plan.Deletes {
+			b.WriteString(red.Render("  - delete    ") + slug + "\n")
+		}
 	}
-	for _, slug := range plan.Updates {
-		b.WriteString(yellow.Render("  ~ update    ") + slug + "\n")
-	}
-	for _, slug := range plan.Unchanged {
-		b.WriteString(gray.Render("  = unchanged ") + slug + "\n")
-	}
-	for _, slug := range plan.Deletes {
-		b.WriteString(red.Render("  - delete    ") + slug + "\n")
+
+	if len(plan.Warnings) > 0 {
+		if total > 0 {
+			b.WriteString("\n")
+		}
+		b.WriteString("Warnings:\n")
+		for _, warning := range plan.Warnings {
+			b.WriteString(orange.Render("  ⚠ ") + warning + "\n")
+		}
 	}
 
 	return b.String()
@@ -105,10 +143,10 @@ func runDeploy(cmd *cobra.Command, versionFlag string, yes bool) error {
 	}
 
 	if version.CompileStatus != "compiled" {
-		return fmt.Errorf("version %s failed to compile and cannot be deployed:\n%s", version.CommitHash[:12], version.CompileError)
+		return fmt.Errorf("version %s failed to compile and cannot be deployed:\n%s", shortHash(version.CommitHash), version.CompileError)
 	}
 
-	cmd.Printf("Deploying version %s\n\n", version.CommitHash[:12])
+	cmd.Printf("Deploying version %s\n\n", shortHash(version.CommitHash))
 
 	plan, err := apiClient.GetProjectDeployPlan(projectID, version.ID)
 	if err != nil {

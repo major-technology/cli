@@ -473,6 +473,7 @@ type GetProjectDeployPlanResponse struct {
 	Updates   []string        `json:"updates"`
 	Unchanged []string        `json:"unchanged"`
 	Deletes   []string        `json:"deletes"`
+	Warnings  []string        `json:"warnings,omitempty"`
 }
 
 // CreateProjectDeployRequest represents the request body for POST /projects/:id/deploys

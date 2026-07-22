@@ -49,3 +49,14 @@ func isProjectNotFoundError(err error) bool {
 	var cliErr *errors.CLIError
 	return stderrors.As(err, &cliErr) && cliErr.StatusCode == http.StatusNotFound
 }
+
+// shortHash truncates a commit hash to a stable display length. The server
+// schema only guarantees commitHash is non-empty, so this returns the hash
+// unchanged when it's shorter than the display length rather than slicing
+// out of bounds.
+func shortHash(hash string) string {
+	if len(hash) < 12 {
+		return hash
+	}
+	return hash[:12]
+}

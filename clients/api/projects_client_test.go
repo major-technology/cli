@@ -128,15 +128,16 @@ func TestListProjectVersionsPath(t *testing.T) {
 
 func TestGetProjectDeployPlanPath(t *testing.T) {
 	_, client := newTestServer(t, "GET", "/projects/p-1/deploy-plan?versionId=v-9", 200, GetProjectDeployPlanResponse{
-		Creates: []string{"triage"},
-		Deletes: []string{"old"},
+		Creates:  []string{"triage"},
+		Deletes:  []string{"old"},
+		Warnings: []string{"env var FOO declared null but no value set"},
 	})
 
 	resp, err := client.GetProjectDeployPlan("p-1", "v-9")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(resp.Creates) != 1 || len(resp.Deletes) != 1 {
+	if len(resp.Creates) != 1 || len(resp.Deletes) != 1 || len(resp.Warnings) != 1 {
 		t.Fatalf("bad plan mapping: %+v", resp)
 	}
 }
