@@ -1,0 +1,9 @@
+{
+	"$schema": "https://schemas.major.tech/agent.json",
+	"slug": "triage",
+	"name": "Support Triage",
+	"description": "Triages inbound tickets",
+	"model": "claude-sonnet-5",
+	"systemPrompt": { "file": "./prompt.md" },
+	"env": { "LINEAR_TEAM": "SUP", "LINEAR_API_KEY": null }
+}

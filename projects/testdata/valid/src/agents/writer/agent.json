@@ -1,0 +1,5 @@
+{
+	"slug": "writer",
+	"name": "Writer",
+	"systemPrompt": "You write release notes."
+}
