@@ -25,4 +25,6 @@ func init() {
 	Cmd.AddCommand(newCreateCmd())
 	Cmd.AddCommand(newValidateCmd())
 	Cmd.AddCommand(newCompileCmd())
+	Cmd.AddCommand(newViewCmd())
+	Cmd.AddCommand(newDeployCmd())
 }
