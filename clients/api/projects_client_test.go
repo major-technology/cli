@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	clierrors "github.com/major-technology/cli/errors"
 )
 
 func init() {
@@ -176,9 +178,7 @@ func TestAddProjectGithubCollaboratorsBody(t *testing.T) {
 		if r.URL.RequestURI() != "/projects/p-1/add-gh-collaborators" {
 			t.Errorf("path = %s, want /projects/p-1/add-gh-collaborators", r.URL.RequestURI())
 		}
-		var body struct {
-			GithubUsername string `json:"githubUsername"`
-		}
+		var body AddProjectGithubCollaboratorsRequest
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			t.Errorf("bad body: %v", err)
 		}
@@ -241,6 +241,9 @@ func TestProjectEndpointsErrorMapping(t *testing.T) {
 			err := tt.call(client)
 			if err == nil {
 				t.Fatalf("expected error, got nil")
+			}
+			if _, ok := err.(*clierrors.CLIError); !ok {
+				t.Fatalf("error type = %T, want *clierrors.CLIError", err)
 			}
 		})
 	}

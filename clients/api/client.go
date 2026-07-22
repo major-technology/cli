@@ -637,9 +637,7 @@ func (c *Client) CreateProjectDeploy(projectID, versionID string) (*CreateProjec
 
 // AddProjectGithubCollaborators adds the user as a collaborator to the project repository
 func (c *Client) AddProjectGithubCollaborators(projectID, githubUsername string) (*AddGithubCollaboratorsResponse, error) {
-	req := struct {
-		GithubUsername string `json:"githubUsername"`
-	}{GithubUsername: githubUsername}
+	req := AddProjectGithubCollaboratorsRequest{GithubUsername: githubUsername}
 
 	var resp AddGithubCollaboratorsResponse
 	err := c.doRequest("POST", fmt.Sprintf("/projects/%s/add-gh-collaborators", projectID), req, &resp)

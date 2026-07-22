@@ -495,3 +495,8 @@ type CreateProjectDeployResponse struct {
 	Artifacts []DeployArtifactResult `json:"artifacts,omitempty"`
 }
 
+// AddProjectGithubCollaboratorsRequest represents the request body for POST /projects/:id/add-gh-collaborators
+type AddProjectGithubCollaboratorsRequest struct {
+	GithubUsername string `json:"githubUsername"`
+}
+
