@@ -404,3 +404,16 @@ var ErrorOldProjectNotSupported = &CLIError{
 	Suggestion: "This project is not supported. Please create a new project with 'major app create'.",
 	Err:        errors.New("old project not supported"),
 }
+
+// Project Errors
+var ErrorNotInProjectDirectory = &CLIError{
+	Title:      "Not a major project directory",
+	Suggestion: "Run this command from inside a project repository, or create one with 'major project create <name>'.",
+	Err:        errors.New("not a major project directory"),
+}
+
+var ErrorProjectNotFound = &CLIError{
+	Title:      "Project not found",
+	Suggestion: "The project does not exist or you don't have access to it.",
+	Err:        errors.New("project not found"),
+}
