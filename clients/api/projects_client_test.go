@@ -221,6 +221,14 @@ func TestProjectEndpointsErrorMapping(t *testing.T) {
 				return err
 			},
 		},
+		{
+			name:   "GetProjectByRepo not found",
+			status: http.StatusNotFound,
+			call: func(client *Client) error {
+				_, err := client.GetProjectByRepo("owner", "repo")
+				return err
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -242,8 +250,16 @@ func TestProjectEndpointsErrorMapping(t *testing.T) {
 			if err == nil {
 				t.Fatalf("expected error, got nil")
 			}
-			if _, ok := err.(*clierrors.CLIError); !ok {
+			cliErr, ok := err.(*clierrors.CLIError)
+			if !ok {
 				t.Fatalf("error type = %T, want *clierrors.CLIError", err)
+			}
+			// Unmapped internal codes fall through to the generic CLIError,
+			// which must retain the originating HTTP status so callers (e.g.
+			// cmd/project's isProjectNotFoundError) can branch on a 404
+			// without the fallback Title ("API Error (Code: 9999)") hiding it.
+			if cliErr.StatusCode != tt.status {
+				t.Fatalf("StatusCode = %d, want %d", cliErr.StatusCode, tt.status)
 			}
 		})
 	}

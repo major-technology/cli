@@ -84,5 +84,6 @@ func ToCLIError(errResp *ErrorResponse) error {
 		Title:      fmt.Sprintf("API Error (Code: %d)", errResp.Error.InternalCode),
 		Suggestion: "Please try again or contact support if the issue persists.",
 		Err:        fmt.Errorf("%s", errResp.Error.ErrorString),
+		StatusCode: errResp.Error.StatusCode,
 	}
 }

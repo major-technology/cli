@@ -1,6 +1,9 @@
 package project
 
 import (
+	stderrors "errors"
+	"net/http"
+
 	"github.com/major-technology/cli/clients/git"
 	"github.com/major-technology/cli/errors"
 	"github.com/major-technology/cli/singletons"
@@ -23,6 +26,9 @@ func getProjectAndOrgID() (string, string, error) {
 
 	resp, err := apiClient.GetProjectByRepo(remoteInfo.Owner, remoteInfo.Repo)
 	if err != nil {
+		if isProjectNotFoundError(err) {
+			return "", "", errors.ErrorProjectNotFound
+		}
 		return "", "", errors.WrapError("failed to get project", err)
 	}
 
@@ -31,4 +37,15 @@ func getProjectAndOrgID() (string, string, error) {
 	}
 
 	return resp.ProjectID, resp.OrganizationID, nil
+}
+
+// isProjectNotFoundError reports whether err is the API's HTTP 404 for
+// GetProjectByRepo - the server's signal that no project is registered for
+// this repository (see apps/api's projects service: getProjectByRepo throws
+// a generic NotFoundError, not a project-specific error code, so the CLI's
+// error-code mapping falls through to the unmapped-code path where the
+// originating status is still available on the CLIError).
+func isProjectNotFoundError(err error) bool {
+	var cliErr *errors.CLIError
+	return stderrors.As(err, &cliErr) && cliErr.StatusCode == http.StatusNotFound
 }

@@ -13,6 +13,11 @@ type CLIError struct {
 	Title      string
 	Suggestion string
 	Err        error
+	// StatusCode is the originating HTTP status code, when known. Populated
+	// only for errors constructed from an unmapped API error code (see
+	// clients/api/errors.go's ToCLIError); zero for the static CLIError
+	// sentinels below, since those are shared singletons reused across calls.
+	StatusCode int
 }
 
 // Standard error interface

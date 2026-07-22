@@ -51,25 +51,54 @@ func runCreate(cmd *cobra.Command, name, description string) error {
 	cmd.Printf("✓ Project created with ID: %s\n", resp.ProjectID)
 	cmd.Printf("✓ Repository: %s\n", resp.RepositoryName)
 
-	// Grant the user's GitHub account access to the new repository.
-	if githubUser, _ := git.GetCurrentGithubUser(); githubUser != "" {
-		if _, err := apiClient.AddProjectGithubCollaborators(resp.ProjectID, githubUser); err != nil {
-			cmd.Printf("Warning: failed to add you as a repository collaborator: %v\n", err)
-			cmd.Printf("Clone manually once you have access: %s\n", resp.CloneURLHTTPS)
-			return nil
-		}
-	}
-
-	targetDir := filepath.Join(".", name)
-	cmd.Printf("\nCloning repository to %s...\n", targetDir)
-
 	cloneURL := resp.CloneURLHTTPS
 	if utils.CanUseSSH() && resp.CloneURLSSH != "" {
 		cloneURL = resp.CloneURLSSH
 	}
 
+	// Grant the user's GitHub account access to the new repository.
+	githubUser, userErr := git.GetCurrentGithubUser()
+	if userErr != nil || githubUser == "" {
+		cmd.Println("Warning: could not detect your GitHub username (checked SSH auth and git config).")
+		cmd.Println("Configure SSH access to GitHub or run 'git config --global github.user <username>', then ask an org admin to add you as a collaborator.")
+		cmd.Printf("Clone manually once you have access: %s\n", cloneURL)
+		return nil
+	}
+
+	inviteResp, err := apiClient.AddProjectGithubCollaborators(resp.ProjectID, githubUser)
+	if err != nil {
+		cmd.Printf("Warning: failed to add you as a repository collaborator: %v\n", err)
+		cmd.Printf("Clone manually once you have access: %s\n", cloneURL)
+		return nil
+	}
+
+	cmd.Println("✓ Invitation sent!")
+	if inviteResp.Message != "" {
+		cmd.Println(inviteResp.Message)
+	}
+
+	// GitHub collaborator invites require acceptance before they grant clone
+	// access, so wait for it rather than attempting a clone that can't succeed yet.
+	if !utils.CheckRepositoryAccess(resp.CloneURLSSH, resp.CloneURLHTTPS) {
+		if githubURL, urlErr := utils.ExtractGitHubURL(cloneURL); urlErr == nil && githubURL != "" {
+			cmd.Printf("\nAction required: accept the GitHub invitation at %s\n", githubURL)
+			_ = utils.OpenBrowser(githubURL)
+		}
+
+		cmd.Println("Waiting for the invitation to be accepted...")
+		if !utils.PollForRepositoryAccess(cmd, resp.CloneURLSSH, resp.CloneURLHTTPS) {
+			cmd.Printf("\nStill no access. Clone manually once you've accepted the invitation: %s\n", cloneURL)
+			return nil
+		}
+
+		cmd.Println("✓ Repository access granted!")
+	}
+
+	targetDir := filepath.Join(".", name)
+	cmd.Printf("\nCloning repository to %s...\n", targetDir)
+
 	if err := git.Clone(cloneURL, targetDir); err != nil {
-		cmd.Printf("Warning: clone failed (GitHub permissions may still be propagating): %v\n", err)
+		cmd.Printf("Warning: clone failed: %v\n", err)
 		cmd.Printf("Clone manually with: git clone %s\n", cloneURL)
 		return nil
 	}
