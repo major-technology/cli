@@ -15,6 +15,7 @@ import (
 	"github.com/major-technology/cli/cmd/demo"
 	"github.com/major-technology/cli/cmd/mcp"
 	"github.com/major-technology/cli/cmd/org"
+	"github.com/major-technology/cli/cmd/project"
 	"github.com/major-technology/cli/cmd/resource"
 	"github.com/major-technology/cli/cmd/user"
 	"github.com/major-technology/cli/cmd/vars"
@@ -114,6 +115,10 @@ func init() {
 
 	vars.Cmd.GroupID = "main"
 	rootCmd.AddCommand(vars.Cmd)
+
+	project.CLIVersion = Version
+	project.Cmd.GroupID = "main"
+	rootCmd.AddCommand(project.Cmd)
 
 	rootCmd.AddCommand(mcp.Cmd)
 
