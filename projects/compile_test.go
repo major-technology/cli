@@ -53,8 +53,43 @@ func TestCompileIsDeterministic(t *testing.T) {
 	}
 }
 
+// TestCompileRelativeDir checks that a relative --dir (the CLI default of
+// ".") compiles cleanly. filepath.Clean(".") stays ".", but joining a
+// non-empty agent dir onto "." and cleaning the result strips the leading
+// "./", so comparing the two literally rejected every legitimate prompt file.
+// Compile must resolve dir to an absolute path before that comparison.
+func TestCompileRelativeDir(t *testing.T) {
+	t.Chdir("testdata/valid")
+
+	res, issues := Compile(".")
+	if len(issues) != 0 {
+		t.Fatalf("expected no issues compiling from a relative dir, got: %+v", issues)
+	}
+
+	triage := res.Config.Agents[0]
+	if triage.Slug != "triage" {
+		t.Fatalf("first agent = %q, want triage (sorted)", triage.Slug)
+	}
+	if !strings.Contains(triage.SystemPrompt, "support triage agent") {
+		t.Fatalf("prompt file not inlined: %q", triage.SystemPrompt)
+	}
+}
+
 func TestCompilePromptEscapeRejected(t *testing.T) {
 	_, issues := Compile("testdata/escape-prompt")
+	if !findIssue(issues, "outside the project directory") {
+		t.Fatalf("expected containment issue, got: %+v", issues)
+	}
+}
+
+// TestCompileRelativeDirEscapeRejected checks that resolving dir to an
+// absolute path does not weaken containment: a "../"-escaping prompt ref must
+// still be rejected when --dir is "." itself, the same shape that exposed the
+// original bug.
+func TestCompileRelativeDirEscapeRejected(t *testing.T) {
+	t.Chdir("testdata/escape-prompt")
+
+	_, issues := Compile(".")
 	if !findIssue(issues, "outside the project directory") {
 		t.Fatalf("expected containment issue, got: %+v", issues)
 	}

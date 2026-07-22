@@ -20,6 +20,12 @@ type CompileResult struct {
 // inputs: struct field order is fixed, agents are sorted by slug, and Go
 // marshals map keys in sorted order.
 func Compile(dir string) (*CompileResult, []Issue) {
+	absDir, err := filepath.Abs(dir)
+	if err != nil {
+		return nil, []Issue{{File: "project.json", Message: "cannot resolve project directory: " + err.Error()}}
+	}
+	dir = absDir
+
 	loaded, issues := Load(dir)
 	if len(issues) > 0 {
 		return nil, issues
