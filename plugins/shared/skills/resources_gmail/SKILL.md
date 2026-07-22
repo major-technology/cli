@@ -39,7 +39,7 @@ Gmail requires OAuth authentication before use.
 
 ## MCP Tools
 
-- `mcp__resources__gmail_list_messages` — Search and list emails. Args: `resourceId`, `query?` (Gmail search syntax), `maxResults?`, `pageToken?`. **Returns only message IDs and thread IDs** — always follow up with `gmail_get_message` for content.
+- `mcp__resources__gmail_list_messages` — Search and list emails. Args: `resourceId`, `q?` (Gmail search syntax), `maxResults?`, `pageToken?`. **Returns only message IDs and thread IDs** — always follow up with `gmail_get_message` for content.
 - `mcp__resources__gmail_get_message` — Get a specific email by ID with full content. Args: `resourceId`, `messageId`, `format?` (default: "full")
 - `mcp__resources__gmail_send_message` — Send a plain-text email. Args: `resourceId`, `to`, `subject`, `body`, `cc?`, `bcc?`. Requires the `readwrite` scope preset.
 - `mcp__resources__gmail_list_labels` — List all Gmail labels (inbox, sent, custom labels). Args: `resourceId`
