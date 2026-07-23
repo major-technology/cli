@@ -4,9 +4,27 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/major-technology/cli/projects"
 	"github.com/spf13/cobra"
 )
+
+// printCompileIssues renders compile failures as human-readable text on
+// stderr, regardless of --json. Unlike validate, compile has no failure-JSON
+// contract: mono-builder's compile job runs `major project compile --json`
+// and depends on stdout carrying the canonical config on success and nothing
+// else - never a JSON error/report object - on failure.
+func printCompileIssues(cmd *cobra.Command, issues []projects.Issue) {
+	errStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("196"))
+
+	for _, issue := range issues {
+		location := issue.File
+		if issue.Path != "" {
+			location += " " + issue.Path
+		}
+		fmt.Fprintln(cmd.ErrOrStderr(), errStyle.Render("✗ ")+location+": "+issue.Message)
+	}
+}
 
 func newCompileCmd() *cobra.Command {
 	var dir string
@@ -20,7 +38,7 @@ func newCompileCmd() *cobra.Command {
 			result, issues := projects.Compile(dir)
 
 			if len(issues) > 0 {
-				printIssues(cmd, issues, asJSON)
+				printCompileIssues(cmd, issues)
 				return fmt.Errorf("%d validation issue(s)", len(issues))
 			}
 

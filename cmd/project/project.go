@@ -5,10 +5,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// CLIVersion is stamped by cmd/root.go from the ldflags-set version. It is
-// recorded as compilerVersion on compile reports.
-var CLIVersion = "dev"
-
 // Cmd represents the project command group
 var Cmd = &cobra.Command{
 	Use:   "project",
@@ -27,5 +23,4 @@ func init() {
 	Cmd.AddCommand(newCompileCmd())
 	Cmd.AddCommand(newViewCmd())
 	Cmd.AddCommand(newDeployCmd())
-	Cmd.AddCommand(newCompileAndReportCmd())
 }

@@ -116,7 +116,6 @@ func init() {
 	vars.Cmd.GroupID = "main"
 	rootCmd.AddCommand(vars.Cmd)
 
-	project.CLIVersion = Version
 	project.Cmd.GroupID = "main"
 	rootCmd.AddCommand(project.Cmd)
 

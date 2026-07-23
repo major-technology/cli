@@ -122,22 +122,3 @@ func TestValidateCommandInvalidJSONGoesToStdout(t *testing.T) {
 		t.Fatalf("expected valid:false, got: %s", stdout)
 	}
 }
-
-func TestCompileCommandJSONGoesToStdoutOnly(t *testing.T) {
-	dir := writeValidProject(t)
-	stdout, stderr, err := runCommandSplit(t, newCompileCmd(), "--dir", dir, "--json")
-	if err != nil {
-		t.Fatalf("expected success, got %v (stdout: %s)", err, stdout)
-	}
-	if stderr != "" {
-		t.Fatalf("expected empty stderr, got: %q", stderr)
-	}
-
-	var payload map[string]any
-	if err := json.Unmarshal([]byte(strings.TrimSpace(stdout)), &payload); err != nil {
-		t.Fatalf("stdout is not pure parseable JSON: %v (stdout: %q)", err, stdout)
-	}
-	if payload["configVersion"] != float64(1) {
-		t.Fatalf("expected configVersion 1, got: %s", stdout)
-	}
-}

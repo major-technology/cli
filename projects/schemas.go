@@ -1,8 +1,9 @@
 // Package projects loads, validates, and compiles a major project directory
 // (plain-JSON agent definitions) into the canonical compiled config that the
 // platform stores and deploys. It is the single compile implementation: the
-// same code runs locally (major project validate/compile) and inside the
-// webhook compile job (major project compile-and-report).
+// same code runs locally (major project validate/compile) and inside
+// mono-builder's compile job, which drives the CLI's public
+// `major project compile --json` command.
 package projects
 
 import (
