@@ -64,12 +64,31 @@ func TestCompileJSONContractSuccess(t *testing.T) {
 // failure signal and surfaces stderr's issue text to the user. Stdout must
 // never carry a JSON error/report object - only the canonical config, and
 // only on success.
+//
+// Exit code contract: mono-builder's compile-job wrapper shells out to
+// `major project compile --json` and classifies its exit code - EXACTLY 1
+// means "content failure" (validation issues found), any other non-zero
+// means "infra failure" (crash/panic). This test drives newCompileCmd()
+// in-process via cobra, so no OS process actually exits here; the real
+// chain is: this RunE returns a non-nil error -> cobra bubbles it up as
+// rootCmd.Execute()'s return value -> cmd/root.go's Execute() (called from
+// main.main) sees err != nil -> os.Exit(1). That os.Exit(1) call is the
+// ONLY os.Exit in this codebase (confirmed by `grep -rn "os.Exit" cmd/`)
+// and it is unconditional - there is no switch on error type/value that
+// could produce a different code. So "RunE returned a non-nil error" and
+// "the binary exits 1" are the same fact observed at different seams; we
+// assert the former (plus the specific validation-issue error, so this
+// test fails loudly if some unrelated error - e.g. a bad --dir - started
+// satisfying it instead) as the closest in-process proxy for the latter.
 func TestCompileJSONContractFailure(t *testing.T) {
 	dir := writeInvalidProject(t)
 
 	stdout, stderr, err := runCommandSplit(t, newCompileCmd(), "--dir", dir, "--json")
 	if err == nil {
-		t.Fatalf("expected non-zero exit, stdout: %s", stdout)
+		t.Fatalf("expected the validation-issue error that maps to exit code 1, got nil, stdout: %s", stdout)
+	}
+	if !strings.Contains(err.Error(), "validation issue") {
+		t.Fatalf("expected a validation-issue error (the one path that maps to exit code 1), got: %v", err)
 	}
 
 	// Decode (rather than split-by-line) because a leaked report object
