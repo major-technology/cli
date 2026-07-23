@@ -65,9 +65,14 @@ jobs:
       - name: Build and push
         env:
           REGISTRY: ${{ steps.ecr.outputs.registry }}
-          REPO: major-cli-compile-job
+          STAGING_REPO: staging-mono-cli-compile-job
+          PROD_REPO: prod-mono-cli-compile-job
         run: |
           VERSION="${GITHUB_REF#refs/tags/v}"
-          docker build --build-arg VERSION="$VERSION" -t "$REGISTRY/$REPO:$VERSION" -t "$REGISTRY/$REPO:latest" .
-          docker push "$REGISTRY/$REPO:$VERSION"
-          docker push "$REGISTRY/$REPO:latest"
+          docker build --build-arg VERSION="$VERSION" -t "$REGISTRY/$STAGING_REPO:$VERSION" -t "$REGISTRY/$STAGING_REPO:latest" .
+          docker tag "$REGISTRY/$STAGING_REPO:$VERSION" "$REGISTRY/$PROD_REPO:$VERSION"
+          docker tag "$REGISTRY/$STAGING_REPO:latest" "$REGISTRY/$PROD_REPO:latest"
+          docker push "$REGISTRY/$STAGING_REPO:$VERSION"
+          docker push "$REGISTRY/$STAGING_REPO:latest"
+          docker push "$REGISTRY/$PROD_REPO:$VERSION"
+          docker push "$REGISTRY/$PROD_REPO:latest"
