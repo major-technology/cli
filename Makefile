@@ -1,4 +1,4 @@
-.PHONY: rerelease release dev-install dev-install-local dev-restore
+.PHONY: rerelease release dev-install dev-install-local dev-restore sync-schemas
 
 # Build and install locally for development
 dev-install:
@@ -47,3 +47,21 @@ release:
 	git tag -a v$(VERSION) -m "v$(VERSION)"
 	git push origin v$(VERSION)
 	@echo "Successfully released v$(VERSION)"
+
+# Vendor-sync projects/schemas/*.schema.json from the platform API. mono-builder
+# is the source of truth: it generates these schemas from zod and serves them at
+# GET <base>/schemas/project.json and GET <base>/schemas/agent.json. Refresh the
+# vendored copy and its SCHEMAS.sha256 manifest after an upstream schema change.
+# Override the source with MAJOR_SCHEMAS_BASE_URL, e.g. against a local dev API:
+#   MAJOR_SCHEMAS_BASE_URL=http://localhost:3301 make sync-schemas
+sync-schemas:
+	@base="$${MAJOR_SCHEMAS_BASE_URL:-https://api.major.tech}"; \
+	echo "Syncing schemas from $$base..."; \
+	curl -fsSL "$$base/schemas/project.json" -o projects/schemas/project.schema.json; \
+	curl -fsSL "$$base/schemas/agent.json" -o projects/schemas/agent.schema.json; \
+	{ \
+		echo "source: $$base"; \
+		echo "fetched: $$(date -u +%Y-%m-%dT%H:%M:%SZ)"; \
+		shasum -a 256 projects/schemas/project.schema.json projects/schemas/agent.schema.json; \
+	} > projects/schemas/SCHEMAS.sha256; \
+	echo "Done. Vendored schemas + projects/schemas/SCHEMAS.sha256 written."

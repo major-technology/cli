@@ -14,6 +14,15 @@ import (
 	"github.com/santhosh-tekuri/jsonschema/v6"
 )
 
+// SchemaFS embeds the project.json and agent.json JSON Schemas. mono-builder
+// is the source of truth for these: it generates them from the platform's zod
+// definitions and serves them at GET <base>/schemas/project.json and
+// GET <base>/schemas/agent.json. The files under schemas/ are a vendored
+// copy, not hand-authored here — run `make sync-schemas` to refresh them
+// (see the Makefile target for the MAJOR_SCHEMAS_BASE_URL override) and
+// SCHEMAS.sha256 for provenance. .github/workflows/schemas-drift.yml checks
+// on CI that the vendored copy hasn't drifted from what mono-builder serves.
+//
 //go:embed schemas/*.schema.json
 var SchemaFS embed.FS
 
