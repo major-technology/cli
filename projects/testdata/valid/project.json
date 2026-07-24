@@ -1,5 +1,5 @@
 {
-	"$schema": "https://schemas.major.tech/project.json",
+	"$schema": "https://schemas.major.build/project.json",
 	"name": "Valid Project",
 	"srcDir": "src/"
 }

@@ -55,7 +55,7 @@ release:
 # Override the source with MAJOR_SCHEMAS_BASE_URL, e.g. against a local dev API:
 #   MAJOR_SCHEMAS_BASE_URL=http://localhost:3301 make sync-schemas
 sync-schemas:
-	@base="$${MAJOR_SCHEMAS_BASE_URL:-https://api.major.tech}"; \
+	@base="$${MAJOR_SCHEMAS_BASE_URL:-https://api.prod.major.build}"; \
 	echo "Syncing schemas from $$base..."; \
 	curl -fsSL "$$base/schemas/project.json" -o projects/schemas/project.schema.json; \
 	curl -fsSL "$$base/schemas/agent.json" -o projects/schemas/agent.schema.json; \

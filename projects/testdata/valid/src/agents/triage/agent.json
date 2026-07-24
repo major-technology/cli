@@ -1,5 +1,5 @@
 {
-	"$schema": "https://schemas.major.tech/agent.json",
+	"$schema": "https://schemas.major.build/agent.json",
 	"slug": "triage",
 	"name": "Support Triage",
 	"description": "Triages inbound tickets",
