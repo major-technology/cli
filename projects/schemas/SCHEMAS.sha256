@@ -1,4 +1,4 @@
-source: http://localhost:3301
-fetched: 2026-07-24T03:28:48Z
-47002e01681b41a1030b88e395897008b370c4a42b465b541e77038f8b2509d1  projects/schemas/project.schema.json
-cf84e4941f22d1a759594575154b80c1154e10ac685fa5597ffcc2f53eebe5ed  projects/schemas/agent.schema.json
+source: https://api.prod.major.build
+fetched: 2026-07-24T05:46:31Z
+2fdca52b431d214f4e54413d069f6d533e5479b58475c4315df2dc3b8c113c29  projects/schemas/project.schema.json
+b198a6c144a32dd01baf7745a4d3cc4a50f2f699d731ba84b7b7b1776e4f6b82  projects/schemas/agent.schema.json

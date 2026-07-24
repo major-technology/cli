@@ -18,7 +18,7 @@ jobs:
       # this job strict once prod serves GET /schemas/{project,agent}.json.
       - name: Check vendored schemas against the platform API
         env:
-          MAJOR_SCHEMAS_BASE_URL: https://api.major.tech
+          MAJOR_SCHEMAS_BASE_URL: https://api.prod.major.build
         run: |
           set -e
           status=0

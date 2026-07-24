@@ -38,8 +38,8 @@ func ensureSchemas() {
 		c := jsonschema.NewCompiler()
 
 		for name, id := range map[string]string{
-			"schemas/project.schema.json": "https://schemas.major.tech/project.json",
-			"schemas/agent.schema.json":   "https://schemas.major.tech/agent.json",
+			"schemas/project.schema.json": "https://schemas.major.build/project.json",
+			"schemas/agent.schema.json":   "https://schemas.major.build/agent.json",
 		} {
 			raw, err := SchemaFS.ReadFile(name)
 			if err != nil {
@@ -58,12 +58,12 @@ func ensureSchemas() {
 
 		var err error
 
-		projectSchema, err = c.Compile("https://schemas.major.tech/project.json")
+		projectSchema, err = c.Compile("https://schemas.major.build/project.json")
 		if err != nil {
 			panic("projects: project schema failed to compile: " + err.Error())
 		}
 
-		agentSchema, err = c.Compile("https://schemas.major.tech/agent.json")
+		agentSchema, err = c.Compile("https://schemas.major.build/agent.json")
 		if err != nil {
 			panic("projects: agent schema failed to compile: " + err.Error())
 		}
