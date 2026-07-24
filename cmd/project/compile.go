@@ -1,0 +1,64 @@
+package project
+
+import (
+	"encoding/json"
+	"fmt"
+
+	"github.com/charmbracelet/lipgloss"
+	"github.com/major-technology/cli/projects"
+	"github.com/spf13/cobra"
+)
+
+// printCompileIssues renders compile failures as human-readable text on
+// stderr, regardless of --json. Unlike validate, compile has no failure-JSON
+// contract: mono-builder's compile job runs `major project compile --json`
+// and depends on stdout carrying the canonical config on success and nothing
+// else - never a JSON error/report object - on failure.
+func printCompileIssues(cmd *cobra.Command, issues []projects.Issue) {
+	errStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("196"))
+
+	for _, issue := range issues {
+		location := issue.File
+		if issue.Path != "" {
+			location += " " + issue.Path
+		}
+		fmt.Fprintln(cmd.ErrOrStderr(), errStyle.Render("✗ ")+location+": "+issue.Message)
+	}
+}
+
+func newCompileCmd() *cobra.Command {
+	var dir string
+	var asJSON bool
+
+	cmd := &cobra.Command{
+		Use:   "compile",
+		Short: "Compile the project into its canonical config JSON",
+		Long:  `Validates and compiles the project directory. With --json, prints the canonical single-line config JSON to stdout; otherwise prints the pretty-printed config and its hash.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			result, issues := projects.Compile(dir)
+
+			if len(issues) > 0 {
+				printCompileIssues(cmd, issues)
+				return fmt.Errorf("%d validation issue(s)", len(issues))
+			}
+
+			if asJSON {
+				fmt.Fprintln(cmd.OutOrStdout(), string(result.ConfigJSON))
+				return nil
+			}
+
+			pretty, err := json.MarshalIndent(result.Config, "", "  ")
+			if err != nil {
+				return err
+			}
+			cmd.Println(string(pretty))
+			cmd.Printf("\nconfig hash: %s\n", result.Hash)
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&dir, "dir", ".", "Project directory to compile")
+	cmd.Flags().BoolVar(&asJSON, "json", false, "Print the canonical single-line JSON only (machine-readable)")
+
+	return cmd
+}

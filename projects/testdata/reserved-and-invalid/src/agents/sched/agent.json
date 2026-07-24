@@ -1,0 +1,5 @@
+{
+	"slug": "sched",
+	"systemPrompt": "hi",
+	"schedules": [{ "cron": "0 9 * * *" }]
+}

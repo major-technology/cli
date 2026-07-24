@@ -29,6 +29,9 @@ func NewClient(baseURL string) *Client {
 	}
 }
 
+// testTokenOverride lets tests inject a token without the OS keyring.
+var testTokenOverride string
+
 // doRequestWithoutAuth is a helper method to make unauthenticated HTTP requests
 func (c *Client) doRequestWithoutAuth(method, path string, body interface{}, response interface{}) error {
 	return c.doRequestInternal(method, path, body, response, false)
@@ -44,13 +47,17 @@ func (c *Client) doRequest(method, path string, body interface{}, response inter
 func (c *Client) doRequestInternal(method, path string, body interface{}, response interface{}, requireAuth bool) error {
 	var token string
 	if requireAuth {
-		// Get token from keyring for this request
-		t, err := mjrToken.GetToken()
-		if err != nil {
-			// User is not logged in - return appropriate CLIError
-			return clierrors.ErrorNotLoggedIn
+		if testTokenOverride != "" {
+			token = testTokenOverride
+		} else {
+			// Get token from keyring for this request
+			t, err := mjrToken.GetToken()
+			if err != nil {
+				// User is not logged in - return appropriate CLIError
+				return clierrors.ErrorNotLoggedIn
+			}
+			token = t
 		}
-		token = t
 	}
 
 	var reqBody io.Reader
@@ -554,3 +561,95 @@ func (c *Client) GetApplicationLogs(applicationID string, req GetApplicationLogs
 	return &resp, nil
 }
 
+// --- Project endpoints ---
+
+// CreateProject creates a new project with a GitHub repository from the project template
+func (c *Client) CreateProject(name, description, organizationID string) (*CreateProjectResponse, error) {
+	req := CreateProjectRequest{
+		Name:           name,
+		Description:    description,
+		OrganizationID: organizationID,
+	}
+
+	var resp CreateProjectResponse
+	err := c.doRequest("POST", "/projects", req, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+// GetProjectByRepo retrieves a project by its repository owner and name
+func (c *Client) GetProjectByRepo(owner, repo string) (*GetProjectByRepoResponse, error) {
+	req := GetProjectByRepoRequest{Owner: owner, Repo: repo}
+
+	var resp GetProjectByRepoResponse
+	err := c.doRequest("POST", "/projects/from-repo", req, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+// GetProject retrieves a project with its latest version and compiled config
+func (c *Client) GetProject(projectID, organizationID string) (*GetProjectResponse, error) {
+	path := fmt.Sprintf("/projects/%s?organizationId=%s", projectID, url.QueryEscape(organizationID))
+
+	var resp GetProjectResponse
+	err := c.doRequest("GET", path, nil, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+// ListProjectVersions retrieves the compiled versions of a project, newest first
+func (c *Client) ListProjectVersions(projectID, organizationID string) (*ListProjectVersionsResponse, error) {
+	path := fmt.Sprintf("/projects/%s/versions?organizationId=%s", projectID, url.QueryEscape(organizationID))
+
+	var resp ListProjectVersionsResponse
+	err := c.doRequest("GET", path, nil, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+// GetProjectDeployPlan retrieves the server-computed plan for deploying a version
+func (c *Client) GetProjectDeployPlan(projectID, organizationID, versionID string) (*GetProjectDeployPlanResponse, error) {
+	query := url.Values{}
+	query.Set("organizationId", organizationID)
+	query.Set("versionId", versionID)
+	path := fmt.Sprintf("/projects/%s/deploy-plan?%s", projectID, query.Encode())
+
+	var resp GetProjectDeployPlanResponse
+	err := c.doRequest("GET", path, nil, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+// CreateProjectDeploy deploys a compiled project version
+func (c *Client) CreateProjectDeploy(projectID, organizationID, versionID string) (*CreateProjectDeployResponse, error) {
+	req := CreateProjectDeployRequest{OrganizationID: organizationID, ProjectVersionID: versionID}
+
+	var resp CreateProjectDeployResponse
+	err := c.doRequest("POST", fmt.Sprintf("/projects/%s/deploys", projectID), req, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+// AddProjectGithubCollaborators adds the user as a collaborator to the project repository
+func (c *Client) AddProjectGithubCollaborators(projectID, organizationID, githubUsername string) (*AddGithubCollaboratorsResponse, error) {
+	req := AddProjectGithubCollaboratorsRequest{OrganizationID: organizationID, GithubUsername: githubUsername}
+
+	var resp AddGithubCollaboratorsResponse
+	err := c.doRequest("POST", fmt.Sprintf("/projects/%s/add-gh-collaborators", projectID), req, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}

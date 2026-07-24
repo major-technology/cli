@@ -1,0 +1,5 @@
+{
+	"slug": "evil",
+	"name": "Evil",
+	"systemPrompt": { "file": "../../../../escape-target.md" }
+}

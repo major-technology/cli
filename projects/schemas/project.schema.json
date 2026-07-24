@@ -1,0 +1,1 @@
+{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"https://schemas.major.tech/project.json","title":"Major project definition","type":"object","properties":{"$schema":{"type":"string"},"name":{"type":"string","minLength":1,"maxLength":100},"srcDir":{"type":"string","minLength":1}},"required":["name"],"additionalProperties":false}

@@ -1,0 +1,40 @@
+name: schemas drift check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  drift-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # TODO: drop the "not live yet" skip-with-warning branch below and make
+      # this job strict once prod serves GET /schemas/{project,agent}.json.
+      - name: Check vendored schemas against the platform API
+        env:
+          MAJOR_SCHEMAS_BASE_URL: https://api.major.tech
+        run: |
+          set -e
+          status=0
+          for pair in "project:projects/schemas/project.schema.json" "agent:projects/schemas/agent.schema.json"; do
+            name="${pair%%:*}"
+            vendored="${pair##*:}"
+            url="$MAJOR_SCHEMAS_BASE_URL/schemas/$name.json"
+            code=$(curl -s -o "/tmp/$name.json" -w '%{http_code}' "$url" || true)
+            if [ "$code" != "200" ]; then
+              echo "::warning::$url returned HTTP $code (schemas endpoint not live yet) - skipping drift check for $vendored"
+              continue
+            fi
+            if ! diff -q <(jq -S . "/tmp/$name.json") <(jq -S . "$vendored") > /dev/null; then
+              echo "::error::$vendored has drifted from $url - run 'make sync-schemas' and commit the refreshed vendor files"
+              diff <(jq -S . "/tmp/$name.json") <(jq -S . "$vendored") || true
+              status=1
+            fi
+          done
+          exit $status

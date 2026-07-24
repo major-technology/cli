@@ -242,7 +242,7 @@ func EnsureRepositoryAccessWithOptions(cmd *cobra.Command, appID string, sshURL 
 	}
 
 	// Poll for repository access
-	if !pollForRepositoryAccess(cmd, sshURL, httpsURL) {
+	if !PollForRepositoryAccess(cmd, sshURL, httpsURL) {
 		return errors.ErrorRepositoryAccessTimeout
 	}
 
@@ -250,10 +250,10 @@ func EnsureRepositoryAccessWithOptions(cmd *cobra.Command, appID string, sshURL 
 	return nil
 }
 
-// pollForRepositoryAccess polls the repository to check if access has been granted
+// PollForRepositoryAccess polls the repository to check if access has been granted
 // Polls every 2 seconds with a 5 minute timeout
 // Returns true if access is granted, false if timeout
-func pollForRepositoryAccess(cmd *cobra.Command, sshURL, httpsURL string) bool {
+func PollForRepositoryAccess(cmd *cobra.Command, sshURL, httpsURL string) bool {
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 	timeout := time.After(5 * time.Minute)

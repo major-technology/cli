@@ -1,0 +1,6 @@
+{
+	"slug": "extra",
+	"name": "Extra",
+	"systemPrompt": "hi",
+	"notAField": true
+}
