@@ -33,7 +33,9 @@ jobs:
         uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
-          version: latest
+          # Pinned: v2.17.0 broke S3 blob upload ("could not apply before write"
+          # on the acl path). v2.16.0 was current for the last good release (v1.0.8).
+          version: "v2.16.0"
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
