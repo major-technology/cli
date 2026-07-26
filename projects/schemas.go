@@ -14,7 +14,8 @@ import (
 	"github.com/santhosh-tekuri/jsonschema/v6"
 )
 
-// SchemaFS embeds the project.json and agent.json JSON Schemas. mono-builder
+// SchemaFS embeds the project.json, agent.json, and bindings.json JSON
+// Schemas. mono-builder
 // is the source of truth for these: it generates them from the platform's zod
 // definitions and serves them at GET <base>/schemas/project.json and
 // GET <base>/schemas/agent.json. The files under schemas/ are a vendored
@@ -27,19 +28,21 @@ import (
 var SchemaFS embed.FS
 
 var (
-	schemaOnce    sync.Once
-	projectSchema *jsonschema.Schema
-	agentSchema   *jsonschema.Schema
+	schemaOnce     sync.Once
+	projectSchema  *jsonschema.Schema
+	agentSchema    *jsonschema.Schema
+	bindingsSchema *jsonschema.Schema
 )
 
-// ensureSchemas compiles both embedded schemas exactly once.
+// ensureSchemas compiles every embedded schema exactly once.
 func ensureSchemas() {
 	schemaOnce.Do(func() {
 		c := jsonschema.NewCompiler()
 
 		for name, id := range map[string]string{
-			"schemas/project.schema.json": "https://schemas.major.tech/project.json",
-			"schemas/agent.schema.json":   "https://schemas.major.tech/agent.json",
+			"schemas/project.schema.json":  "https://schemas.major.tech/project.json",
+			"schemas/agent.schema.json":    "https://schemas.major.tech/agent.json",
+			"schemas/bindings.schema.json": "https://schemas.major.tech/bindings.json",
 		} {
 			raw, err := SchemaFS.ReadFile(name)
 			if err != nil {
@@ -67,6 +70,11 @@ func ensureSchemas() {
 		if err != nil {
 			panic("projects: agent schema failed to compile: " + err.Error())
 		}
+
+		bindingsSchema, err = c.Compile("https://schemas.major.tech/bindings.json")
+		if err != nil {
+			panic("projects: bindings schema failed to compile: " + err.Error())
+		}
 	})
 }
 
@@ -80,4 +88,10 @@ func ProjectSchema() *jsonschema.Schema {
 func AgentSchema() *jsonschema.Schema {
 	ensureSchemas()
 	return agentSchema
+}
+
+// BindingsSchema returns the compiled bindings.json schema.
+func BindingsSchema() *jsonschema.Schema {
+	ensureSchemas()
+	return bindingsSchema
 }

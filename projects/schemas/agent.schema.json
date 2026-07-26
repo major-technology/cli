@@ -24,6 +24,67 @@
 			"type": "object",
 			"propertyNames": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]*$" },
 			"additionalProperties": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+		},
+		"connectors": {
+			"type": "array",
+			"items": {
+				"type": "object",
+				"properties": {
+					"slot": { "type": "string", "minLength": 1, "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+					"permissions": {
+						"type": "array",
+						"items": {
+							"type": "object",
+							"properties": {
+								"tool": { "type": "string", "minLength": 1 },
+								"decision": { "type": "string", "enum": ["always_allow", "ask", "always_deny"] }
+							},
+							"required": ["tool", "decision"],
+							"additionalProperties": false
+						}
+					}
+				},
+				"required": ["slot"],
+				"additionalProperties": false
+			}
+		},
+		"apps": {
+			"type": "array",
+			"items": {
+				"type": "object",
+				"properties": {
+					"slot": { "type": "string", "minLength": 1, "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+					"permissions": {
+						"type": "array",
+						"items": {
+							"type": "object",
+							"properties": {
+								"method": { "type": "string", "minLength": 1 },
+								"path": { "type": "string", "minLength": 1 },
+								"decision": { "type": "string", "enum": ["always_allow", "ask", "always_deny"] }
+							},
+							"required": ["method", "path", "decision"],
+							"additionalProperties": false
+						}
+					}
+				},
+				"required": ["slot"],
+				"additionalProperties": false
+			}
+		},
+		"skills": {
+			"type": "array",
+			"items": {
+				"anyOf": [
+					{ "type": "string", "minLength": 1, "maxLength": 63, "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+					{
+						"type": "object",
+						"properties": { "slot": { "type": "string", "minLength": 1, "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" } },
+						"required": ["slot"],
+						"additionalProperties": false
+					}
+				]
+			}
 		}
 	},
 	"required": ["slug", "name", "systemPrompt"],
