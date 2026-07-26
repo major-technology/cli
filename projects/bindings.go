@@ -4,9 +4,10 @@ package projects
 // off it. bindings.json is the human-authored slot -> platform-id manifest at
 // the project root, next to project.json: agents reference platform resources,
 // applications, and skills by author-chosen slot names, and this file is where
-// those slots get their concrete ids. Compile only validates that every
-// reference resolves - it never bakes ids into agent configs; deploy resolves
-// slots to ids server-side.
+// those slots get their concrete ids. Slots are purely an authoring
+// convenience: compile validates that every reference resolves and then
+// substitutes the bound id inline on the referencing agent, so no slot name
+// and no copy of the manifest ever reaches the compiled config.
 
 import (
 	"encoding/json"
@@ -54,31 +55,62 @@ func loadBindings(dir string) (*BindingSlots, []Issue) {
 	return &parsed.Slots, nil
 }
 
-// checkSkillSlotCollisions rejects a bindings skills slot whose name is also a
-// project-local skill slug. The server resolves the skill namespace by merging
-// bindings slots with project skill slugs and letting the local slug win, so a
-// collision would silently ignore the binding. Fail the compile instead and
-// tell the author to rename the slot.
-func checkSkillSlotCollisions(bindings *BindingSlots, skillSlugs map[string]bool) []Issue {
-	if bindings == nil {
+// The three resolve* helpers below turn authored slot references into the
+// compiled id-bearing form. They index bindings directly because Load has
+// already rejected every unresolvable reference (validateAgentReferences), and
+// Compile bails before reaching here if Load reported any issue - so by
+// construction every slot is present.
+
+func resolveConnectors(refs []AgentConnectorRef, bindings *BindingSlots) []CompiledConnector {
+	if len(refs) == 0 {
 		return nil
 	}
 
-	var issues []Issue
-
-	for _, slot := range idSlotNames(bindings.Skills) {
-		if !skillSlugs[slot] {
-			continue
-		}
-
-		issues = append(issues, Issue{
-			File:    BindingsFileName,
-			Path:    "/slots/skills/" + slot,
-			Message: fmt.Sprintf("skills slot %q collides with the project skill of the same slug; rename the binding slot, because a project-local skill always wins over a bound platform skill", slot),
+	out := make([]CompiledConnector, 0, len(refs))
+	for _, ref := range refs {
+		out = append(out, CompiledConnector{
+			ResourceID:  bindings.Resources[ref.Slot].ID,
+			Permissions: ref.Permissions,
 		})
 	}
 
-	return issues
+	return out
+}
+
+func resolveApps(refs []AgentAppRef, bindings *BindingSlots) []CompiledApp {
+	if len(refs) == 0 {
+		return nil
+	}
+
+	out := make([]CompiledApp, 0, len(refs))
+	for _, ref := range refs {
+		out = append(out, CompiledApp{
+			ApplicationID: bindings.Applications[ref.Slot].ID,
+			Permissions:   ref.Permissions,
+		})
+	}
+
+	return out
+}
+
+// resolveSkillRefs keeps a project-local slug as-is (the skill has no platform
+// id until this same deploy publishes it) and resolves a slot to its bound id.
+func resolveSkillRefs(refs []AgentSkillRef, bindings *BindingSlots) []CompiledSkillRef {
+	if len(refs) == 0 {
+		return nil
+	}
+
+	out := make([]CompiledSkillRef, 0, len(refs))
+	for _, ref := range refs {
+		if ref.Slot != "" {
+			out = append(out, CompiledSkillRef{SkillID: bindings.Skills[ref.Slot].ID})
+			continue
+		}
+
+		out = append(out, CompiledSkillRef{Slug: ref.Slug})
+	}
+
+	return out
 }
 
 // validateAgentReferences checks that every slot an agent references exists in

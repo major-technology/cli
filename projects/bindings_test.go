@@ -84,35 +84,23 @@ func TestCompileFullAgentWithBindings(t *testing.T) {
 		t.Fatalf("expected no issues, got: %+v", issues)
 	}
 
-	if res.Config.Bindings == nil {
-		t.Fatal("expected bindings in the compiled config")
-	}
-	if got := res.Config.Bindings.Resources["prod-db"]; got.Type != "postgresql" || got.ID != testResourceID {
-		t.Fatalf("resource binding = %+v", got)
-	}
-	if got := res.Config.Bindings.Applications["crm"].ID; got != testApplicationID {
-		t.Fatalf("application binding id = %q", got)
-	}
-	if got := res.Config.Bindings.Skills["reporting"].ID; got != testSkillID {
-		t.Fatalf("skill binding id = %q", got)
-	}
-
 	agent := res.Config.Agents[0]
-	if len(agent.Connectors) != 1 || agent.Connectors[0].Slot != "prod-db" {
+	if len(agent.Connectors) != 1 || agent.Connectors[0].ResourceID != testResourceID {
 		t.Fatalf("connectors = %+v", agent.Connectors)
 	}
 	if p := agent.Connectors[0].Permissions; len(p) != 1 || p[0].Tool != "postgresql_psql" || p[0].Decision != "always_allow" {
 		t.Fatalf("connector permissions = %+v", p)
 	}
-	if len(agent.Apps) != 1 || agent.Apps[0].Slot != "crm" {
+	if len(agent.Apps) != 1 || agent.Apps[0].ApplicationID != testApplicationID {
 		t.Fatalf("apps = %+v", agent.Apps)
 	}
 	if p := agent.Apps[0].Permissions; len(p) != 1 || p[0].Method != "POST" || p[0].Path != "/api/orders" || p[0].Decision != "ask" {
 		t.Fatalf("app permissions = %+v", p)
 	}
 
-	// A bare string normalizes to {"slug": ...}; a slot ref stays {"slot": ...}.
-	want := []AgentSkillRef{{Slug: "pdf-tools"}, {Slot: "reporting"}}
+	// A bare string stays a slug (the local skill has no id until this deploy
+	// publishes it); a slot resolves to the bound platform skill id.
+	want := []CompiledSkillRef{{Slug: "pdf-tools"}, {SkillID: testSkillID}}
 	if len(agent.Skills) != len(want) {
 		t.Fatalf("skills = %+v", agent.Skills)
 	}
@@ -126,50 +114,54 @@ func TestCompileFullAgentWithBindings(t *testing.T) {
 	if err := json.Unmarshal(res.ConfigJSON, &raw); err != nil {
 		t.Fatalf("compiled JSON does not parse: %v", err)
 	}
-	if _, ok := raw["bindings"]; !ok {
-		t.Fatalf("expected a bindings key in the compiled JSON: %s", res.ConfigJSON)
+	if _, ok := raw["bindings"]; ok {
+		t.Fatalf("the slot manifest must not reach the compiled config: %s", res.ConfigJSON)
 	}
-	if !strings.Contains(string(res.ConfigJSON), `"skills":[{"slug":"pdf-tools"},{"slot":"reporting"}]`) {
-		t.Fatalf("skills not normalized as expected: %s", res.ConfigJSON)
+	if !strings.Contains(string(res.ConfigJSON), `"skills":[{"slug":"pdf-tools"},{"skillId":"`+testSkillID+`"}]`) {
+		t.Fatalf("skills not resolved as expected: %s", res.ConfigJSON)
+	}
+
+	// No slot name survives compilation anywhere in the output.
+	for _, slot := range []string{"prod-db", "crm", "reporting"} {
+		if strings.Contains(string(res.ConfigJSON), slot) {
+			t.Fatalf("slot %q leaked into the compiled config: %s", slot, res.ConfigJSON)
+		}
 	}
 }
 
-// TestCompileOmitsEmptyBindingKinds checks that a bindings.json declaring only
-// resources emits only that kind, not empty applications/skills objects.
-func TestCompileOmitsEmptyBindingKinds(t *testing.T) {
+// TestCompileNeverEmitsBindingsKey checks that a project WITH bindings.json
+// still emits no top-level bindings key: the manifest is compile-time input
+// only, with no downstream consumer.
+func TestCompileNeverEmitsBindingsKey(t *testing.T) {
 	dir := t.TempDir()
 	writeFixtureProject(t, dir)
-	writeBindings(t, dir, `{"slots":{"resources":{"prod-db":{"type":"postgresql","id":"`+testResourceID+`"}}}}`)
+	writeBindings(t, dir, fullBindings)
 
 	res, issues := Compile(dir)
 	if len(issues) != 0 {
 		t.Fatalf("expected no issues, got: %+v", issues)
 	}
 
-	if !strings.Contains(string(res.ConfigJSON), `"bindings":{"resources":`) {
-		t.Fatalf("expected a resources-only bindings block: %s", res.ConfigJSON)
+	if strings.Contains(string(res.ConfigJSON), `"bindings"`) {
+		t.Fatalf("expected no bindings key: %s", res.ConfigJSON)
 	}
-	if strings.Contains(string(res.ConfigJSON), `"applications"`) || strings.Contains(string(res.ConfigJSON), `"skills"`) {
-		t.Fatalf("expected empty binding kinds to be omitted: %s", res.ConfigJSON)
+	for _, id := range []string{testResourceID, testApplicationID, testSkillID} {
+		if strings.Contains(string(res.ConfigJSON), id) {
+			t.Fatalf("unreferenced binding id %q leaked into the compiled config: %s", id, res.ConfigJSON)
+		}
 	}
 }
 
 // TestCompileWithoutBindingsFileOmitsBindingsKey pins backward compatibility:
 // a project that predates bindings.json compiles to exactly the bytes it did
-// before, with no bindings key.
+// before, with no bindings key and no facet keys.
 func TestCompileWithoutBindingsFileOmitsBindingsKey(t *testing.T) {
 	res, issues := Compile("testdata/valid")
 	if len(issues) != 0 {
 		t.Fatalf("expected no issues, got: %+v", issues)
 	}
 
-	if res.Config.Bindings != nil {
-		t.Fatalf("expected nil bindings, got: %+v", res.Config.Bindings)
-	}
-	if strings.Contains(string(res.ConfigJSON), `"bindings"`) {
-		t.Fatalf("expected no bindings key in compiled JSON, got: %s", res.ConfigJSON)
-	}
-	for _, key := range []string{`"connectors"`, `"apps"`, `"skills"`} {
+	for _, key := range []string{`"bindings"`, `"connectors"`, `"apps"`, `"skills"`} {
 		if strings.Contains(string(res.ConfigJSON), key) {
 			t.Fatalf("expected no %s key for an old project, got: %s", key, res.ConfigJSON)
 		}
@@ -377,59 +369,32 @@ func TestCompileInvalidAgentFacetShapeRejected(t *testing.T) {
 	}
 }
 
-// TestCompileSkillSlotCollidingWithProjectSkillRejected checks the namespace
-// trap: the server merges bindings skill slots with project-local skill slugs
-// and lets the local slug win, so a same-named binding slot would be silently
-// ignored. Compile must reject it and say to rename the slot.
-func TestCompileSkillSlotCollidingWithProjectSkillRejected(t *testing.T) {
+// TestCompileSkillSlotMayShareNameWithProjectSkill pins that a skills slot
+// named after a project-local skill is NOT a conflict: compile resolves the
+// slot to {"skillId"} and the local slug to {"slug"}, two structurally
+// distinct shapes, so there is no merged namespace for them to collide in.
+func TestCompileSkillSlotMayShareNameWithProjectSkill(t *testing.T) {
 	dir := t.TempDir()
 	writeFixtureProject(t, dir)
 	writeBindings(t, dir, `{"slots":{"skills":{"pdf-tools":{"id":"`+testSkillID+`"}}}}`)
 	writeSkill(t, dir, "pdf-tools")
-	writeAgent(t, dir, "a", `{"slug":"a","name":"A","systemPrompt":"x","skills":["pdf-tools"]}`)
+	writeAgent(t, dir, "a", `{"slug":"a","name":"A","systemPrompt":"x","skills":["pdf-tools",{"slot":"pdf-tools"}]}`)
 	initGitRepo(t, dir)
 
-	_, issues := Compile(dir)
-	if !findIssue(issues, `skills slot "pdf-tools" collides with the project skill of the same slug`) {
-		t.Fatalf("expected a skill-namespace collision issue, got: %+v", issues)
-	}
-	if !findIssue(issues, "rename the binding slot") {
-		t.Fatalf("expected the issue to say to rename the slot, got: %+v", issues)
-	}
-	if issues[0].File != BindingsFileName || issues[0].Path != "/slots/skills/pdf-tools" {
-		t.Fatalf("issue not attributed to the colliding slot: %+v", issues[0])
-	}
-}
-
-// TestCompileSkillSlotCollisionRejectedWithoutAnyReference checks the
-// collision is a namespace-level problem: it fails the compile even when no
-// agent references either side.
-func TestCompileSkillSlotCollisionRejectedWithoutAnyReference(t *testing.T) {
-	dir := t.TempDir()
-	writeFixtureProject(t, dir)
-	writeBindings(t, dir, `{"slots":{"skills":{"pdf-tools":{"id":"`+testSkillID+`"}}}}`)
-	writeSkill(t, dir, "pdf-tools")
-	initGitRepo(t, dir)
-
-	_, issues := Compile(dir)
-	if !findIssue(issues, `skills slot "pdf-tools" collides`) {
-		t.Fatalf("expected a collision issue with no agent referencing it, got: %+v", issues)
-	}
-}
-
-// TestCompileSkillSlotNotCollidingAccepted pins that a distinct slot name next
-// to a project skill still compiles.
-func TestCompileSkillSlotNotCollidingAccepted(t *testing.T) {
-	dir := t.TempDir()
-	writeFixtureProject(t, dir)
-	writeBindings(t, dir, `{"slots":{"skills":{"reporting":{"id":"`+testSkillID+`"}}}}`)
-	writeSkill(t, dir, "pdf-tools")
-	writeAgent(t, dir, "a", `{"slug":"a","name":"A","systemPrompt":"x","skills":["pdf-tools",{"slot":"reporting"}]}`)
-	initGitRepo(t, dir)
-
-	_, issues := Compile(dir)
+	res, issues := Compile(dir)
 	if len(issues) != 0 {
 		t.Fatalf("expected no issues, got: %+v", issues)
+	}
+
+	want := []CompiledSkillRef{{Slug: "pdf-tools"}, {SkillID: testSkillID}}
+	got := res.Config.Agents[0].Skills
+	if len(got) != len(want) {
+		t.Fatalf("skills = %+v", got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("skills[%d] = %+v, want %+v", i, got[i], want[i])
+		}
 	}
 }
 

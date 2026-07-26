@@ -69,9 +69,9 @@ func compile(dir, skillBundlesDir string) (*CompileResult, []Issue) {
 			Model:        a.Model,
 			SystemPrompt: prompt,
 			Env:          a.Env,
-			Connectors:   a.Connectors,
-			Apps:         a.Apps,
-			Skills:       a.Skills,
+			Connectors:   resolveConnectors(a.Connectors, loaded.Bindings),
+			Apps:         resolveApps(a.Apps, loaded.Bindings),
+			Skills:       resolveSkillRefs(a.Skills, loaded.Bindings),
 		})
 	}
 
@@ -101,7 +101,6 @@ func compile(dir, skillBundlesDir string) (*CompileResult, []Issue) {
 		Project:       CompiledProject{Name: loaded.Definition.Name},
 		Agents:        agents,
 		Skills:        skills,
-		Bindings:      loaded.Bindings,
 	}
 
 	configJSON, err := json.Marshal(config)

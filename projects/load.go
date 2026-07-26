@@ -328,8 +328,6 @@ func Load(dir string) (*LoadedProject, []Issue) {
 		skillSlugs[s.Slug] = true
 	}
 
-	issues = append(issues, checkSkillSlotCollisions(bindings, skillSlugs)...)
-
 	agentsDir := filepath.Join(dir, srcDir, "agents")
 	entries, err := os.ReadDir(agentsDir)
 	if err != nil {

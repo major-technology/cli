@@ -67,11 +67,19 @@ type AgentToolPermission struct {
 	Decision string `json:"decision"`
 }
 
-// AgentConnectorRef associates an agent with a resource binding slot, plus
-// optional per-tool permissions. Slot is resolved against
-// bindings.json slots.resources at compile time; the id is resolved at deploy.
+// AgentConnectorRef is one authored agent.json connectors[] entry: a resource
+// binding slot plus optional per-tool permissions. Compile resolves Slot
+// against bindings.json slots.resources into a CompiledConnector.
 type AgentConnectorRef struct {
 	Slot        string                `json:"slot"`
+	Permissions []AgentToolPermission `json:"permissions,omitempty"`
+}
+
+// CompiledConnector is one connector association in the compiled config, with
+// its binding slot already resolved to the bound resource id. Slots never
+// reach the platform: compile owns resolution, deploy consumes ids.
+type CompiledConnector struct {
+	ResourceID  string                `json:"resourceId"`
 	Permissions []AgentToolPermission `json:"permissions,omitempty"`
 }
 
@@ -82,19 +90,37 @@ type AgentEndpointPermission struct {
 	Decision string `json:"decision"`
 }
 
-// AgentAppRef associates an agent with an application binding slot (the
-// agent-calls-app-routes scope), plus optional per-endpoint permissions.
+// AgentAppRef is one authored agent.json apps[] entry: an application binding
+// slot (the agent-calls-app-routes scope) plus optional per-endpoint
+// permissions.
 type AgentAppRef struct {
 	Slot        string                    `json:"slot"`
 	Permissions []AgentEndpointPermission `json:"permissions,omitempty"`
 }
 
-// AgentSkillRef is one skill attachment: exactly one of Slug (a project-local
-// skill compiled in the same run, authored as a bare string) or Slot (a
-// platform skill via bindings.json slots.skills) is set.
+// CompiledApp is one app association in the compiled config, with its binding
+// slot already resolved to the bound application id.
+type CompiledApp struct {
+	ApplicationID string                    `json:"applicationId"`
+	Permissions   []AgentEndpointPermission `json:"permissions,omitempty"`
+}
+
+// AgentSkillRef is one authored skill attachment: exactly one of Slug (a
+// project-local skill compiled in the same run, authored as a bare string) or
+// Slot (a platform skill via bindings.json slots.skills) is set.
 type AgentSkillRef struct {
 	Slug string `json:"slug,omitempty"`
 	Slot string `json:"slot,omitempty"`
+}
+
+// CompiledSkillRef is one skill attachment in the compiled config: exactly one
+// of Slug (a project-local skill published by this same deploy, which has no
+// id until then) or SkillID (a platform skill, resolved from its binding slot
+// at compile time) is set. The two are structurally distinct, so there is no
+// shared namespace a slot name could collide in.
+type CompiledSkillRef struct {
+	Slug    string `json:"slug,omitempty"`
+	SkillID string `json:"skillId,omitempty"`
 }
 
 // ResourceBinding is one bindings.json slots.resources entry. Type is the
@@ -141,7 +167,8 @@ type CompiledProject struct {
 	Name string `json:"name"`
 }
 
-// CompiledAgent is one agent entry of the compiled config.
+// CompiledAgent is one agent entry of the compiled config. Every binding slot
+// the author wrote is already resolved to a platform id here.
 type CompiledAgent struct {
 	Slug         string              `json:"slug"`
 	Name         string              `json:"name"`
@@ -149,9 +176,9 @@ type CompiledAgent struct {
 	Model        string              `json:"model,omitempty"`
 	SystemPrompt string              `json:"systemPrompt"`
 	Env          map[string]*string  `json:"env,omitempty"`
-	Connectors   []AgentConnectorRef `json:"connectors,omitempty"`
-	Apps         []AgentAppRef       `json:"apps,omitempty"`
-	Skills       []AgentSkillRef     `json:"skills,omitempty"`
+	Connectors   []CompiledConnector `json:"connectors,omitempty"`
+	Apps         []CompiledApp       `json:"apps,omitempty"`
+	Skills       []CompiledSkillRef  `json:"skills,omitempty"`
 }
 
 // CompiledSkillBundle locates a skill's zipped bundle in S3. The CLI never
@@ -175,14 +202,13 @@ type CompiledSkill struct {
 
 // CompiledConfig is the canonical compile output. The platform stores this
 // JSON on project_versions.compiled_config and deploys read it verbatim.
-// Agents, Skills, and Bindings are optional: an empty project omits all three
-// keys rather than emitting "[]" / "{}". Bindings carries the project's slot
-// manifest verbatim - compile validates every agent reference against it,
-// deploy resolves the slots to ids.
+// Agents and Skills are optional: an empty project omits both keys rather
+// than emitting "[]". bindings.json itself is NOT carried here - compile
+// resolves every slot to a platform id inline on the agents that reference
+// them, so the slot manifest has no consumer downstream.
 type CompiledConfig struct {
 	ConfigVersion int             `json:"configVersion"`
 	Project       CompiledProject `json:"project"`
 	Agents        []CompiledAgent `json:"agents,omitempty"`
 	Skills        []CompiledSkill `json:"skills,omitempty"`
-	Bindings      *BindingSlots   `json:"bindings,omitempty"`
 }
