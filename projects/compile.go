@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"path/filepath"
 	"strings"
 )
@@ -45,6 +46,20 @@ func compile(dir, skillBundlesDir string) (*CompileResult, []Issue) {
 		return nil, issues
 	}
 
+	var skills []CompiledSkill
+	skillSlugs := map[string]bool{}
+
+	for _, s := range loaded.Skills {
+		compiled, skillIssues := readSkillBundle(dir, s, skillBundlesDir)
+		if len(skillIssues) > 0 {
+			issues = append(issues, skillIssues...)
+			continue
+		}
+
+		skills = append(skills, *compiled)
+		skillSlugs[compiled.Slug] = true
+	}
+
 	var agents []CompiledAgent
 
 	for _, a := range loaded.Agents {
@@ -62,6 +77,24 @@ func compile(dir, skillBundlesDir string) (*CompileResult, []Issue) {
 			prompt = inlined
 		}
 
+		agentFile := filepath.Join(a.Dir, "agent.json")
+		unresolvedSkill := false
+
+		for idx, skillSlug := range a.Skills {
+			if !skillSlugs[skillSlug] {
+				issues = append(issues, Issue{
+					File:    agentFile,
+					Path:    fmt.Sprintf("/skills/%d", idx),
+					Message: fmt.Sprintf("agent %q references unknown skill %q", a.Slug, skillSlug),
+				})
+				unresolvedSkill = true
+			}
+		}
+
+		if unresolvedSkill {
+			continue
+		}
+
 		agents = append(agents, CompiledAgent{
 			Slug:         a.Slug,
 			Name:         a.Name,
@@ -69,19 +102,8 @@ func compile(dir, skillBundlesDir string) (*CompileResult, []Issue) {
 			Model:        a.Model,
 			SystemPrompt: prompt,
 			Env:          a.Env,
+			Skills:       a.Skills,
 		})
-	}
-
-	var skills []CompiledSkill
-
-	for _, s := range loaded.Skills {
-		compiled, skillIssues := readSkillBundle(dir, s, skillBundlesDir)
-		if len(skillIssues) > 0 {
-			issues = append(issues, skillIssues...)
-			continue
-		}
-
-		skills = append(skills, *compiled)
 	}
 
 	if len(issues) > 0 {

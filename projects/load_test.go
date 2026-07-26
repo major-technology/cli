@@ -72,7 +72,7 @@ func TestLoadReservedFieldAndSchemaViolation(t *testing.T) {
 
 // TestLoadUnknownFieldNotStripped checks that a non-reserved unknown key still
 // trips the schema's additionalProperties error with a readable message,
-// proving stripReservedFields only removes the seven reserved keys.
+// proving stripReservedFields only removes the six reserved keys.
 func TestLoadUnknownFieldNotStripped(t *testing.T) {
 	_, issues := Load("testdata/unknown-field")
 	if !findIssue(issues, "notAField") {
@@ -122,10 +122,10 @@ func TestLoadDuplicateSlugs(t *testing.T) {
 	}
 }
 
-// TestLoadAgentSkillsFieldReservedAgain checks that agent-skill attachment is
-// gone: agent.json's "skills" field is reserved again (load.go), not parsed
-// or cross-referenced against declared skills.
-func TestLoadAgentSkillsFieldReservedAgain(t *testing.T) {
+// TestLoadAgentSkillsFieldParsed checks that agent.json's "skills" field is no
+// longer reserved: it parses into AgentDefinition.Skills instead of tripping
+// the reserved-field rejection.
+func TestLoadAgentSkillsFieldParsed(t *testing.T) {
 	dir := t.TempDir()
 	writeFixtureProject(t, dir)
 
@@ -138,9 +138,12 @@ func TestLoadAgentSkillsFieldReservedAgain(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, issues := Load(dir)
-	if !findIssue(issues, "reserved for a future version") || !findIssue(issues, "skills") {
-		t.Fatalf("expected \"skills\" to be reserved again, got: %+v", issues)
+	p, issues := Load(dir)
+	if len(issues) != 0 {
+		t.Fatalf("expected no issues, got: %+v", issues)
+	}
+	if len(p.Agents) != 1 || len(p.Agents[0].Skills) != 1 || p.Agents[0].Skills[0] != "pdf-tools" {
+		t.Fatalf("expected agent skills [\"pdf-tools\"], got: %+v", p.Agents)
 	}
 }
 

@@ -24,6 +24,11 @@
 			"type": "object",
 			"propertyNames": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]*$" },
 			"additionalProperties": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+		},
+		"skills": {
+			"type": "array",
+			"items": { "type": "string", "maxLength": 63, "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+			"uniqueItems": true
 		}
 	},
 	"required": ["slug", "name", "systemPrompt"],

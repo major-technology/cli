@@ -193,6 +193,50 @@ func TestCompileMissingPromptFile(t *testing.T) {
 	}
 }
 
+// TestCompileAgentUnknownSkillRejected checks that an agent.json "skills"
+// entry naming a slug that does not resolve to a skill in the project's
+// compiled skills set is a compile issue naming both the agent and the
+// unknown skill slug.
+func TestCompileAgentUnknownSkillRejected(t *testing.T) {
+	dir := t.TempDir()
+	writeFixtureProject(t, dir)
+
+	agentDir := filepath.Join(dir, "src", "agents", "helper")
+	if err := os.MkdirAll(agentDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	agentJSON := `{"slug":"helper","name":"Helper","systemPrompt":"You help.","skills":["ghost-skill"]}`
+	if err := os.WriteFile(filepath.Join(agentDir, "agent.json"), []byte(agentJSON), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, issues := Compile(dir)
+	if !findIssue(issues, "helper") || !findIssue(issues, "ghost-skill") {
+		t.Fatalf("expected an issue naming agent %q and unknown skill %q, got: %+v", "helper", "ghost-skill", issues)
+	}
+}
+
+// TestCompileAgentSkillsOmittedWhenAbsent checks that CompiledAgent.Skills -
+// and the "skills" key on each agent object in the compiled JSON - is omitted
+// when the agent declares no skills, matching the omit-when-empty convention
+// used for the top-level "agents"/"skills" keys.
+func TestCompileAgentSkillsOmittedWhenAbsent(t *testing.T) {
+	res, issues := Compile("testdata/valid")
+	if len(issues) != 0 {
+		t.Fatalf("expected no issues, got: %+v", issues)
+	}
+
+	for _, a := range res.Config.Agents {
+		if len(a.Skills) != 0 {
+			t.Fatalf("expected agent %q to have no skills, got: %+v", a.Slug, a.Skills)
+		}
+	}
+
+	if strings.Contains(string(res.ConfigJSON), `"skills"`) {
+		t.Fatalf("expected no skills key on any agent in compiled JSON, got: %s", res.ConfigJSON)
+	}
+}
+
 // writeFixtureProject writes a minimal valid project.json into dir.
 func writeFixtureProject(t *testing.T, dir string) {
 	t.Helper()

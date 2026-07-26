@@ -49,6 +49,36 @@ func TestAgentSchemaValidate(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		{
+			name: "agent with skills accepted",
+			doc: map[string]any{
+				"slug":         "triage",
+				"name":         "Triage",
+				"systemPrompt": "You are a triage agent.",
+				"skills":       []any{"pdf-tools", "web-search"},
+			},
+			wantErr: false,
+		},
+		{
+			name: "duplicate skill slugs rejected",
+			doc: map[string]any{
+				"slug":         "triage",
+				"name":         "Triage",
+				"systemPrompt": "You are a triage agent.",
+				"skills":       []any{"pdf-tools", "pdf-tools"},
+			},
+			wantErr: true,
+		},
+		{
+			name: "bad skill slug pattern rejected",
+			doc: map[string]any{
+				"slug":         "triage",
+				"name":         "Triage",
+				"systemPrompt": "You are a triage agent.",
+				"skills":       []any{"Bad_Slug"},
+			},
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {

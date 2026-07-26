@@ -154,6 +154,9 @@ func TestCompileProjectWithSkills(t *testing.T) {
 	if len(res.Config.Agents) != 1 {
 		t.Fatalf("expected 1 agent, got %d", len(res.Config.Agents))
 	}
+	if agentSkills := res.Config.Agents[0].Skills; len(agentSkills) != 1 || agentSkills[0] != "pdf-tools" {
+		t.Fatalf("expected agent skills [\"pdf-tools\"], got: %+v", agentSkills)
+	}
 }
 
 func TestCompileWithoutBundlesDirWritesNoZips(t *testing.T) {

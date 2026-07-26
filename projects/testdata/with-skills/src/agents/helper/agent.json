@@ -1,5 +1,6 @@
 {
 	"slug": "helper",
 	"name": "Helper",
-	"systemPrompt": "You help with PDFs."
+	"systemPrompt": "You help with PDFs.",
+	"skills": ["pdf-tools"]
 }

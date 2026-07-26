@@ -22,7 +22,7 @@ var schemaMessagePrinter = message.NewPrinter(language.English)
 // rejected with a dedicated message so v1 can introduce them without silent
 // behavior changes on old CLIs.
 var reservedAgentFields = []string{
-	"schedules", "connectors", "apps", "toolPermissions", "tools", "hooks", "skills",
+	"schedules", "connectors", "apps", "toolPermissions", "tools", "hooks",
 }
 
 // rawSystemPrompt accepts either an inline string or {"file": "./x.md"}.
@@ -57,6 +57,7 @@ type rawAgent struct {
 	Model        string             `json:"model"`
 	SystemPrompt rawSystemPrompt    `json:"systemPrompt"`
 	Env          map[string]*string `json:"env"`
+	Skills       []string           `json:"skills"`
 }
 
 type rawProject struct {
@@ -279,6 +280,7 @@ func Load(dir string) (*LoadedProject, []Issue) {
 			Model:        ra.Model,
 			SystemPrompt: systemPrompt,
 			Env:          ra.Env,
+			Skills:       ra.Skills,
 			Dir:          filepath.Join(srcDir, "agents", entry.Name()),
 		})
 	}

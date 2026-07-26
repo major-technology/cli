@@ -23,6 +23,7 @@ type AgentDefinition struct {
 	Model        string
 	SystemPrompt string
 	Env          map[string]*string
+	Skills       []string // slugs of skills (from the same project) this agent attaches
 	Dir          string
 }
 
@@ -54,6 +55,7 @@ type CompiledAgent struct {
 	Model        string             `json:"model,omitempty"`
 	SystemPrompt string             `json:"systemPrompt"`
 	Env          map[string]*string `json:"env,omitempty"`
+	Skills       []string           `json:"skills,omitempty"`
 }
 
 // CompiledSkillBundle locates a skill's zipped bundle in S3. The CLI never
