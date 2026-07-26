@@ -1,6 +1,8 @@
 package projects
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -117,6 +119,28 @@ func TestLoadDuplicateSlugs(t *testing.T) {
 	_, issues := Load("testdata/duplicate-slugs")
 	if !findIssue(issues, "duplicate") {
 		t.Fatalf("expected duplicate slug issue, got: %+v", issues)
+	}
+}
+
+// TestLoadAgentSkillsFieldReservedAgain checks that agent-skill attachment is
+// gone: agent.json's "skills" field is reserved again (load.go), not parsed
+// or cross-referenced against declared skills.
+func TestLoadAgentSkillsFieldReservedAgain(t *testing.T) {
+	dir := t.TempDir()
+	writeFixtureProject(t, dir)
+
+	agentDir := filepath.Join(dir, "src", "agents", "helper")
+	if err := os.MkdirAll(agentDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	agentJSON := `{"slug":"helper","name":"Helper","systemPrompt":"You help.","skills":["pdf-tools"]}`
+	if err := os.WriteFile(filepath.Join(agentDir, "agent.json"), []byte(agentJSON), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, issues := Load(dir)
+	if !findIssue(issues, "reserved for a future version") || !findIssue(issues, "skills") {
+		t.Fatalf("expected \"skills\" to be reserved again, got: %+v", issues)
 	}
 }
 

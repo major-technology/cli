@@ -18,8 +18,22 @@ type CompileResult struct {
 // Compile loads, validates, and compiles a project directory. Returns the
 // result, or nil plus issues. ConfigJSON is deterministic for identical
 // inputs: struct field order is fixed, agents are sorted by slug, and Go
-// marshals map keys in sorted order.
+// marshals map keys in sorted order. Skill bundle zips are not written; use
+// CompileWithSkillBundles for that.
 func Compile(dir string) (*CompileResult, []Issue) {
+	return compile(dir, "")
+}
+
+// CompileWithSkillBundles is Compile plus writing each skill's zip bundle to
+// <skillBundlesDir>/<treeHash>.zip (cmd/project/compile.go's
+// --skill-bundles-dir). The CLI itself never uploads these to S3; the
+// mono-owned compile job does that and injects CompiledSkill.Bundle before
+// submitting.
+func CompileWithSkillBundles(dir, skillBundlesDir string) (*CompileResult, []Issue) {
+	return compile(dir, skillBundlesDir)
+}
+
+func compile(dir, skillBundlesDir string) (*CompileResult, []Issue) {
 	absDir, err := filepath.Abs(dir)
 	if err != nil {
 		return nil, []Issue{{File: "project.json", Message: "cannot resolve project directory: " + err.Error()}}
@@ -31,7 +45,7 @@ func Compile(dir string) (*CompileResult, []Issue) {
 		return nil, issues
 	}
 
-	agents := make([]CompiledAgent, 0, len(loaded.Agents))
+	var agents []CompiledAgent
 
 	for _, a := range loaded.Agents {
 		prompt := a.SystemPrompt
@@ -58,6 +72,18 @@ func Compile(dir string) (*CompileResult, []Issue) {
 		})
 	}
 
+	var skills []CompiledSkill
+
+	for _, s := range loaded.Skills {
+		compiled, skillIssues := readSkillBundle(dir, s, skillBundlesDir)
+		if len(skillIssues) > 0 {
+			issues = append(issues, skillIssues...)
+			continue
+		}
+
+		skills = append(skills, *compiled)
+	}
+
 	if len(issues) > 0 {
 		return nil, issues
 	}
@@ -66,6 +92,7 @@ func Compile(dir string) (*CompileResult, []Issue) {
 		ConfigVersion: 1,
 		Project:       CompiledProject{Name: loaded.Definition.Name},
 		Agents:        agents,
+		Skills:        skills,
 	}
 
 	configJSON, err := json.Marshal(config)
