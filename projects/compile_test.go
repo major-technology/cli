@@ -147,6 +147,33 @@ func TestCompileOversizePromptRejected(t *testing.T) {
 	}
 }
 
+// TestCompileEmptyProjectOmitsAgentsAndSkillsKeys checks that a project with
+// no agents or skills directories compiles successfully and emits neither
+// key in the compiled JSON, rather than "agents":[] / "skills":[].
+func TestCompileEmptyProjectOmitsAgentsAndSkillsKeys(t *testing.T) {
+	dir := t.TempDir()
+	writeFixtureProject(t, dir)
+
+	res, issues := Compile(dir)
+	if len(issues) != 0 {
+		t.Fatalf("expected no issues, got: %+v", issues)
+	}
+
+	if len(res.Config.Agents) != 0 {
+		t.Fatalf("expected no agents, got: %#v", res.Config.Agents)
+	}
+	if len(res.Config.Skills) != 0 {
+		t.Fatalf("expected no skills, got: %#v", res.Config.Skills)
+	}
+
+	if strings.Contains(string(res.ConfigJSON), `"agents"`) {
+		t.Fatalf("expected no agents key in compiled JSON, got: %s", res.ConfigJSON)
+	}
+	if strings.Contains(string(res.ConfigJSON), `"skills"`) {
+		t.Fatalf("expected no skills key in compiled JSON, got: %s", res.ConfigJSON)
+	}
+}
+
 func TestCompileMissingPromptFile(t *testing.T) {
 	dir := t.TempDir()
 	writeFixtureProject(t, dir)

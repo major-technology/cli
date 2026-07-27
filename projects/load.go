@@ -22,7 +22,7 @@ var schemaMessagePrinter = message.NewPrinter(language.English)
 // rejected with a dedicated message so v1 can introduce them without silent
 // behavior changes on old CLIs.
 var reservedAgentFields = []string{
-	"schedules", "connectors", "apps", "skills", "toolPermissions", "tools", "hooks",
+	"schedules", "connectors", "apps", "toolPermissions", "tools", "hooks", "skills",
 }
 
 // rawSystemPrompt accepts either an inline string or {"file": "./x.md"}.
@@ -209,11 +209,18 @@ func Load(dir string) (*LoadedProject, []Issue) {
 		srcDir = "src/"
 	}
 
+	skills, skillIssues := discoverSkills(dir, srcDir)
+	issues = append(issues, skillIssues...)
+
 	agentsDir := filepath.Join(dir, srcDir, "agents")
 	entries, err := os.ReadDir(agentsDir)
 	if err != nil {
-		// No agents directory means an empty (but valid) project.
-		return &LoadedProject{Definition: ProjectDefinition{Name: proj.Name, SrcDir: srcDir}}, nil
+		// No agents directory means an empty (but valid) project, unless
+		// skill discovery already surfaced issues.
+		if len(issues) > 0 {
+			return nil, issues
+		}
+		return &LoadedProject{Definition: ProjectDefinition{Name: proj.Name, SrcDir: srcDir}, Skills: skills}, nil
 	}
 
 	var agents []AgentDefinition
@@ -285,5 +292,6 @@ func Load(dir string) (*LoadedProject, []Issue) {
 	return &LoadedProject{
 		Definition: ProjectDefinition{Name: proj.Name, SrcDir: srcDir},
 		Agents:     agents,
+		Skills:     skills,
 	}, nil
 }

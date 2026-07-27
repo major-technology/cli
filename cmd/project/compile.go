@@ -29,13 +29,14 @@ func printCompileIssues(cmd *cobra.Command, issues []projects.Issue) {
 func newCompileCmd() *cobra.Command {
 	var dir string
 	var asJSON bool
+	var skillBundlesDir string
 
 	cmd := &cobra.Command{
 		Use:   "compile",
 		Short: "Compile the project into its canonical config JSON",
 		Long:  `Validates and compiles the project directory. With --json, prints the canonical single-line config JSON to stdout; otherwise prints the pretty-printed config and its hash.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			result, issues := projects.Compile(dir)
+			result, issues := projects.CompileWithSkillBundles(dir, skillBundlesDir)
 
 			if len(issues) > 0 {
 				printCompileIssues(cmd, issues)
@@ -59,6 +60,7 @@ func newCompileCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&dir, "dir", ".", "Project directory to compile")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "Print the canonical single-line JSON only (machine-readable)")
+	cmd.Flags().StringVar(&skillBundlesDir, "skill-bundles-dir", "", "Write each skill's bundle to <dir>/<treeHash>.zip (unset: no zips are written)")
 
 	return cmd
 }
