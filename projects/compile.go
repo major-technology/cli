@@ -76,15 +76,20 @@ func compile(dir, skillBundlesDir string) (*CompileResult, []Issue) {
 
 	for _, s := range loaded.Skills {
 		compiled, skillIssues := readSkillBundle(dir, s, skillBundlesDir)
-		if len(skillIssues) > 0 {
-			issues = append(issues, skillIssues...)
+		issues = append(issues, skillIssues...)
+
+		// compiled is nil either because of a genuine content error (caught
+		// below by the errors check) or because the skill's git tree hash
+		// could not be resolved - a warning-only skip (readSkillBundle), not
+		// a compile failure.
+		if compiled == nil {
 			continue
 		}
 
 		skills = append(skills, *compiled)
 	}
 
-	if len(issues) > 0 {
+	if errs, _ := PartitionIssues(issues); len(errs) > 0 {
 		return nil, issues
 	}
 
@@ -97,7 +102,7 @@ func compile(dir, skillBundlesDir string) (*CompileResult, []Issue) {
 
 	configJSON, err := json.Marshal(config)
 	if err != nil {
-		return nil, []Issue{{File: "project.json", Message: "internal error serializing compiled config: " + err.Error()}}
+		return nil, append(issues, Issue{File: "project.json", Message: "internal error serializing compiled config: " + err.Error()})
 	}
 
 	sum := sha256.Sum256(configJSON)
@@ -106,11 +111,22 @@ func compile(dir, skillBundlesDir string) (*CompileResult, []Issue) {
 		Config:     config,
 		ConfigJSON: configJSON,
 		Hash:       hex.EncodeToString(sum[:]),
-	}, nil
+	}, issues // issues may be non-nil here too: warning-only issues (e.g. an uncommitted skill dir) do not block compile.
 }
 
-// Validate runs the full compile pipeline and reports issues only.
+// Validate loads and validates a project directory: schema checks, agent and
+// skill discovery, and skill file-content checks (dotfiles, size caps, path
+// length, symlinks, frontmatter). It never touches git: tree-hash resolution
+// only happens on the compile path (readSkillBundle), so an uncommitted or
+// never-committed skill directory - the artifact that ships is the git tree
+// at a commit, resolved by the platform's compile job, not the working tree -
+// validates cleanly as long as its content is valid.
 func Validate(dir string) []Issue {
-	_, issues := Compile(dir)
+	absDir, err := filepath.Abs(dir)
+	if err != nil {
+		return []Issue{{File: "project.json", Message: "cannot resolve project directory: " + err.Error()}}
+	}
+
+	_, issues := Load(absDir)
 	return issues
 }
