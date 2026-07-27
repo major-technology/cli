@@ -16,13 +16,18 @@ import (
 // else - never a JSON error/report object - on failure.
 func printCompileIssues(cmd *cobra.Command, issues []projects.Issue) {
 	errStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("196"))
+	warnStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("214"))
 
 	for _, issue := range issues {
 		location := issue.File
 		if issue.Path != "" {
 			location += " " + issue.Path
 		}
-		fmt.Fprintln(cmd.ErrOrStderr(), errStyle.Render("✗ ")+location+": "+issue.Message)
+		prefix := errStyle.Render("✗ ")
+		if issue.IsWarning() {
+			prefix = warnStyle.Render("⚠ ")
+		}
+		fmt.Fprintln(cmd.ErrOrStderr(), prefix+location+": "+issue.Message)
 	}
 }
 
@@ -37,10 +42,14 @@ func newCompileCmd() *cobra.Command {
 		Long:  `Validates and compiles the project directory. With --json, prints the canonical single-line config JSON to stdout; otherwise prints the pretty-printed config and its hash.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			result, issues := projects.CompileWithSkillBundles(dir, skillBundlesDir)
+			errs, _ := projects.PartitionIssues(issues)
 
 			if len(issues) > 0 {
 				printCompileIssues(cmd, issues)
-				return fmt.Errorf("%d validation issue(s)", len(issues))
+			}
+
+			if len(errs) > 0 {
+				return fmt.Errorf("%d validation issue(s)", len(errs))
 			}
 
 			if asJSON {

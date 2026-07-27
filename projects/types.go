@@ -1,10 +1,40 @@
 package projects
 
+// Severity classifies an Issue as blocking or advisory. The zero value is
+// SeverityError, so the many existing Issue{} literals across the package
+// need no changes to keep meaning "this fails validation/compile".
+type Severity string
+
+const (
+	SeverityError   Severity = ""
+	SeverityWarning Severity = "warning"
+)
+
 // Issue is a single validation problem tied to a file and a location within it.
 type Issue struct {
-	File    string `json:"file"`
-	Path    string `json:"path,omitempty"`
-	Message string `json:"message"`
+	File     string   `json:"file"`
+	Path     string   `json:"path,omitempty"`
+	Message  string   `json:"message"`
+	Severity Severity `json:"severity,omitempty"`
+}
+
+// IsWarning reports whether the issue is advisory rather than blocking.
+func (i Issue) IsWarning() bool {
+	return i.Severity == SeverityWarning
+}
+
+// PartitionIssues splits issues into blocking errors and advisory warnings,
+// preserving order within each group. Callers that only care whether a run
+// should fail can check len(errors) > 0.
+func PartitionIssues(issues []Issue) (errors, warnings []Issue) {
+	for _, issue := range issues {
+		if issue.IsWarning() {
+			warnings = append(warnings, issue)
+		} else {
+			errors = append(errors, issue)
+		}
+	}
+	return errors, warnings
 }
 
 // ProjectDefinition is the parsed project.json.

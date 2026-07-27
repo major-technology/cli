@@ -90,7 +90,18 @@ func discoverSkills(dir, srcDir string) ([]SkillDefinition, []Issue) {
 		}
 		seenSlugs[slug] = skillDir
 
-		skills = append(skills, SkillDefinition{Slug: slug, Dir: skillDir})
+		skill := SkillDefinition{Slug: slug, Dir: skillDir}
+
+		// Content-only validation runs as part of discovery (Load), so
+		// `validate` catches dotfiles, size caps, bad frontmatter, etc. It
+		// never touches git *state* - only listSkillFiles's file-listing
+		// path uses git, to exclude gitignored files - so an uncommitted or
+		// never-committed skill directory validates cleanly. Git state
+		// (tree-hash resolution) is a compile-only concern (readSkillBundle).
+		_, contentIssues := validateSkillContent(dir, skill, false)
+		issues = append(issues, contentIssues...)
+
+		skills = append(skills, skill)
 	}
 
 	sort.Slice(skills, func(i, j int) bool { return skills[i].Slug < skills[j].Slug })
@@ -107,48 +118,127 @@ type skillFile struct {
 	content []byte
 }
 
-// readSkillBundle walks a skill directory, validates every file against the
-// server's skill-validator rules, and returns the compiled skill: its slug
-// and the git tree hash of its directory at HEAD. When skillBundlesDir is
-// non-empty, it also writes <skillBundlesDir>/<treeHash>.zip with every file's
-// raw bytes. Symlinks (files or dirs) are rejected, mirroring readPromptFile's
-// symlink handling in prompt.go.
-func readSkillBundle(projectDir string, skill SkillDefinition, skillBundlesDir string) (*CompiledSkill, []Issue) {
+// listSkillFiles resolves the relative file paths under a skill directory.
+// Inside a git repository, the list comes from `git ls-files -co
+// --exclude-standard`: tracked files plus untracked-but-not-ignored ones, so
+// a gitignored file (e.g. .DS_Store) never reaches validation or the bundle -
+// the same file set the platform's compile job sees when it clones the repo
+// at a commit. Outside a git repository, it falls back to a plain filesystem
+// walk (listSkillFilesFS) so `validate` still works anywhere; only the
+// compile-only tree-hash step (resolveSkillTreeHash) cares whether a git
+// repository exists at all.
+func listSkillFiles(projectDir string, skill SkillDefinition) (relPaths []string, insideRepo bool, err error) {
 	root := filepath.Join(projectDir, skill.Dir)
-	needAllContent := skillBundlesDir != ""
 
-	var files []skillFile
-	var issues []Issue
+	repoRoot, gitErr := runGit(root, "rev-parse", "--show-toplevel")
+	if gitErr != nil {
+		paths, walkErr := listSkillFilesFS(root)
+		return paths, false, walkErr
+	}
 
-	walkErr := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
+	relToRepo, err := skillDirRelToRepo(repoRoot, root)
+	if err != nil {
+		return nil, true, err
+	}
+
+	cmd := exec.Command("git", "ls-files", "-co", "--exclude-standard", "-z", "--", relToRepo)
+	cmd.Dir = repoRoot
+
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, true, err
+	}
+
+	relToRepoOS := filepath.FromSlash(relToRepo)
+
+	var paths []string
+	for _, p := range strings.Split(string(out), "\x00") {
+		if p == "" {
+			continue
+		}
+
+		rel, relErr := filepath.Rel(relToRepoOS, filepath.FromSlash(p))
+		if relErr != nil {
+			continue
+		}
+
+		paths = append(paths, filepath.ToSlash(rel))
+	}
+
+	return paths, true, nil
+}
+
+// listSkillFilesFS walks root's filesystem tree and returns every entry's
+// path relative to root, forward-slash separated. Used only as the
+// not-a-git-repository fallback for listSkillFiles. Symlinks are not
+// special-cased here - WalkDir does not traverse into them regardless, and
+// validateSkillContent lstats every path itself to reject them.
+func listSkillFilesFS(root string) ([]string, error) {
+	var relPaths []string
+
+	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
 		}
 		if path == root {
 			return nil
 		}
-
-		relPath := filepath.ToSlash(strings.TrimPrefix(path, root+string(filepath.Separator)))
-		fileID := filepath.Join(skill.Dir, filepath.FromSlash(relPath))
-
-		if d.Type()&fs.ModeSymlink != 0 {
-			issues = append(issues, Issue{
-				File:    fileID,
-				Message: fmt.Sprintf("skill %q: %q is a symlink; symlinks are not allowed", skill.Slug, relPath),
-			})
-			return nil
-		}
-
 		if d.IsDir() {
 			return nil
 		}
 
-		issues = append(issues, validateSkillFilePath(skill.Slug, fileID, relPath)...)
+		relPaths = append(relPaths, filepath.ToSlash(strings.TrimPrefix(path, root+string(filepath.Separator))))
+		return nil
+	})
 
-		info, err := d.Info()
+	return relPaths, err
+}
+
+// validateSkillContent resolves a skill's file list (listSkillFiles) and
+// applies every per-file and bundle-level check ported from the server's
+// skill-validator: dotfiles, size caps, path length, symlink rejection, the
+// 200-file cap, and SKILL.md frontmatter. It never touches git *state* -
+// tree-hash resolution is a separate, compile-only step (resolveSkillTreeHash)
+// - so this is what both Load (content-only validation, used by `validate`)
+// and readSkillBundle (compile) call. needAllContent additionally reads every
+// file's raw bytes (not just SKILL.md's) for bundle zipping.
+func validateSkillContent(projectDir string, skill SkillDefinition, needAllContent bool) ([]skillFile, []Issue) {
+	root := filepath.Join(projectDir, skill.Dir)
+
+	relPaths, _, err := listSkillFiles(projectDir, skill)
+	if err != nil {
+		return nil, []Issue{{File: skill.Dir, Message: fmt.Sprintf("cannot list files for skill %q: %s", skill.Slug, err.Error())}}
+	}
+
+	sort.Strings(relPaths)
+
+	var files []skillFile
+	var issues []Issue
+
+	for _, relPath := range relPaths {
+		fileID := filepath.Join(skill.Dir, filepath.FromSlash(relPath))
+		absPath := filepath.Join(root, filepath.FromSlash(relPath))
+
+		info, err := os.Lstat(absPath)
 		if err != nil {
-			return err
+			// Tracked-but-deleted-from-disk (git ls-files -c reports index
+			// entries regardless of working-tree presence); skip it.
+			continue
 		}
+
+		if info.Mode()&fs.ModeSymlink != 0 {
+			issues = append(issues, Issue{
+				File:    fileID,
+				Message: fmt.Sprintf("skill %q: %q is a symlink; symlinks are not allowed", skill.Slug, relPath),
+			})
+			continue
+		}
+
+		if info.IsDir() {
+			continue
+		}
+
+		issues = append(issues, validateSkillFilePath(skill.Slug, fileID, relPath)...)
 
 		if info.Size() > MaxSkillFileBytes {
 			issues = append(issues, Issue{
@@ -170,20 +260,15 @@ func readSkillBundle(projectDir string, skill SkillDefinition, skillBundlesDir s
 		// other file's bytes are read only if a bundle zip needs them, and are
 		// never treated as UTF-8.
 		if relPath == "SKILL.md" || needAllContent {
-			content, err := os.ReadFile(path)
+			content, err := os.ReadFile(absPath)
 			if err != nil {
 				issues = append(issues, Issue{File: fileID, Message: "cannot read file: " + err.Error()})
-				return nil
+				continue
 			}
 			sf.content = content
 		}
 
 		files = append(files, sf)
-
-		return nil
-	})
-	if walkErr != nil {
-		return nil, []Issue{{File: skill.Dir, Message: fmt.Sprintf("cannot read skill %q: %s", skill.Slug, walkErr.Error())}}
 	}
 
 	if len(files) > MaxSkillFiles {
@@ -218,22 +303,45 @@ func readSkillBundle(projectDir string, skill SkillDefinition, skillBundlesDir s
 		issues = append(issues, validateSkillFrontmatter(skill.Slug, filepath.Join(skill.Dir, "SKILL.md"), skillMD.content)...)
 	}
 
-	treeHash, hashIssues := resolveSkillTreeHash(projectDir, skill)
+	return files, issues
+}
+
+// readSkillBundle validates a skill's content and, only if its git tree hash
+// resolves, returns the compiled skill: its slug and the git tree hash of its
+// directory at HEAD. When skillBundlesDir is non-empty, it also writes
+// <skillBundlesDir>/<treeHash>.zip with every file's raw bytes. Git state is
+// advisory only for local compile (the authoritative compile job always runs
+// on a clean clone where everything is committed): a genuine content problem
+// (bad frontmatter, oversize file, symlink, ...) is a hard error and returns
+// nil, but an unresolved tree hash (not a git repository, or the skill
+// directory never committed) is reported as a warning in the returned issues
+// and the skill is simply omitted (nil, warning-only issues) rather than
+// failing compile.
+func readSkillBundle(projectDir string, skill SkillDefinition, skillBundlesDir string) (*CompiledSkill, []Issue) {
+	needAllContent := skillBundlesDir != ""
+
+	files, issues := validateSkillContent(projectDir, skill, needAllContent)
+
+	treeHash, resolved, hashIssues := resolveSkillTreeHash(projectDir, skill)
 	issues = append(issues, hashIssues...)
 
-	if len(issues) > 0 {
+	if errs, _ := PartitionIssues(issues); len(errs) > 0 {
 		return nil, issues
+	}
+
+	if !resolved {
+		return nil, issues // git state unresolved: warning only, skill omitted
 	}
 
 	sort.Slice(files, func(i, j int) bool { return files[i].relPath < files[j].relPath })
 
 	if needAllContent {
 		if err := writeSkillBundleZip(skillBundlesDir, treeHash, files); err != nil {
-			return nil, []Issue{{File: skill.Dir, Message: fmt.Sprintf("cannot write bundle zip for skill %q: %s", skill.Slug, err.Error())}}
+			return nil, append(issues, Issue{File: skill.Dir, Message: fmt.Sprintf("cannot write bundle zip for skill %q: %s", skill.Slug, err.Error())})
 		}
 	}
 
-	return &CompiledSkill{Slug: skill.Slug, TreeHash: treeHash}, nil
+	return &CompiledSkill{Slug: skill.Slug, TreeHash: treeHash}, issues
 }
 
 // writeSkillBundleZip writes every file in files to
@@ -283,58 +391,73 @@ func runGit(dir string, args ...string) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
+// skillDirRelToRepo resolves a skill directory's path relative to a git
+// repository root, evaluating symlinks first (macOS puts TMPDIR behind a
+// /var -> /private/var symlink) so the two paths are comparable instead of
+// producing a bogus relative path that never matches anything at HEAD. git
+// itself already resolves symlinks in `rev-parse --show-toplevel`, so only
+// skillDir needs the same treatment here.
+func skillDirRelToRepo(repoRoot, skillDir string) (string, error) {
+	realSkillDir, err := filepath.EvalSymlinks(skillDir)
+	if err != nil {
+		return "", err
+	}
+
+	rel, err := filepath.Rel(repoRoot, realSkillDir)
+	if err != nil {
+		return "", err
+	}
+
+	return filepath.ToSlash(rel), nil
+}
+
 // resolveSkillTreeHash computes the compiled tree hash for a skill directory:
 // the git tree object hash of the directory at HEAD (git rev-parse
-// HEAD:<repo-relative-path>). If the project isn't inside a git repository,
-// or the skill directory has never been committed, that's a validation issue
-// telling the user to commit it first. If the skill directory has uncommitted
-// changes, the hash still resolves (it reflects HEAD), but that's reported as
-// an issue too - Issue has no severity levels, so this is a hard issue, not
-// merely a warning; the authoritative compile always runs on a clean clone at
-// a fixed commit, so in practice this only affects local runs.
-func resolveSkillTreeHash(projectDir string, skill SkillDefinition) (string, []Issue) {
+// HEAD:<repo-relative-path>). Git state is advisory only, never a hard error:
+// local compile is a convenience ahead of the authoritative compile job,
+// which always runs on a clean clone where every directory is committed, so
+// nothing uncommitted locally can ever reach a deploy. If the project isn't
+// inside a git repository, or the skill directory has never been committed,
+// resolved is false and the returned issue is a warning telling the caller to
+// skip the skill (readSkillBundle omits it from the compiled config rather
+// than failing compile). If the skill directory has uncommitted changes, the
+// hash still resolves (it reflects HEAD), but that's reported as a warning
+// too.
+func resolveSkillTreeHash(projectDir string, skill SkillDefinition) (hash string, resolved bool, issues []Issue) {
 	absSkillDir := filepath.Join(projectDir, skill.Dir)
 
 	repoRoot, err := runGit(absSkillDir, "rev-parse", "--show-toplevel")
 	if err != nil {
-		return "", []Issue{{
-			File:    skill.Dir,
-			Message: fmt.Sprintf("skill %q is not inside a git repository; commit the project, including the skill directory, before compiling", skill.Slug),
+		return "", false, []Issue{{
+			Severity: SeverityWarning,
+			File:     skill.Dir,
+			Message:  fmt.Sprintf("skill %q skipped: not inside a git repository; commit the skill directory (%s) to compile it - the tree hash is derived from git", skill.Slug, skill.Dir),
 		}}
 	}
 
-	// git resolves symlinks in --show-toplevel; resolve absSkillDir the same
-	// way (macOS puts TMPDIR behind a /var -> /private/var symlink) so the two
-	// paths are comparable instead of producing a bogus "../../.." relative
-	// path that still resolves but never matches HEAD.
-	realSkillDir, err := filepath.EvalSymlinks(absSkillDir)
+	relToRepo, err := skillDirRelToRepo(repoRoot, absSkillDir)
 	if err != nil {
-		return "", []Issue{{File: skill.Dir, Message: "cannot resolve skill directory path: " + err.Error()}}
+		return "", false, []Issue{{Severity: SeverityWarning, File: skill.Dir, Message: "cannot resolve skill directory relative to the git repository root: " + err.Error()}}
 	}
 
-	relToRepo, err := filepath.Rel(repoRoot, realSkillDir)
-	if err != nil {
-		return "", []Issue{{File: skill.Dir, Message: "cannot resolve skill directory relative to the git repository root: " + err.Error()}}
-	}
-	relToRepo = filepath.ToSlash(relToRepo)
-
-	hash, err := runGit(repoRoot, "rev-parse", "HEAD:"+relToRepo)
-	if err != nil || !skillTreeHashPattern.MatchString(hash) {
-		return "", []Issue{{
-			File:    skill.Dir,
-			Message: fmt.Sprintf("skill %q has never been committed to git; commit the skill directory (%s) before compiling", skill.Slug, relToRepo),
+	headHash, err := runGit(repoRoot, "rev-parse", "HEAD:"+relToRepo)
+	if err != nil || !skillTreeHashPattern.MatchString(headHash) {
+		return "", false, []Issue{{
+			Severity: SeverityWarning,
+			File:     skill.Dir,
+			Message:  fmt.Sprintf("skill %q skipped: commit the skill directory (%s) to compile it - the tree hash is derived from git", skill.Slug, relToRepo),
 		}}
 	}
 
-	var issues []Issue
 	if status, statusErr := runGit(repoRoot, "status", "--porcelain", "--", relToRepo); statusErr == nil && status != "" {
 		issues = append(issues, Issue{
-			File:    skill.Dir,
-			Message: fmt.Sprintf("skill %q has uncommitted changes; the compiled tree hash reflects the last commit (HEAD), not the working tree", skill.Slug),
+			Severity: SeverityWarning,
+			File:     skill.Dir,
+			Message:  fmt.Sprintf("skill %q has uncommitted changes; the tree hash reflects the last commit (HEAD), not your working tree - commit before pushing", skill.Slug),
 		})
 	}
 
-	return hash, issues
+	return headHash, true, issues
 }
 
 // validateSkillFilePath ports the path-level checks from the server's
