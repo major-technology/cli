@@ -15,14 +15,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       # TODO: drop the "not live yet" skip-with-warning branch below and make
-      # this job strict once prod serves GET /schemas/{project,agent}.json.
+      # this job strict once prod serves GET /schemas/{project,agent,bindings}.json.
       - name: Check vendored schemas against the platform API
         env:
           MAJOR_SCHEMAS_BASE_URL: https://api.major.tech
         run: |
           set -e
           status=0
-          for pair in "project:projects/schemas/project.schema.json" "agent:projects/schemas/agent.schema.json"; do
+          for pair in "project:projects/schemas/project.schema.json" "agent:projects/schemas/agent.schema.json" "bindings:projects/schemas/bindings.schema.json"; do
             name="${pair%%:*}"
             vendored="${pair##*:}"
             url="$MAJOR_SCHEMAS_BASE_URL/schemas/$name.json"

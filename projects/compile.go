@@ -69,6 +69,9 @@ func compile(dir, skillBundlesDir string) (*CompileResult, []Issue) {
 			Model:        a.Model,
 			SystemPrompt: prompt,
 			Env:          a.Env,
+			Connectors:   resolveConnectors(a.Connectors, loaded.Bindings),
+			Apps:         resolveApps(a.Apps, loaded.Bindings),
+			Skills:       resolveSkillRefs(a.Skills, loaded.Bindings),
 		})
 	}
 

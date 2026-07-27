@@ -13,6 +13,7 @@ func TestSchemasCompile(t *testing.T) {
 	}{
 		{"project", ProjectSchema},
 		{"agent", AgentSchema},
+		{"bindings", BindingsSchema},
 	}
 
 	for _, tt := range tests {

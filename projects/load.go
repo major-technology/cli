@@ -20,9 +20,10 @@ var schemaMessagePrinter = message.NewPrinter(language.English)
 
 // reservedAgentFields are agent.json keys claimed by future versions. They are
 // rejected with a dedicated message so v1 can introduce them without silent
-// behavior changes on old CLIs.
+// behavior changes on old CLIs. "connectors", "apps", and "skills" were
+// reserved in v0 and are now supported (MAJ-290).
 var reservedAgentFields = []string{
-	"schedules", "connectors", "apps", "toolPermissions", "tools", "hooks", "skills",
+	"schedules", "toolPermissions", "tools", "hooks",
 }
 
 // rawSystemPrompt accepts either an inline string or {"file": "./x.md"}.
@@ -50,13 +51,120 @@ func (s *rawSystemPrompt) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
+// rawSkillRef accepts either a bare string (a project-local skill slug) or
+// {"slot": "..."} (a platform skill via bindings.json). The two syntaxes are
+// disjoint, so exactly one field is ever set.
+type rawSkillRef AgentSkillRef
+
+func (r *rawSkillRef) UnmarshalJSON(b []byte) error {
+	var slug string
+	if err := json.Unmarshal(b, &slug); err == nil {
+		r.Slug = slug
+		return nil
+	}
+
+	var obj struct {
+		Slot string `json:"slot"`
+	}
+
+	if err := json.Unmarshal(b, &obj); err != nil {
+		return err
+	}
+
+	r.Slot = obj.Slot
+	return nil
+}
+
 type rawAgent struct {
-	Slug         string             `json:"slug"`
-	Name         string             `json:"name"`
-	Description  string             `json:"description"`
-	Model        string             `json:"model"`
-	SystemPrompt rawSystemPrompt    `json:"systemPrompt"`
-	Env          map[string]*string `json:"env"`
+	Slug         string              `json:"slug"`
+	Name         string              `json:"name"`
+	Description  string              `json:"description"`
+	Model        string              `json:"model"`
+	SystemPrompt rawSystemPrompt     `json:"systemPrompt"`
+	Env          map[string]*string  `json:"env"`
+	Connectors   []AgentConnectorRef `json:"connectors"`
+	Apps         []AgentAppRef       `json:"apps"`
+	Skills       []rawSkillRef       `json:"skills"`
+}
+
+// checkAgentFacetDuplicates reports duplicate slots, duplicate per-connector
+// tools, duplicate per-app {method,path} pairs, and duplicate skill
+// references within a single agent.json. Duplicates are always an authoring
+// mistake: the later entry would silently win at deploy.
+func checkAgentFacetDuplicates(ra rawAgent, agentFile string) []Issue {
+	var issues []Issue
+
+	seenConnectors := map[string]bool{}
+	for i, connector := range ra.Connectors {
+		if seenConnectors[connector.Slot] {
+			issues = append(issues, Issue{
+				File:    agentFile,
+				Path:    fmt.Sprintf("/connectors/%d/slot", i),
+				Message: fmt.Sprintf("duplicate connector slot %q", connector.Slot),
+			})
+		}
+		seenConnectors[connector.Slot] = true
+
+		seenTools := map[string]bool{}
+		for j, permission := range connector.Permissions {
+			if seenTools[permission.Tool] {
+				issues = append(issues, Issue{
+					File:    agentFile,
+					Path:    fmt.Sprintf("/connectors/%d/permissions/%d/tool", i, j),
+					Message: fmt.Sprintf("duplicate permission for tool %q on connector slot %q", permission.Tool, connector.Slot),
+				})
+			}
+			seenTools[permission.Tool] = true
+		}
+	}
+
+	seenApps := map[string]bool{}
+	for i, app := range ra.Apps {
+		if seenApps[app.Slot] {
+			issues = append(issues, Issue{
+				File:    agentFile,
+				Path:    fmt.Sprintf("/apps/%d/slot", i),
+				Message: fmt.Sprintf("duplicate app slot %q", app.Slot),
+			})
+		}
+		seenApps[app.Slot] = true
+
+		seenEndpoints := map[string]bool{}
+		for j, permission := range app.Permissions {
+			key := permission.Method + " " + permission.Path
+
+			if seenEndpoints[key] {
+				issues = append(issues, Issue{
+					File:    agentFile,
+					Path:    fmt.Sprintf("/apps/%d/permissions/%d", i, j),
+					Message: fmt.Sprintf("duplicate permission for %s on app slot %q", key, app.Slot),
+				})
+			}
+			seenEndpoints[key] = true
+		}
+	}
+
+	seenSkills := map[string]bool{}
+	for i, skill := range ra.Skills {
+		key := "slug:" + skill.Slug
+		label := fmt.Sprintf("project skill %q", skill.Slug)
+
+		if skill.Slot != "" {
+			key = "slot:" + skill.Slot
+			label = fmt.Sprintf("skill slot %q", skill.Slot)
+		}
+
+		if seenSkills[key] {
+			issues = append(issues, Issue{
+				File:    agentFile,
+				Path:    fmt.Sprintf("/skills/%d", i),
+				Message: "duplicate reference to " + label,
+			})
+		}
+		seenSkills[key] = true
+	}
+
+	return issues
 }
 
 type rawProject struct {
@@ -212,6 +320,14 @@ func Load(dir string) (*LoadedProject, []Issue) {
 	skills, skillIssues := discoverSkills(dir, srcDir)
 	issues = append(issues, skillIssues...)
 
+	bindings, bindingIssues := loadBindings(dir)
+	issues = append(issues, bindingIssues...)
+
+	skillSlugs := map[string]bool{}
+	for _, s := range skills {
+		skillSlugs[s.Slug] = true
+	}
+
 	agentsDir := filepath.Join(dir, srcDir, "agents")
 	entries, err := os.ReadDir(agentsDir)
 	if err != nil {
@@ -220,7 +336,7 @@ func Load(dir string) (*LoadedProject, []Issue) {
 		if len(issues) > 0 {
 			return nil, issues
 		}
-		return &LoadedProject{Definition: ProjectDefinition{Name: proj.Name, SrcDir: srcDir}, Skills: skills}, nil
+		return &LoadedProject{Definition: ProjectDefinition{Name: proj.Name, SrcDir: srcDir}, Skills: skills, Bindings: bindings}, nil
 	}
 
 	var agents []AgentDefinition
@@ -267,20 +383,45 @@ func Load(dir string) (*LoadedProject, []Issue) {
 		}
 		seenSlugs[ra.Slug] = agentFile
 
+		if dupIssues := checkAgentFacetDuplicates(ra, agentFile); len(dupIssues) > 0 {
+			issues = append(issues, dupIssues...)
+			continue
+		}
+
 		systemPrompt := ra.SystemPrompt.Inline
 		if ra.SystemPrompt.File != "" {
 			systemPrompt = "file:" + ra.SystemPrompt.File
 		}
 
-		agents = append(agents, AgentDefinition{
+		agentSkills := make([]AgentSkillRef, 0, len(ra.Skills))
+		for _, s := range ra.Skills {
+			agentSkills = append(agentSkills, AgentSkillRef(s))
+		}
+		if len(agentSkills) == 0 {
+			agentSkills = nil
+		}
+
+		agent := AgentDefinition{
 			Slug:         ra.Slug,
 			Name:         ra.Name,
 			Description:  ra.Description,
 			Model:        ra.Model,
 			SystemPrompt: systemPrompt,
 			Env:          ra.Env,
+			Connectors:   ra.Connectors,
+			Apps:         ra.Apps,
+			Skills:       agentSkills,
 			Dir:          filepath.Join(srcDir, "agents", entry.Name()),
-		})
+		}
+
+		// Reference validation needs the whole project (bindings + every
+		// project-local skill), both of which are already resolved above.
+		if refIssues := validateAgentReferences(agent, bindings, skillSlugs, srcDir); len(refIssues) > 0 {
+			issues = append(issues, refIssues...)
+			continue
+		}
+
+		agents = append(agents, agent)
 	}
 
 	if len(issues) > 0 {
@@ -293,5 +434,6 @@ func Load(dir string) (*LoadedProject, []Issue) {
 		Definition: ProjectDefinition{Name: proj.Name, SrcDir: srcDir},
 		Agents:     agents,
 		Skills:     skills,
+		Bindings:   bindings,
 	}, nil
 }

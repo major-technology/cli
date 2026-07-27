@@ -1,4 +1,5 @@
-source: /Users/josegiron/orca/workspaces/mono-builder/project-skills (working tree, apps/api/src/shared/constants/schemas)
-fetched: 2026-07-25T23:08:17Z
+source: /Users/josegiron/orca/workspaces/mono-builder/project-full-agent (working tree, apps/api/src/shared/constants/schemas)
+fetched: 2026-07-26T07:13:33Z
 47002e01681b41a1030b88e395897008b370c4a42b465b541e77038f8b2509d1  projects/schemas/project.schema.json
-30f8146f88d12dcec76653f167b0843f0edb05fde6db6e74926b2f154747128b  projects/schemas/agent.schema.json
+92de228ebbe57c186a90c71761336b4cd69c692faf05c6f964e65b7c1b7b3a14  projects/schemas/agent.schema.json
+58a425b5d3aff5e93cf8e8409301c1629e121237e8de092f962247f860d8515b  projects/schemas/bindings.schema.json

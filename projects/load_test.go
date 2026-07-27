@@ -122,10 +122,10 @@ func TestLoadDuplicateSlugs(t *testing.T) {
 	}
 }
 
-// TestLoadAgentSkillsFieldReservedAgain checks that agent-skill attachment is
-// gone: agent.json's "skills" field is reserved again (load.go), not parsed
-// or cross-referenced against declared skills.
-func TestLoadAgentSkillsFieldReservedAgain(t *testing.T) {
+// TestLoadAgentSkillsFieldSupported checks that agent.json's "skills" field is
+// no longer reserved (MAJ-290): a bare string names a project-local skill and
+// is cross-referenced against the project's skill directories.
+func TestLoadAgentSkillsFieldSupported(t *testing.T) {
 	dir := t.TempDir()
 	writeFixtureProject(t, dir)
 
@@ -139,8 +139,11 @@ func TestLoadAgentSkillsFieldReservedAgain(t *testing.T) {
 	}
 
 	_, issues := Load(dir)
-	if !findIssue(issues, "reserved for a future version") || !findIssue(issues, "skills") {
-		t.Fatalf("expected \"skills\" to be reserved again, got: %+v", issues)
+	if findIssue(issues, "reserved for a future version") {
+		t.Fatalf("\"skills\" must no longer be reserved, got: %+v", issues)
+	}
+	if !findIssue(issues, `skill "pdf-tools" is not a skill in this project`) {
+		t.Fatalf("expected an unresolved project-skill issue, got: %+v", issues)
 	}
 }
 
