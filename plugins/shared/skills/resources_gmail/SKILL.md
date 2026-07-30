@@ -39,11 +39,79 @@ Gmail requires OAuth authentication before use.
 
 ## MCP Tools
 
-- `mcp__resources__gmail_list_messages` — Search and list emails. Args: `resourceId`, `q?` (Gmail search syntax), `maxResults?`, `pageToken?`. **Returns only message IDs and thread IDs** — always follow up with `gmail_get_message` for content.
-- `mcp__resources__gmail_get_message` — Get a specific email by ID with full content. Args: `resourceId`, `messageId`, `format?` (default: "full")
+- `mcp__resources__gmail_list_messages` — Search and list emails. Args: `resourceId`, `q?` (Gmail search syntax), `maxResults?`, `pageToken?`. **Returns only message IDs and thread IDs** — always follow up with `gmail_get_message` for headers or content.
+- `mcp__resources__gmail_get_message` — Get one message by ID. Args: `resourceId`, `messageId`, `format?` (default: `"full"`). Use `format="metadata"` when you only need headers, and the default `format="full"` for message content — it returns a **normalized, bounded** response (see below). Never reach for `gmail_invoke` to read an ordinary message.
 - `mcp__resources__gmail_send_message` — Send a plain-text email. Args: `resourceId`, `to`, `subject`, `body`, `cc?`, `bcc?`. Requires the `readwrite` scope preset.
 - `mcp__resources__gmail_list_labels` — List all Gmail labels (inbox, sent, custom labels). Args: `resourceId`
-- `mcp__resources__gmail_invoke` — Make any HTTP request to the Gmail API v1 (for operations not covered by other tools). Args: `resourceId`, `method`, `path`, `query?`, `body?`, `timeoutMs?`
+- `mcp__resources__gmail_invoke` — Escape hatch for Gmail API v1 operations the typed tools don't cover (complete threads, drafts, label modification, attachment bytes). Args: `resourceId`, `method`, `path`, `query?`, `body?`, `timeoutMs?`. Returns the **unmodified** Gmail response, so it is not bounded — see the fallback section below.
+
+### Reading messages
+
+Standard flow — two steps, no raw MIME, no manual decoding:
+
+1. `gmail_list_messages` → message IDs.
+2. `gmail_get_message` per ID → `format="metadata"` for headers only, or the default `format="full"` for content.
+
+`format="full"` is normalized into an agent-friendly, size-bounded object at `body.value`:
+
+| Field (full path in the tool result) | Meaning |
+| --- | --- |
+| `body.value.headers` | Selected headers only: `from`, `to`, `cc`, `bcc`, `subject`, `date`, `reply-to`, `in-reply-to`, `message-id`. Each is `{ name, value }`. |
+| `body.value.body.text` | The **already-decoded** message text. Prefers `text/plain`, falling back to `text/html`. |
+| `body.value.body.mimeType` | Which of the two the text came from (`text/plain` or `text/html`). |
+| `body.value.body.truncated` | `true` when the text was cut to fit the budget. |
+| `body.value.body.originalChars` | Character count of the full decoded text before truncation, so you can tell how much you're missing. |
+| `body.value.attachments` | Bounded metadata only — `filename`, `mimeType`, `size`, `attachmentId`. **Never base64 payload bytes.** |
+| `body.value.attachmentsTruncated` | `true` when attachments were dropped to fit the budget. |
+
+(`body.value` is the message; `body.value.body` is its decoded content — the outer `body` is the HTTP response envelope.)
+
+The text is capped at 16,000 characters and the whole formatted response at roughly 20KB; when the response would still be too large, the body text is trimmed further and then attachments, labels, and headers are shed. Read the `truncated` / `originalChars` / `attachmentsTruncated` flags rather than assuming you got everything.
+
+```jsonc
+// gmail_get_message(resourceId, messageId, format: "full") →
+{
+  "kind": "api",
+  "status": 200,
+  "body": {
+    "kind": "json",
+    "value": {
+      "id": "m1",
+      "threadId": "t1",
+      "labelIds": ["INBOX", "UNREAD"],
+      "snippet": "hi",
+      "headers": [
+        { "name": "From", "value": "a@b.com" },
+        { "name": "Subject", "value": "Hello" }
+      ],
+      "body": { "mimeType": "text/plain", "text": "Hello", "truncated": false, "originalChars": 5 },
+      "attachments": [
+        { "filename": "a.pdf", "mimeType": "application/pdf", "size": 10, "attachmentId": "att1" }
+      ],
+      "attachmentsTruncated": false
+    }
+  }
+}
+```
+
+Because the text arrives decoded, **do not** base64-decode it, and do not write the response to a file to `Read`/`grep`/parse it back — read `body.value.body.text` directly from the tool result.
+
+Only `format="full"` is normalized. `metadata`, `minimal`, and `raw` pass through as the upstream Gmail shape, so `metadata` headers stay under `body.value.payload.headers` and `raw` still returns base64 (`raw` is rarely what you want — prefer `full`). Gmail error responses and non-2xx statuses are passed through untouched, so keep checking `status`.
+
+### When to fall back to `gmail_invoke`
+
+Reserve it for operations the typed tools don't cover — most commonly fetching a **complete thread**:
+
+```jsonc
+gmail_invoke({
+  resourceId,
+  method: "GET",
+  path: "users/me/threads/THREAD_ID",
+  query: { "format": ["metadata"] }   // values are ARRAYS of strings
+})
+```
+
+`query` is `map[string][]string`: every value must be an array, so it's `{"format": ["metadata"]}`, never `{"format": "metadata"}`. Since `gmail_invoke` returns the raw Gmail response, a thread fetched with `format="full"` carries base64 MIME parts for every message and can be enormous — prefer `format=["metadata"]` to enumerate the thread, then `gmail_get_message` per message ID for bounded content.
 
 ## TypeScript Client
 
@@ -61,9 +129,13 @@ if (result.ok && result.result.status === 200 && result.result.body.kind === "js
 	const messages = result.result.body.value.messages;
 }
 
-// Get a specific message
+// Get a specific message. The client is a thin wrapper over the Gmail API, so this
+// returns the RAW Gmail shape (base64 MIME parts under body.value.payload) — the
+// normalization and size bounds described above apply to the gmail_get_message MCP
+// tool, not to gmailClient.invoke. In app code, decode payload parts yourself, or
+// request format=metadata when headers are enough.
 const msgResult = await gmailClient.invoke("GET", "users/me/messages/MSG_ID", "get-message", {
-	query: { format: "full" },
+	query: { format: "metadata" },
 });
 ```
 
@@ -71,8 +143,8 @@ const msgResult = await gmailClient.invoke("GET", "users/me/messages/MSG_ID", "g
 
 - **All paths are relative to `https://gmail.googleapis.com/gmail/v1/`** — e.g. use `users/me/messages`, not the full URL.
 - **Gmail search syntax**: `from:user@example.com`, `subject:meeting`, `after:2024/01/01`, `is:unread`, `has:attachment`, `label:INBOX`. Combine with spaces (AND) or `OR`.
-- **Message format options**: `full` (headers + parsed body), `metadata` (headers only), `minimal` (IDs only), `raw` (RFC 2822 encoded).
-- **Two-step read pattern**: `list_messages` returns only IDs → use `get_message` to fetch full content.
+- **Message format options**: `full` (default — normalized, bounded, decoded text), `metadata` (headers only), `minimal` (IDs only), `raw` (RFC 2822, base64). Only `full` is normalized.
+- **Two-step read pattern**: `list_messages` returns only IDs → `get_message` with `format="metadata"` for headers or the default `format="full"` for content. Use `gmail_invoke` only for what the typed tools don't cover, e.g. complete threads.
 - **Pagination**: Check `nextPageToken` in the response and pass it as `pageToken` to get the next page.
 - Response structure: `{ kind: "api", status: number, body: { kind: "json", value: {...} } }`
 - **Scope presets**: "readonly" (read/search only) or "readwrite" (read/search + send). Send operations fail with 403 on readonly.
