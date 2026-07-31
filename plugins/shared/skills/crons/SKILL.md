@@ -9,9 +9,14 @@ Scheduled work on Major is handled by **workflows**: graphs of steps run by the 
 
 The legacy `cron.json` system is retired — the file is no longer read on deploy, and existing crons were migrated to workflows automatically. If the project still has a `cron.json`, it has no effect and can be deleted.
 
-## Your job: implement the route
+## Building a scheduled job
 
-From a coding session you build the app side only — an HTTP route that performs the work:
+Both halves are yours to build:
+
+1. **The route** — implement an HTTP route in the app that performs the work (see below), and deploy it: workflows call the deployed app.
+2. **The workflow** — invoke the **`workflow-builder`** skill and follow it to build the workflow itself: create the workflow, define a cron trigger and an `app_call` node targeting the route's method and path, then save, test, and publish through that skill's lifecycle.
+
+## The route
 
 ```typescript
 // app/api/jobs/cleanup/route.ts
@@ -23,17 +28,12 @@ export async function POST() {
 
 How workflow calls reach the route:
 
-- Calls go to the **deployed** app, so the app must be deployed before a workflow can call the route.
+- Calls go to the **deployed** app, so the app must be deployed before the workflow can call the route.
 - Requests arrive authenticated as the Major user the workflow runs as (via a platform-signed app-call JWT) — the route needs no webhook access and the app does not need to be public.
 - The step's configured input arrives as query params for GET/DELETE and as a JSON body for POST/PUT/PATCH.
 - The response body becomes the step's output, available to later steps in the workflow.
 
-## Creating the schedule
-
-Workflows are created and managed in the Major web app, not from this coding session. After building the route:
-
-1. Tell the user to deploy so the route exists on the deployed app.
-2. Point them to the **Workflows** page in the Major dashboard to create (or update) a workflow with a cron trigger and an `app_call` step targeting the route's method and path.
+## Cron schedules
 
 Cron triggers use a 5-field cron expression (`minute hour day-of-month month day-of-week` — no seconds field) with an IANA timezone. Common schedules:
 
