@@ -40,7 +40,7 @@ Gmail requires OAuth authentication before use.
 ## MCP Tools
 
 - `mcp__resources__gmail_list_messages` — Search and list emails. Args: `resourceId`, `q?` (Gmail search syntax), `maxResults?`, `pageToken?`. **Returns only message IDs and thread IDs** — always follow up with `gmail_get_message` for headers or content.
-- `mcp__resources__gmail_get_message` — Get one message by ID. Args: `resourceId`, `messageId`, `format?` (default: `"full"`). Use `format="metadata"` when you only need headers, and the default `format="full"` for message content — it returns a **normalized, bounded** response (see below). Never reach for `gmail_invoke` to read an ordinary message.
+- `mcp__resources__gmail_get_message` — Get one message by ID. Args: `resourceId`, `messageId`, `format?` (default: `"full"`). Use `format="metadata"` when you only need headers, and the default `format="full"` for message content — it returns a **normalized** response (see below). Never reach for `gmail_invoke` to read an ordinary message.
 - `mcp__resources__gmail_send_message` — Send a plain-text email. Args: `resourceId`, `to`, `subject`, `body`, `cc?`, `bcc?`. Requires the `readwrite` scope preset.
 - `mcp__resources__gmail_list_labels` — List all Gmail labels (inbox, sent, custom labels). Args: `resourceId`
 - `mcp__resources__gmail_invoke` — Escape hatch for Gmail API v1 operations the typed tools don't cover (complete threads, drafts, label modification, attachment bytes). Args: `resourceId`, `method`, `path`, `query?`, `body?`, `timeoutMs?`. Returns the **unmodified** Gmail response, so it is not bounded — see the fallback section below.
@@ -113,6 +113,23 @@ gmail_invoke({
 
 `query` is `map[string][]string`: every value must be an array, so it's `{"format": ["metadata"]}`, never `{"format": "metadata"}`. Since `gmail_invoke` returns the raw Gmail response, a thread fetched with `format="full"` carries base64 MIME parts for every message and can be enormous — prefer `format=["metadata"]` to enumerate the thread, then `gmail_get_message` per message ID for bounded content.
 
+### If any Gmail tool result comes back as a file reference
+
+Regardless of which tool triggered it, do not `Read` the file into context. Use `jq` to pull out only what you need:
+
+```bash
+# Headers only, across every message in a thread dump
+jq '.messages[].payload.headers' /path/to/response.json
+
+# Just the plain-text body part of one message, still base64 (decode after)
+jq -r '.payload.parts[] | select(.mimeType == "text/plain") | .body.data' /path/to/response.json
+
+# Count messages / list IDs without loading bodies
+jq '.messages | map(.id)' /path/to/response.json
+```
+
+Filter with `jq` first, decode base64 (`| base64 -d`) only on the small slice you actually need, and never pipe the full file through `cat`/`Read`.
+
 ## TypeScript Client
 
 ```typescript
@@ -145,6 +162,7 @@ const msgResult = await gmailClient.invoke("GET", "users/me/messages/MSG_ID", "g
 - **Gmail search syntax**: `from:user@example.com`, `subject:meeting`, `after:2024/01/01`, `is:unread`, `has:attachment`, `label:INBOX`. Combine with spaces (AND) or `OR`.
 - **Message format options**: `full` (default — normalized, bounded, decoded text), `metadata` (headers only), `minimal` (IDs only), `raw` (RFC 2822, base64). Only `full` is normalized.
 - **Two-step read pattern**: `list_messages` returns only IDs → `get_message` with `format="metadata"` for headers or the default `format="full"` for content. Use `gmail_invoke` only for what the typed tools don't cover, e.g. complete threads.
+- **File-reference responses**: if any Gmail tool result comes back as a file reference instead of inline JSON, use `jq` to extract the fields you need (see above) rather than reading the whole file.
 - **Pagination**: Check `nextPageToken` in the response and pass it as `pageToken` to get the next page.
 - Response structure: `{ kind: "api", status: number, body: { kind: "json", value: {...} } }`
 - **Scope presets**: "readonly" (read/search only) or "readwrite" (read/search + send). Send operations fail with 403 on readonly.
