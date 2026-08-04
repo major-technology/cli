@@ -1,6 +1,6 @@
 ---
 name: using-managed-database
-description: Understand and use Major-managed PostgreSQL databases. Use when the user wants a database, needs to store data, mentions "managed database", or asks about database setup.
+description: Set up and use Major-managed PostgreSQL databases. Use when the user wants a database, needs to store data, mentions "managed database", or asks about database setup.
 ---
 
 # Major Platform: Managed Databases
@@ -13,20 +13,29 @@ A managed database is a Major-hosted PostgreSQL instance provisioned and managed
 
 There are two types of managed databases:
 
-- **App-scoped**: Belongs to a single application. Permissions are automatically inherited from app roles — app admins and editors get `Resource:Admin` on the database. Other apps cannot access it.
+- **App-scoped** (created by this tool): Belongs to a single application. Permissions are automatically inherited from app roles — app admins and editors get `Resource:Admin` on the database. Other apps cannot access it.
 - **Org-scoped**: Shared across all apps in the organization. Created by org admins through the dashboard. Visible to all apps with appropriate permissions.
 
-## Lifecycle and Migrations
+The `setup_managed_database` MCP tool creates **app-scoped** databases only.
 
-Managed database lifecycle and migration tools have moved to orchestrator/build surfaces; they are not resource MCP tools. Do not invent or call a resource MCP setup, provisioning, deprovisioning, or migration tool. Use the lifecycle tools exposed by the current orchestrator/build context. Once a managed PostgreSQL resource is connected, use the resource MCP tools below for SQL.
+## Setting Up a Managed Database
+
+Call `mcp__resources__setup_managed_database` — no arguments needed. The tool automatically provisions a database for the current application.
+
+**Behavior:**
+
+- **First call** (no database exists): Starts provisioning. Takes around 1 minute.
+- **While provisioning**: Returns status. Wait ~1 minute and call again.
+- **Once active**: Returns the resource ID. The database is ready to use.
+- **If failed**: Returns failure status. Deprovision and try again.
 
 ## Using the Database Once Active
 
-After the database is connected and you have its resource ID:
+After setup completes and you have the resource ID:
 
 1. **MCP tools** (direct SQL, no code needed):
-   - `mcp__resources__postgresql_psql` — Read-only SQL queries and psql commands (`\dt`, `\d`, etc.). Args: `resourceId`, `command`, `timeoutMs?`
-   - `mcp__resources__postgresql_invoke` — DDL/DML and other write queries. Args: `resourceId`, `sql`, `params?`, `timeoutMs?`. Use `$1`, `$2`, ... placeholders in `sql` and pass their values positionally in `params`.
+   - `mcp__resources__postgresql_psql` — Read-only SQL queries and psql commands (`\dt`, `\d`, etc.). Args: `resourceId`, `command`
+   - `mcp__resources__postgresql_invoke` — DDL/DML and other write queries on connected PostgreSQL databases. Args: `resourceId`, `sql`, `params?`, `timeoutMs?`. Use `$1`, `$2`, ... placeholders in `sql` and pass their values positionally in `params`.
 
 2. **Generated TypeScript clients** (for app code):
    - Call `mcp__resource-tools__add-resource-client` with the `resourceId` to generate a typed PostgreSQL client
@@ -39,17 +48,18 @@ In `mcp__resources__list_resources`, managed databases have `isManaged: true` an
 - `managedScope: "app"` — App-scoped, belongs to this application only
 - `managedScope: "org"` — Org-scoped, shared across all apps in the organization
 
-Regular (external) PostgreSQL resources have `isManaged: false`.
+The `postgresql_invoke` tool works with connected managed and external PostgreSQL resources. Regular (external) PostgreSQL resources have `isManaged: false`.
 
 ## Choosing Between App and Org Databases
 
 If the user has both an app-scoped and an org-scoped managed database available, **ask the user which one they want to use** before proceeding. Do not assume. For example: "I see you have both an app database and an organization-wide database. Which one should I use for this task?"
 
-If there is only an app-scoped database, use it without asking. If there is only an org-scoped database, ask whether the user wants to use it or provision an app-scoped database through the available orchestrator/build workflow. Generally, prefer an app database unless the data should be shared across the organization.
+If there is only an app-scoped database just use that one, don't ask. If there is only an org-scoped database, ask the user if they'd like to make a new app-scoped db. Generally, it's better to use an app DB unless there's a real
+reason that data that should be shared for the entire org.
 
 ## Tips
 
 - Use `postgresql_psql` for read-only exploration (schema inspection, SELECT queries)
-- Use `postgresql_invoke` for schema changes and data modifications on connected managed databases
+- Use `postgresql_invoke` for schema changes and data modifications on connected PostgreSQL databases
 - Use parameterized queries (`$1`, `$2`, ...) — never interpolate values into SQL strings
-- After creating tables, generate a TypeScript client for the app to use in code
+- After creating tables with `postgresql_invoke`, generate a TypeScript client for the app to use in code
