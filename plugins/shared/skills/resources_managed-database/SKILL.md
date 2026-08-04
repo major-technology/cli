@@ -35,7 +35,7 @@ After setup completes and you have the resource ID:
 
 1. **MCP tools** (direct SQL, no code needed):
    - `mcp__resources__postgresql_psql` — Read-only SQL queries and psql commands (`\dt`, `\d`, etc.). Args: `resourceId`, `command`
-   - `mcp__resources__postgresql_invoke` — DDL/DML and other write queries on connected PostgreSQL databases. Args: `resourceId`, `sql`, `params?`, `timeoutMs?`. Use `$1`, `$2`, ... placeholders in `sql` and pass their values positionally in `params`.
+   - `mcp__orchestrator-platform__run_migration` — DDL/DML migrations on the application's managed database. Args: `migration`, `description`, plus `applicationId` in org-scoped sessions.
 
 2. **Generated TypeScript clients** (for app code):
    - Call `mcp__resource-tools__add-resource-client` with the `resourceId` to generate a typed PostgreSQL client
@@ -48,7 +48,7 @@ In `mcp__resources__list_resources`, managed databases have `isManaged: true` an
 - `managedScope: "app"` — App-scoped, belongs to this application only
 - `managedScope: "org"` — Org-scoped, shared across all apps in the organization
 
-The `postgresql_invoke` tool works with connected managed and external PostgreSQL resources. Regular (external) PostgreSQL resources have `isManaged: false`.
+The `mcp__orchestrator-platform__run_migration` tool only works on managed databases. Regular (external) PostgreSQL resources have `isManaged: false`.
 
 ## Choosing Between App and Org Databases
 
@@ -60,6 +60,6 @@ reason that data that should be shared for the entire org.
 ## Tips
 
 - Use `postgresql_psql` for read-only exploration (schema inspection, SELECT queries)
-- Use `postgresql_invoke` for schema changes and data modifications on connected PostgreSQL databases
+- Use `mcp__orchestrator-platform__run_migration` for all schema changes and data modifications on managed databases
 - Use parameterized queries (`$1`, `$2`, ...) — never interpolate values into SQL strings
-- After creating tables with `postgresql_invoke`, generate a TypeScript client for the app to use in code
+- After creating tables with `mcp__orchestrator-platform__run_migration`, generate a TypeScript client for the app to use in code

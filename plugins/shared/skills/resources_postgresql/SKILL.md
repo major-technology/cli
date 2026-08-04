@@ -27,7 +27,7 @@ description: Implements PostgreSQL connections, SQL queries, and migration patte
 ## MCP Tools
 
 - `mcp__resources__postgresql_psql` — Execute read-only SQL queries and psql backslash commands (`\dt`, `\d`, `\di`, `\df`, etc.). Args: `resourceId`, `command`, `timeoutMs?`
-- `mcp__resources__postgresql_invoke` — Execute DDL/DML and other write queries. Args: `resourceId`, `sql`, `params?`, `timeoutMs?`. Use `$1`, `$2`, ... placeholders in `sql` and pass their values positionally in `params`.
+- `mcp__resources__postgresql_run_migration` — Run DDL/DML migrations on **managed databases only** (`isManaged=true`). Runs in a transaction; rolls back on failure. Args: `resourceId`, `migration`, `description?`
 
 ## TypeScript Client
 
@@ -48,7 +48,7 @@ if (result.ok) {
 ## Tips
 
 - Use parameterized queries (`$1`, `$2`, ...) — never interpolate values into SQL strings
-- `psql` is read-only; use `postgresql_invoke` for writes through MCP
+- `psql` tool is read-only; use `run_migration` for writes (managed DBs) or the TypeScript client for writes (external DBs)
 - The TypeScript client supports full read/write operations regardless of managed status
 - Use `psql` exclusively for read-only tasks. Never use invoke for read only.
 
