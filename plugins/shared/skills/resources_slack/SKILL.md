@@ -40,6 +40,17 @@ Before sending messages, posting files, or reading history from any channel, you
 
 ---
 
+## CRITICAL: Rate Limits
+
+Slack's Web API rate limits are aggressive and easy to blow through, especially on history/read methods:
+
+- Rate limits are per-workspace, tiered by method, and enforced with `429` + a `Retry-After` header. Tiers range from Tier 1 (~1 request/minute) to Tier 4 (~100+ requests/minute), and non-Marketplace apps got hit hard by a 2026 change: `conversations.history` dropped from Tier 3 (~50 req/min, 100+ messages per call) to Tier 1 (1 req/min, max 15 messages per call) for non-Marketplace/custom apps. Assume you are on the low end unless you've confirmed otherwise.
+- **Do not parallelize Slack queries.** Firing requests from multiple agents/workflows at once (e.g. one sub-agent per channel) multiplies 429s instead of avoiding them — all requests share the same workspace-level bucket. Query Slack serially, one call at a time.
+- **When pulling a lot of message history, use the highest `limit` the read tool allows per call** (up to its max, e.g. 1000 if supported) instead of small page sizes. Fewer, larger calls burn far less of the rate-limit budget than many small ones — pulling 20 messages at a time across many pages is the single biggest way to exhaust the limit for no benefit.
+- **If you keep hitting rate limit errors, stop and reassess instead of retrying the same way.** Repeatedly re-calling into a 429 (or spinning up more parallel agents to "get around it") burns time and money without getting more data — it just waits out the same shared limit slower. Back off, reduce concurrency to 1, and if you've already gathered a reasonable amount of history, answer the user's question with what you have rather than grinding to fetch everything.
+
+---
+
 ## MCP Tools
 
 - `mcp__resources__slack_call` — Call any Slack Web API method. Args: `resourceId`, `method`, `body?`
@@ -111,5 +122,6 @@ const completeResult = await slackClient.completeUpload(
 - The `method` param is the **Slack API method name** (e.g., `chat.postMessage`, `conversations.list`, `users.list`)
 - For the TypeScript client, all parameters go in the `body` option — Slack's Web API uses POST with JSON body
 - Check [Slack API methods list](https://api.slack.com/methods) for available methods and their parameters
+- **If a message/history response is too large and gets written to a file instead of returned inline, read it with `jq` rather than loading the whole file** — e.g. `jq '.messages[] | {user, text, ts}' file.json` — to avoid pulling the entire payload into context.
 
 **Docs**: [Slack API Reference](https://api.slack.com/methods)
