@@ -26,4 +26,5 @@ func init() {
 	Cmd.AddCommand(whoamiCmd)
 	Cmd.AddCommand(gitconfigCmd)
 	Cmd.AddCommand(tokenCmd)
+	Cmd.AddCommand(ensureAuthCmd)
 }

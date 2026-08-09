@@ -7,7 +7,8 @@ done
 [ -z "$MAJOR" ] && MAJOR=$(PATH="$HOME/.major/bin:$HOME/go/bin:/usr/local/bin:$PATH" command -v major 2>/dev/null)
 [ -z "$MAJOR" ] && exit 1
 
-TOKEN=$("$MAJOR" user token 2>/dev/null)
+TOKEN=$("$MAJOR" user ensure-auth)
+[ -z "$TOKEN" ] && exit 1
 ORG=$("$MAJOR" org id 2>/dev/null)
-[ -z "$TOKEN" ] || [ -z "$ORG" ] && exit 1
+[ -z "$ORG" ] && exit 1
 echo "{\"Authorization\": \"Bearer $TOKEN\", \"x-major-org-id\": \"$ORG\"}"
