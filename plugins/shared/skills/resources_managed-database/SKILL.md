@@ -20,7 +20,7 @@ The `setup_managed_database` MCP tool creates **app-scoped** databases only.
 
 ## Setting Up a Managed Database
 
-Call `mcp__resources__setup_managed_database` — no arguments needed. The tool automatically provisions a database for the current application.
+Call `mcp__resources__setup_managed_database` via `mcp__resources__execute_resource_tool` — no arguments needed. The tool automatically provisions a database for the current application.
 
 **Behavior:**
 
@@ -33,7 +33,7 @@ Call `mcp__resources__setup_managed_database` — no arguments needed. The tool 
 
 After setup completes and you have the resource ID:
 
-1. **MCP tools** (direct SQL, no code needed):
+1. **MCP tools** (via `mcp__resources__execute_resource_tool`, no code needed):
    - `mcp__resources__postgresql_psql` — Read-only SQL queries and psql commands (`\dt`, `\d`, etc.). Args: `resourceId`, `command`
    - `mcp__orchestrator-platform__run_migration` — DDL/DML migrations (managed databases only). Args: `applicationId`, `migration`, `description`
 

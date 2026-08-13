@@ -11,7 +11,7 @@ description: Implements Stripe payment API access for customers, payments, subsc
 
 **Three ways to interact with Stripe:**
 
-1. **MCP tools** (direct, no code needed): Tools follow the pattern `mcp__resources__<resourcetype>_<toolname>`. Use `mcp__resources__list_resources` to discover available resources and their IDs.
+1. **MCP tools** (via `mcp__resources__execute_resource_tool`, no code needed): Tools follow the pattern `mcp__resources__<resourcetype>_<toolname>`. Use `mcp__resources__list_resources` to discover available resources and their IDs.
 2. **Generated TypeScript clients** (for app code): Call `mcp__resource-tools__add-resource-client` with a `resourceId` to generate a typed client. Clients are created in `/clients/` (Next.js) or `/src/clients/` (Vite).
 3. **Official Stripe SDK via the HTTP proxy** (Next.js apps): Pass `createProxyFetch` into `Stripe.createFetchHttpClient(...)`. See the **Stripe SDK via the HTTP proxy** section below — preferred when you want full Stripe SDK ergonomics (typed methods, autocomplete, automatic pagination).
 
