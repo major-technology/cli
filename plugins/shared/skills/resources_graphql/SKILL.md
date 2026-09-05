@@ -79,7 +79,7 @@ import { createProxyFetch } from "@major-tech/resource-client/next";
 
 const client = new ApolloClient({
 	link: new HttpLink({
-		uri: () => "", // use the configured endpoint exactly, without adding a slash
+		uri: () => "", // use the configured endpoint without adding a slash
 		fetch: createProxyFetch({
 			baseUrl: process.env.MAJOR_API_BASE_URL!,
 			resourceId: "<graphql-resource-id>",
@@ -92,7 +92,7 @@ const client = new ApolloClient({
 
 **Key points:**
 
-- **Use an empty proxy target** — `proxyFetch("", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query }) })` uses the configured endpoint exactly, preserving its trailing slash and query parameters. `"/"` appends a slash. In Apollo, use `uri: () => ""`: a plain `uri: ""` falls back to `/graphql`. Do not hardcode the upstream URL.
+- **`proxyFetch("")`** uses the configured endpoint without adding a slash. In Apollo use `uri: () => ""`; plain `uri: ""` falls back to `/graphql`.
 - **Auth is injected server-side** — never set `Authorization` on the Apollo link; the proxy strips reserved request headers and replaces them with the resource's configured auth (`bearer`, `apiKey`, or `none`).
 - **Resource ID must be static** — `createProxyFetch` is detected by the query extractor only when `resourceId` is a string literal; dynamic IDs are skipped at deploy time.
 - **Next.js**: use Apollo on the server (RSC, Route Handlers, Server Actions) so the JWT stays out of the browser. For client-side Apollo, route the request through your own server endpoint.
