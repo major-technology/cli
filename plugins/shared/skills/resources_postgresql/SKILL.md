@@ -28,6 +28,7 @@ description: Implements PostgreSQL connections, SQL queries, and migration patte
 
 - `mcp__resources__postgresql_psql` — Execute read-only SQL queries and psql backslash commands (`\dt`, `\d`, `\di`, `\df`, etc.). Args: `resourceId`, `command`, `timeoutMs?`
 - `mcp__resources__postgresql_invoke` — Execute write SQL against managed or external PostgreSQL resources. Args: `resourceId`, `sql`, `params?`, `timeoutMs?`, `description`
+- `mcp__orchestrator-platform__run_migration` — Run tracked migrations on an application's managed database in app-building/orchestrator sessions. Args: `applicationId`, `migration`, `description`
 
 ## TypeScript Client
 
@@ -48,7 +49,8 @@ if (result.ok) {
 ## Tips
 
 - Use parameterized queries (`$1`, `$2`, ...) — never interpolate values into SQL strings
-- `psql` is read-only; use `postgresql_invoke` for writes against managed or external PostgreSQL resources
+- `psql` is read-only; use `postgresql_invoke` for data modifications against managed or external PostgreSQL resources
+- Use `run_migration` for tracked schema migrations on an application's managed database when the orchestrator tool is available
 - The TypeScript client supports full read/write operations regardless of managed status
 - Use `psql` exclusively for read-only tasks. Never use invoke for read only.
 
