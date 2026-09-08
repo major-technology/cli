@@ -49,7 +49,6 @@ if (result.ok) {
 
 - Use parameterized queries (`$1`, `$2`, ...) — never interpolate values into SQL strings
 - `psql` is read-only; use `postgresql_invoke` for writes against managed or external PostgreSQL resources
-- App-building sessions also have a separate, app-scoped `run_migration` orchestrator tool for tracked managed-database schema migrations. It is not a resource tool and must not be called as `mcp__resources__postgresql_run_migration`.
 - The TypeScript client supports full read/write operations regardless of managed status
 - Use `psql` exclusively for read-only tasks. Never use invoke for read only.
 
