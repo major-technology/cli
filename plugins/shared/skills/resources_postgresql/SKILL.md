@@ -28,7 +28,7 @@ description: Implements PostgreSQL connections, SQL queries, and migration patte
 
 - `mcp__resources__postgresql_psql` — Execute read-only SQL queries and psql backslash commands (`\dt`, `\d`, `\di`, `\df`, etc.). Args: `resourceId`, `command`, `timeoutMs?`
 - `mcp__resources__postgresql_invoke` — Execute write SQL against managed or external PostgreSQL resources. Args: `resourceId`, `sql`, `params?`, `timeoutMs?`, `description`
-- `mcp__orchestrator-platform__run_migration` — Run tracked migrations on an application's managed database in app-building/orchestrator sessions. Args: `applicationId`, `migration`, `description`
+- `run_migration` on the platform MCP server — Run tracked migrations on an application's managed database in app-building/orchestrator sessions. Args: `applicationId`, `migration`, `description`
 
 ## TypeScript Client
 
