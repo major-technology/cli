@@ -50,7 +50,7 @@ if (result.ok) {
 
 - Use parameterized queries (`$1`, `$2`, ...) — never interpolate values into SQL strings
 - `psql` is read-only; use `postgresql_invoke` for data modifications against managed or external PostgreSQL resources
-- Use `run_migration` for tracked schema migrations on an application's managed database when the orchestrator tool is available
+- Use `run_migration` for tracked schema migrations on an application's managed database
 - The TypeScript client supports full read/write operations regardless of managed status
 - Use `psql` exclusively for read-only tasks. Never use invoke for read only.
 
