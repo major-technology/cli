@@ -13,7 +13,7 @@ A custom MCP connector points at an external remote MCP server you bring. Its to
 
 **Two ways to interact with a custom MCP connector:**
 
-1. **In-session MCP tools** (direct, no code needed): the connector is mounted as its own MCP server, so its tools are callable during the build as `mcp__<slug>__<toolName>`. Use `mcp__resources__list_resources` to find the connector and its `resourceId`. Call these tools to discover what the upstream server exposes and to test behavior.
+1. **In-session MCP tools** (via `mcp__resources__execute_resource_tool`, no code needed): the connector is mounted as its own MCP server, so its tools are callable during the build as `mcp__<slug>__<toolName>`. Use `mcp__resources__list_resources` to find the connector and its `resourceId`. Call these tools to discover what the upstream server exposes and to test behavior.
 2. **Generic MCP client** (for app code): import `createMcpClient` from `@major-tech/resource-client/next` and call `.callTool()`. There is **no per-resource generation step** — it's one client reused for any MCP connector; you just pass the `resourceId`.
 
 **CRITICAL: Do NOT guess tool names or argument shapes.** They are defined by the upstream MCP server, not by Major or by the client — `callTool(name, args)` is a single generic method with no per-tool typed methods. Discover the real tool names and arg shapes from the in-session `mcp__<slug>__*` tools before wiring them into app code.

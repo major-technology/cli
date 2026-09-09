@@ -24,7 +24,7 @@ Once you have a `resourceId`, use it directly with the tools and client below.
 
 ## Using It Once Provisioned
 
-1. **MCP tools** (direct, no code needed):
+1. **MCP tools** (via `mcp__resources__execute_resource_tool`, no code needed):
    - `mcp__resources__blob_list` — list objects under a prefix. Args: `resourceId`, `prefix?`, `delimiter?`, `maxKeys?`, `continuationToken?`
    - `mcp__resources__blob_get` — read an object's body + metadata. Args: `resourceId`, `key`
    - `mcp__resources__blob_put` — write an object (`body` base64-encoded). Args: `resourceId`, `key`, `body`, `contentType?`, `cacheControl?`, `contentDisposition?`

@@ -9,15 +9,15 @@ The application has been granted access to resources — external services (data
 
 ## Step 1: List available resources
 
-Call `mcp__resources__list_resources` to get all resources the application has access to.
+Call `mcp__resources__list_resources` via `mcp__resources__execute_resource_tool` to get all resources the application has access to.
 
 ## Step 2: Check for context documents before doing any work
 
-**Always call `mcp__resources__list_resource_context` for every resource before doing any other work with it.** Resources often have context documents attached (API docs, schema references, usage guides) that tell you exactly how to use them.
+**Always call `mcp__resources__list_resource_context` via `mcp__resources__execute_resource_tool` for every resource before doing any other work with it.** Resources often have context documents attached (API docs, schema references, usage guides) that tell you exactly how to use them.
 
 For each resource you plan to use:
 
-1. Call `mcp__resources__list_resource_context` with the `resourceId` immediately after listing resources
+1. Call `mcp__resources__list_resource_context` via `mcp__resources__execute_resource_tool` with the `resourceId` immediately after listing resources
 2. **If documents exist, you MUST read them before doing anything else with the resource.** Do NOT skip this step. Do NOT query the resource directly until you have read all relevant context documents. The user uploaded these documents specifically to guide how you use the resource.
 3. For each relevant document, spawn the `file-reader` agent to download and read it:
    ```
