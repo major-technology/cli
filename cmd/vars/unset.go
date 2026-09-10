@@ -96,6 +96,13 @@ func runUnset(cmd *cobra.Command, key string) error {
 	}
 
 	if flagUnsetJSON {
+		if flagUnsetAllEnvironments {
+			return utils.WriteJSON(cmd, map[string]any{
+				"key":             key,
+				"allEnvironments": true,
+				"deleted":         resp.Deleted,
+			})
+		}
 		return utils.WriteJSON(cmd, map[string]any{
 			"key":         key,
 			"environment": envName,

@@ -263,6 +263,71 @@ func TestVarsUnsetJSONOmitsValue(t *testing.T) {
 	if _, exists := result["value"]; exists {
 		t.Fatalf("mutation JSON must not include value: %#v", result)
 	}
+	if _, exists := result["allEnvironments"]; exists {
+		t.Fatalf("single-environment JSON must omit allEnvironments: %#v", result)
+	}
+}
+
+func TestVarsUnsetJSONAllEnvironmentsOmitsEnvironmentName(t *testing.T) {
+	var deleteQuery string
+	stdout, stderr, err := runContractCommand(t, contractServer(t, map[string]http.HandlerFunc{
+		"GET /applications/" + contractAppID + "/info": func(w http.ResponseWriter, r *http.Request) {
+			writeJSON(w, contractInfoBody)
+		},
+		"DELETE /application/" + contractAppID + "/env-variables/by-key/CLI_PROTOTYPE": func(w http.ResponseWriter, r *http.Request) {
+			deleteQuery = r.URL.RawQuery
+			writeJSON(w, `{"deleted":true,"removedRow":true}`)
+		},
+	}), []string{"vars", "unset"}, []string{"CLI_PROTOTYPE"}, true, map[string]string{"yes": "true", "all-environments": "true"})
+	if err != nil {
+		t.Fatalf("vars unset --all-environments --json: %v stderr=%q", err, stderr)
+	}
+	if !strings.Contains(deleteQuery, "allEnvironments=true") {
+		t.Fatalf("expected allEnvironments=true query, got %q", deleteQuery)
+	}
+	if strings.Contains(deleteQuery, "environmentId=") {
+		t.Fatalf("all-environments delete must not send environmentId, query=%q", deleteQuery)
+	}
+	result := decodeOneObject(t, stdout)
+	if result["key"] != "CLI_PROTOTYPE" || result["allEnvironments"] != true || result["deleted"] != true {
+		t.Fatalf("all-environments unset JSON = %#v", result)
+	}
+	if _, exists := result["environment"]; exists {
+		t.Fatalf("all-environments JSON must omit environment: %#v", result)
+	}
+	if _, exists := result["value"]; exists {
+		t.Fatalf("mutation JSON must not include value: %#v", result)
+	}
+}
+
+func TestVarsUnsetJSONSingleEnvironmentNamedAll(t *testing.T) {
+	stdout, stderr, err := runContractCommand(t, contractServer(t, map[string]http.HandlerFunc{
+		"GET /applications/" + contractAppID + "/info": func(w http.ResponseWriter, r *http.Request) {
+			writeJSON(w, contractInfoBody)
+		},
+		"GET /application/" + contractAppID + "/environment": func(w http.ResponseWriter, r *http.Request) {
+			writeJSON(w, `{"environmentId":"`+contractEnvID+`","environmentName":"all"}`)
+		},
+		"DELETE /application/" + contractAppID + "/env-variables/by-key/CLI_PROTOTYPE": func(w http.ResponseWriter, r *http.Request) {
+			if got := r.URL.Query().Get("environmentId"); got != contractEnvID {
+				t.Errorf("environmentId = %q", got)
+			}
+			if r.URL.Query().Get("allEnvironments") != "" {
+				t.Errorf("single-env delete must not send allEnvironments, query=%q", r.URL.RawQuery)
+			}
+			writeJSON(w, `{"deleted":true,"removedRow":true}`)
+		},
+	}), []string{"vars", "unset"}, []string{"CLI_PROTOTYPE"}, true, map[string]string{"yes": "true"})
+	if err != nil {
+		t.Fatalf("vars unset --json env named all: %v stderr=%q", err, stderr)
+	}
+	result := decodeOneObject(t, stdout)
+	if result["key"] != "CLI_PROTOTYPE" || result["environment"] != "all" || result["deleted"] != true {
+		t.Fatalf("unset JSON for env named all = %#v", result)
+	}
+	if _, exists := result["allEnvironments"]; exists {
+		t.Fatalf("named environment all must not set allEnvironments: %#v", result)
+	}
 }
 
 func TestResourceListJSONKeepsFullIDs(t *testing.T) {
