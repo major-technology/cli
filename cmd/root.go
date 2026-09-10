@@ -86,15 +86,6 @@ func init() {
 	// Disable the help command (use -h flag instead)
 	rootCmd.SetHelpCommand(&cobra.Command{Hidden: true})
 
-	// Set custom help function to show login prompt after help
-	defaultHelpFunc := rootCmd.HelpFunc()
-	rootCmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
-		defaultHelpFunc(cmd, args)
-		if cmd == rootCmd {
-			showLoginPromptIfNeeded(cmd)
-		}
-	})
-
 	// Register subcommands
 	rootCmd.AddGroup(&cobra.Group{ID: "main", Title: "Main Commands"})
 	rootCmd.AddGroup(&cobra.Group{ID: "config", Title: "Configurations"})

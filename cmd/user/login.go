@@ -36,6 +36,10 @@ func runLogin(cobraCmd *cobra.Command) error {
 // doLogin performs the core login flow: browser auth, token storage, and org selection.
 // Used by both runLogin and RunLoginForLink.
 func doLogin(cobraCmd *cobra.Command, selectOrg bool) error {
+	if err := rejectExternallyManagedCredential(); err != nil {
+		return err
+	}
+
 	// Get the API client (no token yet for login flow)
 	apiClient := singletons.GetAPIClient()
 	startResp, err := apiClient.StartLogin()
@@ -226,4 +230,11 @@ func printSuccessMessage(cobraCmd *cobra.Command) {
 	// Print everything
 	cobraCmd.Println(successMsg)
 	cobraCmd.Println(box)
+}
+
+func rejectExternallyManagedCredential() error {
+	if mjrToken.HasInjectedToken() {
+		return fmt.Errorf("credential is externally managed")
+	}
+	return nil
 }

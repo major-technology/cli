@@ -18,6 +18,10 @@ var tokenCmd = &cobra.Command{
 }
 
 func runToken() error {
+	if err := rejectExternallyManagedCredential(); err != nil {
+		return err
+	}
+
 	token, err := mjrToken.GetToken()
 	if err != nil {
 		return err

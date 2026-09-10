@@ -1,6 +1,8 @@
 package token
 
 import (
+	"os"
+
 	clierrors "github.com/major-technology/cli/errors"
 	"github.com/zalando/go-keyring"
 )
@@ -27,8 +29,16 @@ func StoreToken(token string) error {
 	return nil
 }
 
-// getToken retrieves the access token from the system keyring
+// HasInjectedToken reports whether MAJOR_TOKEN is set to a non-empty value.
+func HasInjectedToken() bool {
+	return os.Getenv("MAJOR_TOKEN") != ""
+}
+
+// GetToken retrieves the access token from MAJOR_TOKEN, if set, otherwise the system keyring.
 func GetToken() (string, error) {
+	if value := os.Getenv("MAJOR_TOKEN"); value != "" {
+		return value, nil
+	}
 	token, err := keyring.Get(keyringService, keyringUser)
 	if err != nil {
 		return "", clierrors.WrapError("failed to get token from keyring", err)
