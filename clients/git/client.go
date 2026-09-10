@@ -27,9 +27,14 @@ func applyNonInteractiveGit(cmd *exec.Cmd) {
 	}
 	env := os.Environ()
 	env = append(env, "GIT_TERMINAL_PROMPT=0")
-	if os.Getenv("GIT_SSH_COMMAND") == "" {
-		env = append(env, "GIT_SSH_COMMAND=ssh -o BatchMode=yes")
+	sshCmd := os.Getenv("GIT_SSH_COMMAND")
+	if sshCmd == "" {
+		sshCmd = "ssh"
 	}
+	if !strings.Contains(sshCmd, "BatchMode=yes") {
+		sshCmd = sshCmd + " -o BatchMode=yes"
+	}
+	env = append(env, "GIT_SSH_COMMAND="+sshCmd)
 	cmd.Env = env
 	cmd.Stdin = nil
 }

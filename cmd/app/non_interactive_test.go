@@ -92,74 +92,48 @@ func TestCloneNonInteractiveRequiresAppIDWhenMultiple(t *testing.T) {
 }
 
 func TestDeployNonInteractiveMissingMessageLeavesGitUnchanged(t *testing.T) {
-	dir := preparedAppRepo(t, "prototype")
-	runGit(t, dir, "commit", "-m", "initial", "--allow-empty")
-	headBefore := gitOutput(t, dir, "rev-parse", "HEAD")
-	statusBefore := gitOutput(t, dir, "status", "--porcelain")
-	if err := os.WriteFile(filepath.Join(dir, "dirty.txt"), []byte("x"), 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	var versionWrites atomic.Int32
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/applications/"+niAppID+"/info" {
-			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprintf(w, `{"applicationId":%q,"organizationId":%q,"urlSlug":"prototype","name":"Prototype","deployStatus":"not_deployed","appUrl":null}`, niAppID, niOrgID)
-			return
-		}
-		if r.URL.Path == "/applications/versions" {
-			versionWrites.Add(1)
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-		t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
-		w.WriteHeader(http.StatusInternalServerError)
-	}))
-	t.Cleanup(srv.Close)
-	restoreAPIClient(t, srv.URL)
-
-	t.Chdir(dir)
-	flagDeployMessage = ""
-	flagDeploySlug = ""
-	t.Cleanup(func() {
-		flagDeployMessage = ""
-		flagDeploySlug = ""
+	assertRefusedDeployLeavesGitUnchanged(t, deployGitRefusal{
+		infoBody: fmt.Sprintf(`{"applicationId":%q,"organizationId":%q,"urlSlug":"prototype","name":"Prototype","deployStatus":"not_deployed","appUrl":null}`, niAppID, niOrgID),
+		message:  "",
+		slug:     "",
+		wantErr:  "--message",
+		failText: "dirty deploy without --message must fail",
 	})
-
-	cmd := nonInteractiveCmd(t)
-	err := runWithDeadline(t, 8*time.Second, func() error { return runDeploy(cmd) })
-	if err == nil {
-		t.Fatal("dirty deploy without --message must fail")
-	}
-	if !strings.Contains(err.Error(), "--message") {
-		t.Fatalf("error must name --message, got %v", err)
-	}
-	if versionWrites.Load() != 0 {
-		t.Fatalf("version create calls = %d, want 0", versionWrites.Load())
-	}
-	headAfter := gitOutput(t, dir, "rev-parse", "HEAD")
-	if headAfter != headBefore {
-		t.Fatalf("HEAD changed %s -> %s", headBefore, headAfter)
-	}
-	statusAfter := gitOutput(t, dir, "status", "--porcelain")
-	if !strings.Contains(statusAfter, "dirty.txt") {
-		t.Fatalf("working tree must remain dirty, before=%q after=%q status-before=%q", statusBefore, statusAfter, statusBefore)
-	}
 }
 
 func TestDeployNonInteractiveMissingSlugLeavesGitUnchanged(t *testing.T) {
+	assertRefusedDeployLeavesGitUnchanged(t, deployGitRefusal{
+		infoBody: fmt.Sprintf(`{"applicationId":%q,"organizationId":%q,"urlSlug":null,"name":"Prototype","deployStatus":"not_deployed","appUrl":null}`, niAppID, niOrgID),
+		message:  "ship it",
+		slug:     "",
+		wantErr:  "--slug",
+		failText: "first deploy without --slug must fail",
+	})
+}
+
+type deployGitRefusal struct {
+	infoBody string
+	message  string
+	slug     string
+	wantErr  string
+	failText string
+}
+
+func assertRefusedDeployLeavesGitUnchanged(t *testing.T, spec deployGitRefusal) {
+	t.Helper()
 	dir := preparedAppRepo(t, "")
 	runGit(t, dir, "commit", "-m", "initial", "--allow-empty")
-	headBefore := gitOutput(t, dir, "rev-parse", "HEAD")
+	attachBareOrigin(t, dir)
 	if err := os.WriteFile(filepath.Join(dir, "dirty.txt"), []byte("x"), 0644); err != nil {
 		t.Fatal(err)
 	}
+	before := snapshotGit(t, dir)
 
 	var versionWrites atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/applications/"+niAppID+"/info" {
 			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprintf(w, `{"applicationId":%q,"organizationId":%q,"urlSlug":null,"name":"Prototype","deployStatus":"not_deployed","appUrl":null}`, niAppID, niOrgID)
+			fmt.Fprint(w, spec.infoBody)
 			return
 		}
 		if r.URL.Path == "/applications/versions" {
@@ -174,8 +148,8 @@ func TestDeployNonInteractiveMissingSlugLeavesGitUnchanged(t *testing.T) {
 	restoreAPIClient(t, srv.URL)
 
 	t.Chdir(dir)
-	flagDeployMessage = "ship it"
-	flagDeploySlug = ""
+	flagDeployMessage = spec.message
+	flagDeploySlug = spec.slug
 	t.Cleanup(func() {
 		flagDeployMessage = ""
 		flagDeploySlug = ""
@@ -184,21 +158,45 @@ func TestDeployNonInteractiveMissingSlugLeavesGitUnchanged(t *testing.T) {
 	cmd := nonInteractiveCmd(t)
 	err := runWithDeadline(t, 8*time.Second, func() error { return runDeploy(cmd) })
 	if err == nil {
-		t.Fatal("first deploy without --slug must fail")
+		t.Fatal(spec.failText)
 	}
-	if !strings.Contains(err.Error(), "--slug") {
-		t.Fatalf("error must name --slug, got %v", err)
+	if !strings.Contains(err.Error(), spec.wantErr) {
+		t.Fatalf("error must name %s, got %v", spec.wantErr, err)
 	}
 	if versionWrites.Load() != 0 {
 		t.Fatalf("version create calls = %d, want 0", versionWrites.Load())
 	}
-	headAfter := gitOutput(t, dir, "rev-parse", "HEAD")
-	if headAfter != headBefore {
-		t.Fatalf("HEAD changed before staging/push, %s -> %s", headBefore, headAfter)
+	after := snapshotGit(t, dir)
+	if after != before {
+		t.Fatalf("git state changed after refused deploy\nbefore=%+v\nafter=%+v", before, after)
 	}
-	statusAfter := gitOutput(t, dir, "status", "--porcelain")
-	if !strings.Contains(statusAfter, "dirty.txt") {
-		t.Fatalf("working tree must remain unstaged, got %q", statusAfter)
+}
+
+type gitSnapshot struct {
+	head   string
+	status string
+	remote string
+	refs   string
+}
+
+func attachBareOrigin(t *testing.T, dir string) {
+	t.Helper()
+	remote := filepath.Join(t.TempDir(), "origin.git")
+	if err := os.MkdirAll(remote, 0755); err != nil {
+		t.Fatal(err)
+	}
+	runGit(t, remote, "init", "--bare")
+	runGit(t, dir, "remote", "add", "origin", remote)
+	runGit(t, dir, "push", "-u", "origin", "HEAD:main")
+}
+
+func snapshotGit(t *testing.T, dir string) gitSnapshot {
+	t.Helper()
+	return gitSnapshot{
+		head:   gitOutput(t, dir, "rev-parse", "HEAD"),
+		status: gitOutput(t, dir, "status", "--porcelain"),
+		remote: gitOutput(t, dir, "remote", "-v"),
+		refs:   gitOutput(t, dir, "ls-remote", "origin"),
 	}
 }
 
