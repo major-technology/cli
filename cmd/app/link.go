@@ -75,6 +75,10 @@ func runLink(cmd *cobra.Command, applicationID string) error {
 
 	cmd.Println("✓ Repository ready")
 
+	if err := persistAppWorkspace(workingDir, appInfo.OrganizationID, applicationID); err != nil {
+		return err
+	}
+
 	// Step 4: Generate .env file
 	cmd.Println("Generating .env file...")
 	envFilePath, envVars, err := generateEnvFile(workingDir)

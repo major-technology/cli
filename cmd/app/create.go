@@ -194,6 +194,10 @@ func runCreate(cobraCmd *cobra.Command) error {
 		return errors.WrapError("failed to clone repository", gitErr)
 	}
 
+	if err := persistAppWorkspace(targetDir, orgID, createResp.ApplicationID); err != nil {
+		return err
+	}
+
 	cobraCmd.Printf("✓ Application '%s' successfully created in ./%s\n", appName, appName)
 
 	// If resources were selected, add them using major-client
@@ -298,4 +302,3 @@ func printSuccessMessage(cobraCmd *cobra.Command, appName string) {
 	cobraCmd.Println(successMsg)
 	cobraCmd.Println(box)
 }
-

@@ -36,35 +36,12 @@ func getApplicationIDFromDir(dir string) (string, error) {
 	return appID, err
 }
 
-// getApplicationAndOrgIDFromDir retrieves the application ID, organization ID, and URL slug for a git repository in the specified directory.
-// If dir is empty, it uses the current directory.
+// getApplicationAndOrgIDFromDir retrieves the application ID, organization ID, and URL slug
+// for a workspace in the specified directory. If dir is empty, it uses the current directory.
 func getApplicationAndOrgIDFromDir(dir string) (string, string, string, error) {
-	// Get the git remote URL from the specified directory
-	remoteURL, err := git.GetRemoteURLFromDir(dir)
+	appResp, err := utils.GetApplicationInfo(dir)
 	if err != nil {
 		return "", "", "", err
-	}
-
-	if remoteURL == "" {
-		return "", "", "", fmt.Errorf("no git remote found in directory")
-	}
-
-	// Parse the remote URL to extract owner and repo
-	remoteInfo, err := git.ParseRemoteURL(remoteURL)
-	if err != nil {
-		return "", "", "", errors.WrapError("failed to parse git remote URL", err)
-	}
-
-	// Get API client
-	apiClient := singletons.GetAPIClient()
-	if apiClient == nil {
-		return "", "", "", fmt.Errorf("API client not initialized")
-	}
-
-	// Get application by repository
-	appResp, err := apiClient.GetApplicationByRepo(remoteInfo.Owner, remoteInfo.Repo)
-	if err != nil {
-		return "", "", "", errors.WrapError("failed to get application", err)
 	}
 
 	var urlSlug string
@@ -73,6 +50,10 @@ func getApplicationAndOrgIDFromDir(dir string) (string, string, string, error) {
 	}
 
 	return appResp.ApplicationID, appResp.OrganizationID, urlSlug, nil
+}
+
+func persistAppWorkspace(projectDir, organizationID, applicationID string) error {
+	return utils.PersistAppWorkspace(projectDir, organizationID, applicationID)
 }
 
 // getPreferredCloneURL returns the preferred clone URL based on SSH availability

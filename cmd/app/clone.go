@@ -174,6 +174,10 @@ func runClone(cmd *cobra.Command) error {
 		}
 	}
 
+	if err := persistAppWorkspace(finalDir, orgID, selectedApp.ID); err != nil {
+		return err
+	}
+
 	// Generate env file
 	cmd.Println("\nGenerating .env file...")
 	envFilePath, envVars, err := generateEnvFile(finalDir)
