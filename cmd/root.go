@@ -62,12 +62,35 @@ var rootCmd = &cobra.Command{
 	Version:           Version,
 	SilenceErrors:     true, // We handle errors centrally
 	SilenceUsage:      true, // Don't show usage on errors
-	PersistentPreRunE: middleware.Compose(middleware.CheckVersion(Version)),
+	PersistentPreRunE: rootPersistentPreRunE,
 	Run: func(cmd *cobra.Command, args []string) {
 		if ok := showLoginPromptIfNeeded(cmd); ok {
 			cmd.Help()
 		}
 	},
+}
+
+func rootPersistentPreRunE(cmd *cobra.Command, args []string) error {
+	return middleware.Compose(
+		rejectInjectedAuthManagement,
+		middleware.CheckVersion(Version),
+	)(cmd, args)
+}
+
+func rejectInjectedAuthManagement(cmd *cobra.Command, args []string) error {
+	if !mjrToken.HasInjectedToken() {
+		return nil
+	}
+	parent := cmd.Parent()
+	if parent == nil || parent.Name() != "user" {
+		return nil
+	}
+	switch cmd.Name() {
+	case "login", "logout", "token":
+		return fmt.Errorf("credential is externally managed")
+	default:
+		return nil
+	}
 }
 
 func Execute() {
