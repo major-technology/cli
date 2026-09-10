@@ -162,6 +162,28 @@ func TestConfigureRemoteCommandRejectsCompoundCommand(t *testing.T) {
 	}
 }
 
+func TestConfigureRemoteCommandRejectsCommandSubstitutionInExecutable(t *testing.T) {
+	cmd, err := configureRemote(t, "$(helper)/ssh -i '/tmp/key file'")
+	if err == nil {
+		t.Fatal("command substitution in GIT_SSH_COMMAND executable must be rejected in non-interactive mode")
+	}
+	assertUnsupportedGITSSHCommand(t, err)
+	if envValue(cmd.Env, "GIT_SSH_COMMAND") != "" {
+		t.Fatalf("must not rewrite unsupported GIT_SSH_COMMAND, got %q", envValue(cmd.Env, "GIT_SSH_COMMAND"))
+	}
+}
+
+func TestConfigureRemoteCommandPreservesQuotedLiteralExecutablePath(t *testing.T) {
+	cmd, err := configureRemote(t, `'/tmp/ssh tools/ssh' -i '/tmp/key file'`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := envValue(cmd.Env, "GIT_SSH_COMMAND")
+	if !strings.HasPrefix(got, `'/tmp/ssh tools/ssh' -o BatchMode=yes`) {
+		t.Fatalf("quoted executable path was not preserved: %q", got)
+	}
+}
+
 func configureRemote(t *testing.T, gitSSHCommand string) (*exec.Cmd, error) {
 	t.Helper()
 	t.Setenv("GIT_SSH_COMMAND", gitSSHCommand)

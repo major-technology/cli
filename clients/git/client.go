@@ -53,7 +53,7 @@ func ensureSSHBatchMode(sshCmd string) (string, error) {
 		return "ssh -o BatchMode=yes", nil
 	}
 	first, rest, ok := splitFirstShellToken(trimmed)
-	if !ok || !executableIsSSH(first) || hasUnsupportedShellSyntax(rest) {
+	if !ok || hasUnsupportedShellSyntax(first) || !executableIsSSH(first) || hasUnsupportedShellSyntax(rest) {
 		return "", clierrors.ErrorUnsupportedGITSSHCommand
 	}
 	return first + " -o BatchMode=yes" + rest, nil
