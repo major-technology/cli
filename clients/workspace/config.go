@@ -231,6 +231,9 @@ func encodeConfig(existing []byte, cfg Config) ([]byte, error) {
 		if err := json.Unmarshal(existing, &merged); err != nil {
 			return nil, err
 		}
+		if merged == nil {
+			return nil, fmt.Errorf("config root must be a JSON object")
+		}
 	}
 	for key, value := range overlay {
 		merged[key] = value

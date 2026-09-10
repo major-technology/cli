@@ -28,12 +28,42 @@ func TestTargetValidation(t *testing.T) {
 		{"workflow", Target{Kind: "workflow", WorkflowID: "11111111-1111-4111-8111-111111111111"}, true},
 		{"wrong-id", Target{Kind: "skill", ApplicationID: "11111111-1111-4111-8111-111111111111"}, false},
 		{"unknown", Target{Kind: "project", ApplicationID: "11111111-1111-4111-8111-111111111111"}, false},
+		{"invalid-id", Target{Kind: "app", ApplicationID: "not-a-uuid"}, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if err := tc.target.Validate(); (err == nil) != tc.valid {
 				t.Fatalf("Validate() = %v; valid=%v", err, tc.valid)
 			}
 		})
+	}
+}
+
+func TestConfigInvalidOrganizationID(t *testing.T) {
+	cfg := validAppConfig()
+	cfg.OrganizationID = "not-a-uuid"
+	if err := cfg.Validate(); err == nil {
+		t.Fatal("expected error for invalid organizationId")
+	}
+}
+
+func TestWriteRejectsNullExistingConfig(t *testing.T) {
+	dir := t.TempDir()
+	writeRawConfig(t, dir, "null")
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("Write panicked on null config: %v", r)
+		}
+	}()
+	err := Write(dir, validAppConfig())
+	if err == nil {
+		t.Fatal("expected error writing over null config")
+	}
+	configPath := filepath.Join(dir, ".major", "config.json")
+	if !strings.Contains(err.Error(), configPath) {
+		t.Fatalf("error %q should include path %q", err, configPath)
+	}
+	if !strings.Contains(err.Error(), "repair .major/config.json") {
+		t.Fatalf("error %q should include repair guidance", err)
 	}
 }
 
