@@ -13,8 +13,12 @@ import (
 	"time"
 
 	"github.com/major-technology/cli/clients/api"
+	cligit "github.com/major-technology/cli/clients/git"
+	mjrToken "github.com/major-technology/cli/clients/token"
 	"github.com/major-technology/cli/singletons"
+	"github.com/major-technology/cli/utils"
 	"github.com/spf13/cobra"
+	"github.com/zalando/go-keyring"
 )
 
 func TestDeployNonInteractiveRequiresYesBeforeDelete(t *testing.T) {
@@ -61,6 +65,64 @@ func TestDeployNonInteractiveRequiresYesBeforeDelete(t *testing.T) {
 	}
 	if deploys.Load() != 0 {
 		t.Fatalf("CreateProjectDeploy calls = %d, want 0", deploys.Load())
+	}
+}
+
+func TestCreateNonInteractivePrintsInviteURLWithoutOpeningOrPolling(t *testing.T) {
+	keyring.MockInit()
+	if err := mjrToken.StoreDefaultOrg("org-1", "Test Org"); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("MAJOR_TOKEN", "test-injected-token")
+	t.Setenv("GIT_TERMINAL_PROMPT", "0")
+	cligit.SetNonInteractive(true)
+	t.Cleanup(func() { cligit.SetNonInteractive(false) })
+
+	dir := t.TempDir()
+	runGit(t, dir, "init")
+	runGit(t, dir, "config", "github.user", "octocat")
+	t.Chdir(dir)
+
+	inviteURL := "https://github.com/cli-proto-nonexistent-org/cli-proto-nonexistent-repo"
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/projects":
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprintf(w, `{"projectId":"p-1","repositoryName":"demo","cloneUrlSsh":"","cloneUrlHttps":%q}`, inviteURL+".git")
+		case r.Method == http.MethodPost && r.URL.Path == "/projects/p-1/add-gh-collaborators":
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprint(w, `{"success":true,"message":"added"}`)
+		default:
+			t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	prev := singletons.GetAPIClient()
+	singletons.SetAPIClient(api.NewClient(srv.URL))
+	t.Cleanup(func() { singletons.SetAPIClient(prev) })
+
+	orig := utils.BrowserStart
+	opened := []string{}
+	utils.BrowserStart = func(url string) error {
+		opened = append(opened, url)
+		return nil
+	}
+	t.Cleanup(func() { utils.BrowserStart = orig })
+
+	cmd := nonInteractiveProjectCmd(t)
+	err := runWithDeadline(t, 8*time.Second, func() error {
+		return runCreate(cmd, "demo-ni", "")
+	})
+	if err == nil {
+		t.Fatal("non-interactive project create must not open a browser or poll for GitHub access")
+	}
+	msg := err.Error() + cmd.OutOrStdout().(*bytes.Buffer).String()
+	if !strings.Contains(msg, inviteURL) {
+		t.Fatalf("error must name the invitation URL, got %v output=%q", err, cmd.OutOrStdout().(*bytes.Buffer).String())
+	}
+	if len(opened) != 0 {
+		t.Fatalf("opened browser: %v", opened)
 	}
 }
 

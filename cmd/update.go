@@ -9,6 +9,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/major-technology/cli/errors"
+	"github.com/major-technology/cli/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -103,19 +104,24 @@ func updateViaBrew(cmd *cobra.Command, stepStyle, successStyle lipgloss.Style) e
 	return nil
 }
 
-func updateViaDirect(cmd *cobra.Command, stepStyle, successStyle lipgloss.Style) error {
-	cmd.Println(stepStyle.Render("▸ Downloading latest version..."))
-
-	// Use the install script
+// runDirectInstall executes the published install script. Tests replace it.
+var runDirectInstall = func(stdin *os.File) error {
 	installScriptURL := "https://raw.githubusercontent.com/major-technology/cli/main/install.sh"
-
-	// Download and execute the install script
 	curlCmd := exec.Command("bash", "-c", fmt.Sprintf("curl -fsSL %s | bash", installScriptURL))
 	curlCmd.Stdout = os.Stdout
 	curlCmd.Stderr = os.Stderr
-	curlCmd.Stdin = os.Stdin // Allow password prompt for sudo
+	curlCmd.Stdin = stdin
+	return curlCmd.Run()
+}
 
-	if err := curlCmd.Run(); err != nil {
+func updateViaDirect(cmd *cobra.Command, stepStyle, successStyle lipgloss.Style) error {
+	cmd.Println(stepStyle.Render("▸ Downloading latest version..."))
+
+	if err := utils.RequireInteractive(cmd, "Run major update from an interactive terminal; non-interactive mode cannot enter a sudo password."); err != nil {
+		return err
+	}
+
+	if err := runDirectInstall(os.Stdin); err != nil {
 		return errors.WrapError("failed to download and install update", err)
 	}
 
