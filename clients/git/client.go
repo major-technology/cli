@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -21,98 +22,178 @@ func SetNonInteractive(v bool) {
 	nonInteractive = v
 }
 
-func applyNonInteractiveGit(cmd *exec.Cmd) {
+func applyNonInteractiveGit(cmd *exec.Cmd) error {
 	if !nonInteractive {
-		return
+		return nil
+	}
+	sshCmd, err := ensureSSHBatchMode(os.Getenv("GIT_SSH_COMMAND"))
+	if err != nil {
+		return err
 	}
 	env := os.Environ()
 	env = append(env, "GIT_TERMINAL_PROMPT=0")
-	env = append(env, "GIT_SSH_COMMAND="+ensureSSHBatchMode(os.Getenv("GIT_SSH_COMMAND")))
+	env = append(env, "GIT_SSH_COMMAND="+sshCmd)
 	cmd.Env = env
 	cmd.Stdin = nil
+	return nil
 }
 
-// ensureSSHBatchMode returns an SSH command with a single BatchMode=yes option.
-// Substrings such as a key path containing "BatchMode=yes" are not treated as
-// options. Conflicting BatchMode values are removed and replaced.
-func ensureSSHBatchMode(sshCmd string) string {
-	if strings.TrimSpace(sshCmd) == "" {
-		sshCmd = "ssh"
+// ensureSSHBatchMode preserves the original GIT_SSH_COMMAND text and inserts
+// `-o BatchMode=yes` immediately after a single direct OpenSSH executable so
+// OpenSSH's first-wins option order cannot be overridden by a later
+// BatchMode=no. Quoted and escaped arguments are left untouched.
+//
+// Supported: empty (defaults to ssh) or one direct ssh invocation, including a
+// path whose basename is ssh. Rejected: env prefixes, wrappers, other
+// executables, and compound shell forms (;|& `$() redirects). Those must use a
+// direct ssh command or run without --non-interactive.
+func ensureSSHBatchMode(sshCmd string) (string, error) {
+	trimmed := strings.TrimSpace(sshCmd)
+	if trimmed == "" {
+		return "ssh -o BatchMode=yes", nil
 	}
-	tokens := splitGitSSHCommand(sshCmd)
-	out := make([]string, 0, len(tokens)+2)
-	for i := 0; i < len(tokens); i++ {
-		tok := tokens[i]
-		if tok == "-o" {
-			if i+1 >= len(tokens) {
-				out = append(out, tok)
-				break
-			}
-			opt := tokens[i+1]
-			if sshOptionKey(opt) == "batchmode" {
-				i++
-				continue
-			}
-			if strings.EqualFold(opt, "BatchMode") {
-				i++
-				if i+1 < len(tokens) && !strings.HasPrefix(tokens[i+1], "-") {
-					i++
-				}
-				continue
-			}
-			out = append(out, tok, opt)
-			i++
+	first, rest, ok := splitFirstShellToken(trimmed)
+	if !ok || !executableIsSSH(first) || hasUnsupportedShellSyntax(rest) {
+		return "", clierrors.ErrorUnsupportedGITSSHCommand
+	}
+	return first + " -o BatchMode=yes" + rest, nil
+}
+
+func executableIsSSH(tok string) bool {
+	val, ok := shellTokenValue(tok)
+	if !ok || val == "" {
+		return false
+	}
+	return filepath.Base(val) == "ssh"
+}
+
+func splitFirstShellToken(s string) (first, rest string, ok bool) {
+	quote := rune(0)
+	escaped := false
+	for i, r := range s {
+		if escaped {
+			escaped = false
 			continue
 		}
-		if len(tok) > 2 && strings.HasPrefix(tok, "-o") && sshOptionKey(tok[2:]) == "batchmode" {
+		if quote == '\'' {
+			if r == '\'' {
+				quote = 0
+			}
 			continue
 		}
-		out = append(out, tok)
+		if quote == '"' {
+			if r == '\\' {
+				escaped = true
+				continue
+			}
+			if r == '"' {
+				quote = 0
+			}
+			continue
+		}
+		switch r {
+		case '\\':
+			escaped = true
+		case '\'', '"':
+			quote = r
+		case ' ', '\t':
+			return s[:i], s[i:], true
+		}
 	}
-	out = append(out, "-o", "BatchMode=yes")
-	return strings.Join(out, " ")
+	if quote != 0 || escaped {
+		return "", "", false
+	}
+	return s, "", true
 }
 
-func sshOptionKey(opt string) string {
-	key, _, ok := strings.Cut(opt, "=")
-	if !ok {
-		return ""
-	}
-	return strings.ToLower(key)
-}
-
-func splitGitSSHCommand(s string) []string {
-	var tokens []string
+func shellTokenValue(tok string) (string, bool) {
 	var b strings.Builder
 	quote := rune(0)
-	for _, r := range s {
-		switch {
-		case quote != 0:
-			if r == quote {
+	escaped := false
+	for _, r := range tok {
+		if escaped {
+			b.WriteRune(r)
+			escaped = false
+			continue
+		}
+		if quote == '\'' {
+			if r == '\'' {
 				quote = 0
 			} else {
 				b.WriteRune(r)
 			}
-		case r == '\'' || r == '"':
-			quote = r
-		case r == ' ' || r == '\t':
-			if b.Len() > 0 {
-				tokens = append(tokens, b.String())
-				b.Reset()
+			continue
+		}
+		if quote == '"' {
+			if r == '\\' {
+				escaped = true
+				continue
 			}
+			if r == '"' {
+				quote = 0
+			} else {
+				b.WriteRune(r)
+			}
+			continue
+		}
+		switch r {
+		case '\\':
+			escaped = true
+		case '\'', '"':
+			quote = r
 		default:
 			b.WriteRune(r)
 		}
 	}
-	if b.Len() > 0 {
-		tokens = append(tokens, b.String())
+	if quote != 0 || escaped {
+		return "", false
 	}
-	return tokens
+	return b.String(), true
+}
+
+func hasUnsupportedShellSyntax(s string) bool {
+	quote := rune(0)
+	escaped := false
+	for _, r := range s {
+		if escaped {
+			escaped = false
+			continue
+		}
+		if quote == '\'' {
+			if r == '\'' {
+				quote = 0
+			}
+			continue
+		}
+		if quote == '"' {
+			if r == '\\' {
+				escaped = true
+				continue
+			}
+			if r == '"' {
+				quote = 0
+				continue
+			}
+			if r == '$' || r == '`' {
+				return true
+			}
+			continue
+		}
+		switch r {
+		case '\\':
+			escaped = true
+		case '\'', '"':
+			quote = r
+		case ';', '|', '&', '`', '$', '(', ')', '<', '>', '\n', '\r':
+			return true
+		}
+	}
+	return quote != 0 || escaped
 }
 
 // ConfigureRemoteCommand applies non-interactive git environment to a command.
-func ConfigureRemoteCommand(cmd *exec.Cmd) {
-	applyNonInteractiveGit(cmd)
+func ConfigureRemoteCommand(cmd *exec.Cmd) error {
+	return applyNonInteractiveGit(cmd)
 }
 
 // RemoteInfo contains parsed information from a git remote URL
@@ -152,7 +233,9 @@ func GetRemoteURLFromDir(dir string) (string, error) {
 // Clone clones a git repository
 func Clone(url, targetDir string) error {
 	cmd := exec.Command("git", "clone", url, targetDir)
-	applyNonInteractiveGit(cmd)
+	if err := applyNonInteractiveGit(cmd); err != nil {
+		return err
+	}
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		// Include the git output in the error message
@@ -186,7 +269,9 @@ func Push(repoDir string) error {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
-	applyNonInteractiveGit(cmd)
+	if err := applyNonInteractiveGit(cmd); err != nil {
+		return err
+	}
 	return cmd.Run()
 }
 
@@ -315,7 +400,9 @@ func PushToMain() error {
 	cmd := exec.Command("git", "push")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	applyNonInteractiveGit(cmd)
+	if err := applyNonInteractiveGit(cmd); err != nil {
+		return err
+	}
 	return cmd.Run()
 }
 
@@ -325,7 +412,9 @@ func Pull(repoDir string) error {
 	if repoDir != "" {
 		cmd.Dir = repoDir
 	}
-	applyNonInteractiveGit(cmd)
+	if err := applyNonInteractiveGit(cmd); err != nil {
+		return err
+	}
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		// Include the git output in the error message
@@ -343,7 +432,9 @@ func IsBehindRemote() (bool, int, error) {
 
 	// Fetch latest from origin
 	fetchCmd := exec.CommandContext(ctx, "git", "fetch", "origin", "main", "--quiet")
-	applyNonInteractiveGit(fetchCmd)
+	if err := applyNonInteractiveGit(fetchCmd); err != nil {
+		return false, 0, err
+	}
 	if err := fetchCmd.Run(); err != nil {
 		return false, 0, err
 	}

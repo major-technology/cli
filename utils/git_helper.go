@@ -217,7 +217,9 @@ func testGitAccess(repoURL string) bool {
 	cmd := exec.Command("git", "ls-remote", "--heads", repoURL)
 	cmd.Stdout = nil
 	cmd.Stderr = nil
-	git.ConfigureRemoteCommand(cmd)
+	if err := git.ConfigureRemoteCommand(cmd); err != nil {
+		return false
+	}
 	err := cmd.Run()
 	return err == nil
 }

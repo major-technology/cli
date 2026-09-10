@@ -104,7 +104,7 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 
-	rootCmd.PersistentFlags().Bool("non-interactive", false, "Never prompt or open a browser")
+	rootCmd.PersistentFlags().Bool("non-interactive", false, "Never prompt or open a browser. GIT_SSH_COMMAND must be a single direct ssh invocation; wrappers and compound commands are rejected.")
 
 	// Disable the default completion command (we use our own)
 	rootCmd.CompletionOptions.DisableDefaultCmd = true

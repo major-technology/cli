@@ -50,6 +50,8 @@ The CLI resolves credentials in this order:
 
 When `MAJOR_TOKEN` is set, `major user login`, `major user logout`, and `major user token` refuse to run because the credential is externally managed. Ordinary commands continue to send `Authorization: Bearer <token>` using the injected value.
 
+`--non-interactive` never prompts or opens a browser and does not imply `--yes`. Git remotes set `GIT_TERMINAL_PROMPT=0` and insert OpenSSH `BatchMode=yes` after a single direct `ssh` executable (including a path whose basename is `ssh`). Quoted and escaped arguments are preserved. `GIT_SSH_COMMAND` wrappers (`env ... ssh`), other first executables, and compound commands (`ssh ...; ...`) are rejected; use a direct `ssh` command or run without `--non-interactive`.
+
 **2. Create a new App**
 Scaffolds a new Major application in your current directory. You'll be prompted to choose a template.
 
