@@ -247,6 +247,47 @@ func TestGetApplicationInfoDeniedInfoDoesNotGitFallback(t *testing.T) {
 	}
 }
 
+func TestGetApplicationInfoSiblingMetadataDoesNotWidenOrGitFallback(t *testing.T) {
+	const siblingAppID = "44444444-4444-4444-8444-444444444444"
+	dir := gitRepoWithOrigin(t)
+	if err := workspace.Write(dir, workspace.Config{
+		OrganizationID: testOrgID,
+		Target:         workspace.Target{Kind: "app", ApplicationID: siblingAppID},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/application/from-repo" {
+			t.Errorf("sibling metadata must not fall back to from-repo")
+			w.WriteHeader(http.StatusOK)
+			fmt.Fprint(w, `{"applicationId":"`+testAppID+`","organizationId":"`+testOrgID+`","urlSlug":"prototype"}`)
+			return
+		}
+		if r.URL.Path != "/applications/"+siblingAppID+"/info" {
+			t.Errorf("unexpected request: %s", r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusForbidden)
+		_ = json.NewEncoder(w).Encode(api.ErrorResponse{
+			Error: &api.AppErrorDetail{
+				InternalCode: 4030,
+				ErrorString:  "forbidden",
+				StatusCode:   http.StatusForbidden,
+			},
+		})
+	}))
+	defer server.Close()
+	restoreAPIClient(t, server.URL)
+
+	_, err := GetApplicationInfo(dir)
+	if err == nil {
+		t.Fatal("expected error when metadata points at sibling app B")
+	}
+}
+
 func restoreAPIClient(t *testing.T, baseURL string) {
 	t.Helper()
 	t.Setenv("MAJOR_TOKEN", "test-injected-token")
