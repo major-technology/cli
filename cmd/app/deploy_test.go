@@ -14,7 +14,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/major-technology/cli/clients/config"
 	"github.com/major-technology/cli/clients/workspace"
+	"github.com/major-technology/cli/singletons"
 	"github.com/spf13/cobra"
 )
 
@@ -341,6 +343,68 @@ func TestDeployWaitFailedJSONExitsNonzero(t *testing.T) {
 	}
 }
 
+func TestPromptForDeployURLJSONWritesBannersToStderr(t *testing.T) {
+	flagDeployJSON = true
+	t.Cleanup(func() { flagDeployJSON = false })
+
+	prev := collectFirstDeploySlug
+	collectFirstDeploySlug = func(cmd *cobra.Command, slug *string) error {
+		*slug = "my-app"
+		return nil
+	}
+	t.Cleanup(func() { collectFirstDeploySlug = prev })
+
+	prevCfg := singletons.GetConfig()
+	singletons.SetConfig(&config.Config{AppURLSuffix: "example.test"})
+	t.Cleanup(func() { singletons.SetConfig(prevCfg) })
+
+	cmd, stdout, stderr := deployCaptureCmd(t)
+	got, err := promptForDeployURL(cmd)
+	if err != nil {
+		t.Fatalf("promptForDeployURL: %v", err)
+	}
+	if got != "my-app" {
+		t.Fatalf("slug = %q, want my-app", got)
+	}
+	if strings.TrimSpace(stdout.String()) != "" {
+		t.Fatalf("JSON first-deploy prompt must not write to stdout, got %q", stdout.String())
+	}
+	out := stderr.String()
+	if !strings.Contains(out, "First deploy") {
+		t.Fatalf("stderr must contain first-deploy banner, got %q", out)
+	}
+	if !strings.Contains(out, "https://my-app.example.test") {
+		t.Fatalf("stderr must contain selected URL, got %q", out)
+	}
+}
+
+func TestDeployWaitStatusConnectionLostIncludesDeployStatusCommand(t *testing.T) {
+	work, remote := cloneFixture(t)
+	probe := newDeployProbe(t, remote, "prototype", "", http.StatusOK)
+	probe.dropStatus = true
+	t.Chdir(work)
+	setDeployCommandFlags(t, "", "", false, true)
+
+	cmd, stdout, _ := deployCaptureCmd(t)
+	err := runWithDeadline(t, 8*time.Second, func() error { return runDeploy(cmd) })
+	if err == nil {
+		t.Fatal("status-endpoint connection loss after create must fail")
+	}
+	if probe.posts.Load() != 1 {
+		t.Fatalf("version creates = %d, want 1 (no retry)", probe.posts.Load())
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, "major app deploy-status --non-interactive --version-id "+deployVersionID) {
+		t.Fatalf("known version ID must name deploy-status command, got %v", err)
+	}
+	if strings.Contains(msg, "major app info --non-interactive --json") {
+		t.Fatalf("must not use info discovery when version ID is known, got %v", err)
+	}
+	if strings.TrimSpace(stdout.String()) != "" {
+		t.Fatalf("failure must not emit success JSON, stdout=%q", stdout.String())
+	}
+}
+
 func TestDeployConnectionLostDoesNotRetry(t *testing.T) {
 	work, remote := cloneFixture(t)
 	var posts atomic.Int32
@@ -500,6 +564,7 @@ type deployProbe struct {
 	status     int
 	infoSlug   string
 	waitStatus string
+	dropStatus bool
 }
 
 func newDeployProbe(t *testing.T, remote, infoSlug, versionHash string, status int) *deployProbe {
@@ -535,6 +600,20 @@ func (p *deployProbe) serve(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		fmt.Fprintf(w, `{"versionId":%q,"versionHash":%q}`, deployVersionID, hash)
 	case r.URL.Path == "/applications/versions/status" || strings.Contains(r.URL.Path, "versions/status"):
+		if p.dropStatus {
+			hj, ok := w.(http.Hijacker)
+			if !ok {
+				p.t.Error("server cannot hijack")
+				return
+			}
+			conn, _, err := hj.Hijack()
+			if err != nil {
+				p.t.Errorf("hijack: %v", err)
+				return
+			}
+			conn.Close()
+			return
+		}
 		waitStatus := p.waitStatus
 		if waitStatus == "" {
 			waitStatus = "DEPLOYED"

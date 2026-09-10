@@ -174,7 +174,7 @@ func runDeploy(cobraCmd *cobra.Command) error {
 		finalStatus, deploymentError, appURL, err = pollDeploymentStatus(applicationID, organizationID, resp.VersionID)
 	}
 	if err != nil {
-		return errors.WrapError("failed to track deployment status", err)
+		return fmt.Errorf("failed to track deployment status: %w. Inspect with: %s", err, statusHint)
 	}
 
 	if finalStatus != "DEPLOYED" {
@@ -502,29 +502,39 @@ func pollDeploymentStatusSimple(cobraCmd *cobra.Command, applicationID, organiza
 	}
 }
 
-// promptForDeployURL prompts the user for a deploy URL slug on first deploy.
-func promptForDeployURL(cobraCmd *cobra.Command) (string, error) {
-	cfg := singletons.GetConfig()
-	suffix := cfg.AppURLSuffix
+// collectFirstDeploySlug runs the first-deploy URL prompt. Tests replace this
+// to avoid driving the huh TUI.
+var collectFirstDeploySlug = runFirstDeployURLForm
 
-	cobraCmd.Println("\n🌐 First deploy — choose your application URL")
-	cobraCmd.Printf("  Your app will be available at: https://<slug>.%s\n\n", suffix)
-
-	var slug string
+func runFirstDeployURLForm(cmd *cobra.Command, slug *string) error {
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().
 				Title("Deploy URL").
 				Description("Enter a URL slug for your application (e.g. my-app)").
-				Value(&slug).
+				Value(slug).
 				Validate(validateSlug),
 		),
 	)
+	if flagDeployJSON {
+		form = form.WithOutput(cmd.ErrOrStderr())
+	}
+	return form.Run()
+}
 
-	if err := form.Run(); err != nil {
+// promptForDeployURL prompts the user for a deploy URL slug on first deploy.
+func promptForDeployURL(cobraCmd *cobra.Command) (string, error) {
+	cfg := singletons.GetConfig()
+	suffix := cfg.AppURLSuffix
+
+	deployLog(cobraCmd, "\n🌐 First deploy — choose your application URL\n")
+	deployLog(cobraCmd, "  Your app will be available at: https://<slug>.%s\n\n", suffix)
+
+	var slug string
+	if err := collectFirstDeploySlug(cobraCmd, &slug); err != nil {
 		return "", err
 	}
 
-	cobraCmd.Printf("✓ Deploy URL: https://%s.%s\n", slug, suffix)
+	deployLog(cobraCmd, "✓ Deploy URL: https://%s.%s\n", slug, suffix)
 	return slug, nil
 }
