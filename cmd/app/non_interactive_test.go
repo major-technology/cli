@@ -185,9 +185,10 @@ func attachBareOrigin(t *testing.T, dir string) {
 	if err := os.MkdirAll(remote, 0755); err != nil {
 		t.Fatal(err)
 	}
-	runGit(t, remote, "init", "--bare")
+	runGit(t, remote, "init", "--bare", "-b", "main")
 	runGit(t, dir, "remote", "add", "origin", remote)
 	runGit(t, dir, "push", "-u", "origin", "HEAD:main")
+	runGit(t, remote, "symbolic-ref", "HEAD", "refs/heads/main")
 }
 
 func snapshotGit(t *testing.T, dir string) gitSnapshot {

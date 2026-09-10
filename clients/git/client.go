@@ -3,6 +3,7 @@ package git
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -382,7 +383,7 @@ func HasUncommittedChanges() (bool, error) {
 // Add stages all changes
 func Add() error {
 	cmd := exec.Command("git", "add", ".")
-	cmd.Stdout = os.Stdout
+	cmd.Stdout = os.Stderr
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
 }
@@ -390,15 +391,15 @@ func Add() error {
 // Commit commits staged changes with the given message
 func Commit(message string) error {
 	cmd := exec.Command("git", "commit", "-m", message)
-	cmd.Stdout = os.Stdout
+	cmd.Stdout = os.Stderr
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
 }
 
-// PushToMain pushes commits to the remote repository on main branch
+// PushToMain pushes commits to the remote repository on the current branch.
 func PushToMain() error {
 	cmd := exec.Command("git", "push")
-	cmd.Stdout = os.Stdout
+	cmd.Stdout = os.Stderr
 	cmd.Stderr = os.Stderr
 	if err := applyNonInteractiveGit(cmd); err != nil {
 		return err
@@ -493,4 +494,95 @@ func GetCurrentGithubUser() (string, error) {
 	}
 
 	return "", nil
+}
+
+// RemoteDefaultBranch returns the default branch name advertised by origin.
+func RemoteDefaultBranch() (string, error) {
+	cmd := exec.Command("git", "ls-remote", "--symref", "origin", "HEAD")
+	if err := applyNonInteractiveGit(cmd); err != nil {
+		return "", err
+	}
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		msg := strings.TrimSpace(string(out))
+		if msg == "" {
+			msg = err.Error()
+		}
+		return "", fmt.Errorf("could not determine the remote default branch from origin: %s", msg)
+	}
+	for _, line := range strings.Split(string(out), "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, "ref:") {
+			continue
+		}
+		fields := strings.Fields(line)
+		if len(fields) < 2 {
+			continue
+		}
+		ref := fields[1]
+		if !strings.HasPrefix(ref, "refs/heads/") {
+			return "", fmt.Errorf("could not determine the remote default branch from origin")
+		}
+		name := strings.TrimPrefix(ref, "refs/heads/")
+		if name == "" {
+			return "", fmt.Errorf("could not determine the remote default branch from origin")
+		}
+		return name, nil
+	}
+	return "", fmt.Errorf("could not determine the remote default branch from origin")
+}
+
+// CurrentBranch returns the short name of the current branch.
+// Detached HEAD is an error.
+func CurrentBranch() (string, error) {
+	cmd := exec.Command("git", "symbolic-ref", "--quiet", "--short", "HEAD")
+	out, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("HEAD is detached")
+	}
+	name := strings.TrimSpace(string(out))
+	if name == "" {
+		return "", fmt.Errorf("HEAD is detached")
+	}
+	return name, nil
+}
+
+// HeadSHA returns the full commit SHA of HEAD.
+func HeadSHA() (string, error) {
+	cmd := exec.Command("git", "rev-parse", "HEAD")
+	out, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
+// RequireDefaultBranch returns the remote default branch when HEAD is on it.
+func RequireDefaultBranch() (string, error) {
+	defaultBranch, err := RemoteDefaultBranch()
+	if err != nil {
+		return "", err
+	}
+	current, err := CurrentBranch()
+	if err != nil {
+		return "", fmt.Errorf("%s. Checkout the remote default branch %s before deploying", err.Error(), defaultBranch)
+	}
+	if current != defaultBranch {
+		return "", fmt.Errorf("deploy requires the remote default branch %s; current branch is %s. Checkout the default branch; the CLI will not switch branches or force-push", defaultBranch, current)
+	}
+	return defaultBranch, nil
+}
+
+// PushBranch pushes HEAD to origin/<branch> with a fast-forward-only ordinary push.
+func PushBranch(branch string) error {
+	if strings.TrimSpace(branch) == "" {
+		return fmt.Errorf("could not determine the remote default branch from origin")
+	}
+	cmd := exec.Command("git", "push", "origin", "HEAD:"+branch)
+	cmd.Stdout = os.Stderr
+	cmd.Stderr = os.Stderr
+	if err := applyNonInteractiveGit(cmd); err != nil {
+		return err
+	}
+	return cmd.Run()
 }

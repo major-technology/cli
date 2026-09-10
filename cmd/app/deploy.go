@@ -24,12 +24,14 @@ var (
 	flagDeployMessage string
 	flagDeploySlug    string
 	flagDeployNoWait  bool
+	flagDeployJSON    bool
 )
 
 func init() {
 	deployCmd.Flags().StringVarP(&flagDeployMessage, "message", "m", "", "Commit message for uncommitted changes (skips interactive prompt)")
 	deployCmd.Flags().StringVar(&flagDeploySlug, "slug", "", "URL slug for first deploy (skips interactive prompt)")
 	deployCmd.Flags().BoolVar(&flagDeployNoWait, "no-wait", false, "Don't wait for deployment to complete (returns immediately after triggering)")
+	deployCmd.Flags().BoolVar(&flagDeployJSON, "json", false, "Output in JSON format")
 }
 
 // deployCmd represents the deploy command
@@ -43,27 +45,18 @@ var deployCmd = &cobra.Command{
 }
 
 func runDeploy(cobraCmd *cobra.Command) error {
-	// Check if we're in a git repository
 	if !git.IsGitRepository() {
 		return errors.ErrorNotInGitRepository
 	}
 
-	// Get application ID, organization ID, and URL slug
 	applicationID, organizationID, urlSlug, err := getApplicationAndOrgID()
 	if err != nil {
 		return errors.WrapError("failed to get application ID", err)
 	}
 
-	// Check for uncommitted changes
 	hasChanges, err := git.HasUncommittedChanges()
 	if err != nil {
 		return errors.WrapError("failed to check for uncommitted changes: %w", err)
-	}
-
-	if hasChanges {
-		cobraCmd.Println("📝 Uncommitted changes detected")
-	} else {
-		cobraCmd.Println("✓ No uncommitted changes")
 	}
 
 	var commitMessage string
@@ -113,68 +106,125 @@ func runDeploy(cobraCmd *cobra.Command) error {
 		}
 	}
 
-	if hasChanges {
-		if err := git.Add(); err != nil {
-			return errors.WrapError("failed to stage changes", err)
-		}
-		cobraCmd.Println("✓ Changes staged")
-
-		if err := git.Commit(commitMessage); err != nil {
-			return errors.WrapError("failed to commit changes", err)
-		}
-		cobraCmd.Println("✓ Changes committed")
-
-		if err := git.PushToMain(); err != nil {
-			return errors.WrapError("failed to push changes", err)
-		}
-		cobraCmd.Println("✓ Changes pushed to remote")
-	}
-
-	// Call API to create new version
-	apiClient := singletons.GetAPIClient()
-	resp, err := apiClient.CreateApplicationVersion(applicationID, deploySlug)
+	defaultBranch, err := git.RequireDefaultBranch()
 	if err != nil {
 		return err
 	}
 
-	cobraCmd.Printf("\n✓ Version created: %s\n", resp.VersionID)
+	if hasChanges {
+		deployLog(cobraCmd, "📝 Uncommitted changes detected\n")
+		if err := git.Add(); err != nil {
+			return errors.WrapError("failed to stage changes", err)
+		}
+		deployLog(cobraCmd, "✓ Changes staged\n")
 
-	// If --no-wait, return immediately
+		if err := git.Commit(commitMessage); err != nil {
+			return errors.WrapError("failed to commit changes", err)
+		}
+		deployLog(cobraCmd, "✓ Changes committed\n")
+	} else {
+		deployLog(cobraCmd, "✓ No uncommitted changes\n")
+	}
+
+	if err := git.PushBranch(defaultBranch); err != nil {
+		return errors.WrapError("failed to push changes", err)
+	}
+	deployLog(cobraCmd, "✓ Changes pushed to remote\n")
+
+	expectedHash, err := git.HeadSHA()
+	if err != nil {
+		return errors.WrapError("failed to read HEAD", err)
+	}
+
+	apiClient := singletons.GetAPIClient()
+	resp, err := apiClient.CreateApplicationVersion(applicationID, deploySlug)
+	if err != nil {
+		if isUnknownDeployOutcome(err) {
+			return fmt.Errorf("deployment result is unknown: %w. Inspect with: major app info --non-interactive --json", err)
+		}
+		return err
+	}
+	if resp == nil || resp.VersionID == "" {
+		return fmt.Errorf("deployment result is unknown. Inspect with: major app info --non-interactive --json")
+	}
+
+	statusHint := fmt.Sprintf("major app deploy-status --non-interactive --version-id %s", resp.VersionID)
+	if resp.VersionHash != expectedHash {
+		return fmt.Errorf("a different commit was selected for deployment (requested %s, returned %s). Inspect with: %s", expectedHash, resp.VersionHash, statusHint)
+	}
+
 	if flagDeployNoWait {
-		cobraCmd.Printf("Deployment started. Use 'major app deploy-status --version-id %s' to check status.\n", resp.VersionID)
+		utils.Hint(cobraCmd, statusHint)
+		if flagDeployJSON {
+			return utils.WriteJSON(cobraCmd, deployResultJSON{
+				VersionID:   resp.VersionID,
+				VersionHash: resp.VersionHash,
+				Status:      "started",
+			})
+		}
+		deployLog(cobraCmd, "\n✓ Version created: %s\n", resp.VersionID)
+		deployLog(cobraCmd, "Deployment started. Use '%s' to check status.\n", statusHint)
 		return nil
 	}
 
-	// Poll deployment status -- use simple polling if not a TTY, Bubble Tea otherwise
 	var finalStatus, deploymentError, appURL string
-	if xt.IsTerminal(os.Stdout.Fd()) {
-		finalStatus, deploymentError, appURL, err = pollDeploymentStatus(applicationID, organizationID, resp.VersionID)
-	} else {
+	if flagDeployJSON || !xt.IsTerminal(os.Stdout.Fd()) {
 		finalStatus, deploymentError, appURL, err = pollDeploymentStatusSimple(cobraCmd, applicationID, organizationID, resp.VersionID)
+	} else {
+		finalStatus, deploymentError, appURL, err = pollDeploymentStatus(applicationID, organizationID, resp.VersionID)
 	}
 	if err != nil {
 		return errors.WrapError("failed to track deployment status", err)
 	}
 
-	// Print final status
-	if finalStatus == "DEPLOYED" {
-		cobraCmd.Printf("\n🎉 Deployment successful!\n")
-
-		// Print application URL from the API response
-		if appURL != "" {
-			cobraCmd.Printf("\n🌐 Your application is live at:\n")
-			cobraCmd.Printf("  %s\n", appURL)
-		}
-	} else {
-		// Display error message if available
-		if deploymentError != "" {
-			cobraCmd.Printf("\n❌ Deployment failed with status: %s\n", finalStatus)
-			cobraCmd.Printf("\n%s\n", formatDeploymentError(deploymentError))
+	if finalStatus != "DEPLOYED" {
+		if !flagDeployJSON && deploymentError != "" {
+			deployLog(cobraCmd, "\n❌ Deployment failed with status: %s\n", finalStatus)
+			deployLog(cobraCmd, "\n%s\n", formatDeploymentError(deploymentError))
 		}
 		return fmt.Errorf("deployment failed with status: %s", finalStatus)
 	}
 
+	if flagDeployJSON {
+		return utils.WriteJSON(cobraCmd, deployResultJSON{
+			VersionID:   resp.VersionID,
+			VersionHash: resp.VersionHash,
+			Status:      finalStatus,
+			AppURL:      appURL,
+		})
+	}
+
+	deployLog(cobraCmd, "\n🎉 Deployment successful!\n")
+	if appURL != "" {
+		deployLog(cobraCmd, "\n🌐 Your application is live at:\n")
+		deployLog(cobraCmd, "  %s\n", appURL)
+	}
 	return nil
+}
+
+type deployResultJSON struct {
+	VersionID   string `json:"versionId"`
+	VersionHash string `json:"versionHash"`
+	Status      string `json:"status"`
+	AppURL      string `json:"appUrl,omitempty"`
+}
+
+func deployLog(cmd *cobra.Command, format string, args ...any) {
+	w := cmd.OutOrStdout()
+	if flagDeployJSON {
+		w = cmd.ErrOrStderr()
+	}
+	fmt.Fprintf(w, format, args...)
+}
+
+func isUnknownDeployOutcome(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "failed to make request") ||
+		strings.Contains(msg, "failed to read response") ||
+		strings.Contains(msg, "failed to parse response")
 }
 
 // deploymentStatusModel represents the Bubble Tea model for deployment status tracking
@@ -440,7 +490,7 @@ func pollDeploymentStatusSimple(cobraCmd *cobra.Command, applicationID, organiza
 
 		if resp.Status != lastStatus {
 			statusText, _ := getStatusDisplay(resp.Status)
-			cobraCmd.Printf("Status: %s\n", statusText)
+			deployLog(cobraCmd, "Status: %s\n", statusText)
 			lastStatus = resp.Status
 		}
 

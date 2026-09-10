@@ -117,8 +117,9 @@ type CreateApplicationVersionRequest struct {
 
 // CreateApplicationVersionResponse represents the response from POST /applications/versions
 type CreateApplicationVersionResponse struct {
-	Error     *AppErrorDetail `json:"error,omitempty"`
-	VersionID string          `json:"versionId,omitempty"`
+	Error       *AppErrorDetail `json:"error,omitempty"`
+	VersionID   string          `json:"versionId,omitempty"`
+	VersionHash string          `json:"versionHash,omitempty"`
 }
 
 // ApplicationItem represents a single application in the list

@@ -133,7 +133,7 @@ func restoreAPIClient(t *testing.T, baseURL string) {
 func gitRepo(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
-	runGit(t, dir, "init")
+	runGit(t, dir, "init", "-b", "main")
 	runGit(t, dir, "config", "user.email", "test@example.com")
 	runGit(t, dir, "config", "user.name", "Test")
 	return dir
