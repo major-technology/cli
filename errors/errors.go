@@ -78,7 +78,7 @@ func PrintError(cmd *cobra.Command, err error) {
 		message = title
 	}
 
-	cmd.Println(errorStyle.Render(message))
+	cmd.PrintErrln(errorStyle.Render(message))
 }
 
 // Authentication/Session Errors

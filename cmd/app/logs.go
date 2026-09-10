@@ -1,13 +1,13 @@
 package app
 
 import (
-	"encoding/json"
 	"fmt"
 	"time"
 
 	"github.com/major-technology/cli/clients/api"
 	"github.com/major-technology/cli/errors"
 	"github.com/major-technology/cli/singletons"
+	"github.com/major-technology/cli/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -74,20 +74,17 @@ func runLogs(cmd *cobra.Command) error {
 	}
 
 	if flagLogsJSON {
-		data, err := json.Marshal(resp)
-		if err != nil {
+		if err := utils.WriteJSON(cmd, resp); err != nil {
 			return err
 		}
-		fmt.Fprintln(cmd.OutOrStdout(), string(data))
-		return nil
-	}
-
-	for _, entry := range resp.Logs {
-		fmt.Fprintf(cmd.OutOrStdout(), "%s  %s\n", entry.Ts, entry.Log)
+	} else {
+		for _, entry := range resp.Logs {
+			fmt.Fprintf(cmd.OutOrStdout(), "%s  %s\n", entry.Ts, entry.Log)
+		}
 	}
 
 	if resp.NextToken != "" {
-		fmt.Fprintf(cmd.OutOrStdout(), "\n# more logs available — rerun with --next-token %s\n", resp.NextToken)
+		utils.Hint(cmd, fmt.Sprintf("more logs available — rerun with --next-token %s", resp.NextToken))
 	}
 
 	return nil

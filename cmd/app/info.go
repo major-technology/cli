@@ -1,10 +1,8 @@
 package app
 
 import (
-	"encoding/json"
-	"fmt"
-
 	"github.com/major-technology/cli/singletons"
+	"github.com/major-technology/cli/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -25,19 +23,15 @@ func init() {
 }
 
 func runInfo(cmd *cobra.Command) error {
-	// Get application ID
 	applicationID, err := getApplicationID()
 	if err != nil {
 		return err
 	}
 
-	// Try to get extended info from the new endpoint
 	apiClient := singletons.GetAPIClient()
 	appInfo, err := apiClient.GetApplicationInfo(applicationID)
 	if err != nil {
-		// Graceful fallback: if endpoint doesn't exist yet, just show app ID
-		cmd.Printf("Application ID: %s\n", applicationID)
-		return nil
+		return err
 	}
 
 	if flagInfoJSON {
@@ -47,18 +41,12 @@ func runInfo(cmd *cobra.Command) error {
 			DeployStatus  string  `json:"deployStatus"`
 			AppURL        *string `json:"appUrl"`
 		}
-
-		data, err := json.Marshal(infoJSON{
+		return utils.WriteJSON(cmd, infoJSON{
 			ApplicationID: appInfo.ApplicationID,
 			Name:          appInfo.Name,
 			DeployStatus:  appInfo.DeployStatus,
 			AppURL:        appInfo.AppURL,
 		})
-		if err != nil {
-			return err
-		}
-		fmt.Fprintln(cmd.OutOrStdout(), string(data))
-		return nil
 	}
 
 	cmd.Printf("Application ID: %s\n", appInfo.ApplicationID)

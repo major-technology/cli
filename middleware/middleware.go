@@ -118,8 +118,8 @@ func CheckVersion(version string) CommandCheck {
 				fmt.Sprintf("Run %s to get the newest version.",
 					commandStyle.Render("major update")))
 
-			cmd.Println(message)
-			cmd.Println() // Add a blank line for spacing
+			fmt.Fprintln(cmd.ErrOrStderr(), message)
+			fmt.Fprintln(cmd.ErrOrStderr())
 		}
 
 		return nil

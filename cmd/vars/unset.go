@@ -14,6 +14,7 @@ var (
 	flagUnsetEnv             string
 	flagUnsetAllEnvironments bool
 	flagUnsetYes             bool
+	flagUnsetJSON            bool
 )
 
 var unsetCmd = &cobra.Command{
@@ -36,6 +37,7 @@ func init() {
 	unsetCmd.Flags().StringVar(&flagUnsetEnv, "env", "", "Target environment name (defaults to your current environment)")
 	unsetCmd.Flags().BoolVar(&flagUnsetAllEnvironments, "all-environments", false, "Remove the key across every environment")
 	unsetCmd.Flags().BoolVarP(&flagUnsetYes, "yes", "y", false, "Skip the confirmation prompt")
+	unsetCmd.Flags().BoolVar(&flagUnsetJSON, "json", false, "Output in JSON format")
 }
 
 func runUnset(cmd *cobra.Command, key string) error {
@@ -91,6 +93,14 @@ func runUnset(cmd *cobra.Command, key string) error {
 	resp, err := apiClient.DeleteEnvVariableByKey(appID, key, envID, flagUnsetAllEnvironments)
 	if err != nil {
 		return errors.WrapError("failed to unset env variable", err)
+	}
+
+	if flagUnsetJSON {
+		return utils.WriteJSON(cmd, map[string]any{
+			"key":         key,
+			"environment": envName,
+			"deleted":     resp.Deleted,
+		})
 	}
 
 	switch {

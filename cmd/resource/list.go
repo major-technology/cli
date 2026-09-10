@@ -1,15 +1,14 @@
 package resource
 
 import (
-	"encoding/json"
-	"fmt"
-
 	"github.com/major-technology/cli/errors"
 	"github.com/major-technology/cli/middleware"
 	"github.com/major-technology/cli/singletons"
 	"github.com/major-technology/cli/utils"
 	"github.com/spf13/cobra"
 )
+
+var flagListJSON bool
 
 var listCmd = &cobra.Command{
 	Use:   "list",
@@ -23,6 +22,10 @@ var listCmd = &cobra.Command{
 	},
 }
 
+func init() {
+	listCmd.Flags().BoolVar(&flagListJSON, "json", false, "Output in JSON format")
+}
+
 func runList(cobraCmd *cobra.Command) error {
 	appInfo, err := utils.GetApplicationInfo("")
 	if err != nil {
@@ -31,19 +34,16 @@ func runList(cobraCmd *cobra.Command) error {
 
 	apiClient := singletons.GetAPIClient()
 
-	// Get all org resources
 	orgResources, err := apiClient.GetResources(appInfo.OrganizationID)
 	if err != nil {
 		return errors.WrapError("failed to get resources", err)
 	}
 
-	// Get app-attached resources
 	appResources, err := apiClient.GetApplicationResources(appInfo.ApplicationID)
 	if err != nil {
 		return errors.WrapError("failed to get application resources", err)
 	}
 
-	// Build set of attached resource IDs
 	attached := make(map[string]bool)
 	for _, r := range appResources.Resources {
 		attached[r.ID] = true
@@ -68,10 +68,5 @@ func runList(cobraCmd *cobra.Command) error {
 		}
 	}
 
-	data, err := json.Marshal(resources)
-	if err != nil {
-		return errors.WrapError("failed to marshal JSON", err)
-	}
-	fmt.Fprintln(cobraCmd.OutOrStdout(), string(data))
-	return nil
+	return utils.WriteJSON(cobraCmd, resources)
 }

@@ -1,11 +1,11 @@
 package vars
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/major-technology/cli/errors"
 	"github.com/major-technology/cli/singletons"
+	"github.com/major-technology/cli/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -72,12 +72,7 @@ func runGet(cmd *cobra.Command, key string) error {
 			}
 		}
 		if flagGetJSON {
-			data, err := json.Marshal(getJSONOutput{Key: key, Value: value, Environment: env.Name})
-			if err != nil {
-				return errors.WrapError("failed to encode JSON", err)
-			}
-			fmt.Fprintln(cmd.OutOrStdout(), string(data))
-			return nil
+			return utils.WriteJSON(cmd, getJSONOutput{Key: key, Value: value, Environment: env.Name})
 		}
 		fmt.Fprintln(cmd.OutOrStdout(), value)
 		return nil

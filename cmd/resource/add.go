@@ -11,7 +11,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var flagAddResourceID string
+var (
+	flagAddResourceID     string
+	flagAddJSON           bool
+	addResourcesToProject = utils.AddResourcesToProject
+)
 
 var addCmd = &cobra.Command{
 	Use:   "add",
@@ -30,6 +34,7 @@ var addCmd = &cobra.Command{
 
 func init() {
 	addCmd.Flags().StringVar(&flagAddResourceID, "id", "", "Resource ID to add")
+	addCmd.Flags().BoolVar(&flagAddJSON, "json", false, "Output in JSON format")
 	addCmd.MarkFlagRequired("id")
 }
 
@@ -41,13 +46,11 @@ func runAdd(cobraCmd *cobra.Command) error {
 
 	apiClient := singletons.GetAPIClient()
 
-	// Fetch org resources (source of truth for resource metadata)
 	orgResources, err := apiClient.GetResources(appInfo.OrganizationID)
 	if err != nil {
 		return errors.WrapError("failed to get resources", err)
 	}
 
-	// Find the target resource in org resources
 	var targetResource *api.ResourceItem
 	for i, r := range orgResources.Resources {
 		if r.ID == flagAddResourceID {
@@ -60,33 +63,50 @@ func runAdd(cobraCmd *cobra.Command) error {
 		return fmt.Errorf("resource with ID %q not found in organization", flagAddResourceID)
 	}
 
-	// Read local resources.json (same as manage does)
 	existingResources, err := utils.ReadLocalResources(".")
 	if err != nil {
-		cobraCmd.Printf("Warning: Could not read existing resources: %v\n", err)
+		fmt.Fprintf(cobraCmd.ErrOrStderr(), "Warning: Could not read existing resources: %v\n", err)
 		existingResources = []utils.LocalResource{}
 	}
 
-	// Build desired resource ID list: existing + new
 	selectedIDs := make([]string, 0, len(existingResources)+1)
 	for _, r := range existingResources {
 		selectedIDs = append(selectedIDs, r.ID)
 	}
 	selectedIDs = append(selectedIDs, flagAddResourceID)
 
-	// Save to server
 	_, err = apiClient.SaveApplicationResources(appInfo.OrganizationID, appInfo.ApplicationID, selectedIDs)
 	if err != nil {
 		return errors.WrapError("failed to save resources", err)
 	}
 
-	// Build full resource list for AddResourcesToProject (needs ResourceItem details)
 	selectedResources := utils.ResolveResourceItems(selectedIDs, orgResources.Resources)
-
-	// Generate local client code (diffs against resources.json)
-	if err := utils.AddResourcesToProject(cobraCmd, ".", selectedResources, appInfo.ApplicationID); err != nil {
+	if err := generateLocalResources(cobraCmd, flagAddJSON, selectedResources, appInfo.ApplicationID); err != nil {
 		return errors.WrapError("failed to add resource to project", err)
 	}
 
+	if flagAddJSON {
+		return utils.WriteJSON(cobraCmd, map[string]any{
+			"resourceId": flagAddResourceID,
+			"attached":   true,
+		})
+	}
 	return nil
+}
+
+func generateLocalResources(cmd *cobra.Command, jsonOut bool, resources []api.ResourceItem, applicationID string) error {
+	restore := routeJSONChatter(cmd, jsonOut)
+	defer restore()
+	return addResourcesToProject(cmd, ".", resources, applicationID)
+}
+
+func routeJSONChatter(cmd *cobra.Command, jsonOut bool) func() {
+	if !jsonOut {
+		return func() {}
+	}
+	stdout := cmd.OutOrStdout()
+	cmd.SetOut(cmd.ErrOrStderr())
+	return func() {
+		cmd.SetOut(stdout)
+	}
 }
