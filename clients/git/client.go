@@ -27,16 +27,87 @@ func applyNonInteractiveGit(cmd *exec.Cmd) {
 	}
 	env := os.Environ()
 	env = append(env, "GIT_TERMINAL_PROMPT=0")
-	sshCmd := os.Getenv("GIT_SSH_COMMAND")
-	if sshCmd == "" {
-		sshCmd = "ssh"
-	}
-	if !strings.Contains(sshCmd, "BatchMode=yes") {
-		sshCmd = sshCmd + " -o BatchMode=yes"
-	}
-	env = append(env, "GIT_SSH_COMMAND="+sshCmd)
+	env = append(env, "GIT_SSH_COMMAND="+ensureSSHBatchMode(os.Getenv("GIT_SSH_COMMAND")))
 	cmd.Env = env
 	cmd.Stdin = nil
+}
+
+// ensureSSHBatchMode returns an SSH command with a single BatchMode=yes option.
+// Substrings such as a key path containing "BatchMode=yes" are not treated as
+// options. Conflicting BatchMode values are removed and replaced.
+func ensureSSHBatchMode(sshCmd string) string {
+	if strings.TrimSpace(sshCmd) == "" {
+		sshCmd = "ssh"
+	}
+	tokens := splitGitSSHCommand(sshCmd)
+	out := make([]string, 0, len(tokens)+2)
+	for i := 0; i < len(tokens); i++ {
+		tok := tokens[i]
+		if tok == "-o" {
+			if i+1 >= len(tokens) {
+				out = append(out, tok)
+				break
+			}
+			opt := tokens[i+1]
+			if sshOptionKey(opt) == "batchmode" {
+				i++
+				continue
+			}
+			if strings.EqualFold(opt, "BatchMode") {
+				i++
+				if i+1 < len(tokens) && !strings.HasPrefix(tokens[i+1], "-") {
+					i++
+				}
+				continue
+			}
+			out = append(out, tok, opt)
+			i++
+			continue
+		}
+		if len(tok) > 2 && strings.HasPrefix(tok, "-o") && sshOptionKey(tok[2:]) == "batchmode" {
+			continue
+		}
+		out = append(out, tok)
+	}
+	out = append(out, "-o", "BatchMode=yes")
+	return strings.Join(out, " ")
+}
+
+func sshOptionKey(opt string) string {
+	key, _, ok := strings.Cut(opt, "=")
+	if !ok {
+		return ""
+	}
+	return strings.ToLower(key)
+}
+
+func splitGitSSHCommand(s string) []string {
+	var tokens []string
+	var b strings.Builder
+	quote := rune(0)
+	for _, r := range s {
+		switch {
+		case quote != 0:
+			if r == quote {
+				quote = 0
+			} else {
+				b.WriteRune(r)
+			}
+		case r == '\'' || r == '"':
+			quote = r
+		case r == ' ' || r == '\t':
+			if b.Len() > 0 {
+				tokens = append(tokens, b.String())
+				b.Reset()
+			}
+		default:
+			b.WriteRune(r)
+		}
+	}
+	if b.Len() > 0 {
+		tokens = append(tokens, b.String())
+	}
+	return tokens
 }
 
 // ConfigureRemoteCommand applies non-interactive git environment to a command.
