@@ -51,6 +51,10 @@ func ReadLocalResources(projectDir string) ([]LocalResource, error) {
 // SelectApplicationResources prompts the user to select resources for the application
 // Returns the selected resources with their full details
 func SelectApplicationResources(cmd *cobra.Command, apiClient *api.Client, orgID, appID string) ([]api.ResourceItem, error) {
+	if err := RequireInteractive(cmd, "Use 'major resource add --id' and 'major resource remove --id'."); err != nil {
+		return nil, err
+	}
+
 	// Fetch available resources
 	resourcesResp, err := apiClient.GetResources(orgID)
 	if err != nil {

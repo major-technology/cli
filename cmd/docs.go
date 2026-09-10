@@ -11,7 +11,7 @@ var docsCmd = &cobra.Command{
 	Long:  `Opens the Major documentation in your default browser (https://docs.major.build/)`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.Println("Opening documentation...")
-		return utils.OpenBrowser("https://docs.major.build/")
+		return utils.OpenOrPrintBrowser(cmd, "https://docs.major.build/")
 	},
 }
 

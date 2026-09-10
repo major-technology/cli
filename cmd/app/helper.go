@@ -349,6 +349,13 @@ func handleThemeSync(cmd *cobra.Command) error {
 		return nil
 	}
 
+	if flagUpgradeTheme {
+		return applyThemeUpgrade(cmd, apiClient, applicationID)
+	}
+	if utils.IsNonInteractive(cmd) {
+		return nil
+	}
+
 	// Prompt for upgrade
 	var confirm bool
 	form := huh.NewForm(
@@ -365,19 +372,22 @@ func handleThemeSync(cmd *cobra.Command) error {
 	}
 
 	if confirm {
-		// Bump the version in the database first
-		if err := apiClient.UpgradeTheme(applicationID); err != nil {
-			return errors.WrapError("failed to upgrade theme", err)
-		}
-
-		// Then write theme files at the new version
-		if err := generateThemeFiles(""); err != nil {
-			return err
-		}
-
-		cmd.Println("✓ Theme files upgraded")
+		return applyThemeUpgrade(cmd, apiClient, applicationID)
 	}
 
+	return nil
+}
+
+func applyThemeUpgrade(cmd *cobra.Command, apiClient *api.Client, applicationID string) error {
+	if err := apiClient.UpgradeTheme(applicationID); err != nil {
+		return errors.WrapError("failed to upgrade theme", err)
+	}
+
+	if err := generateThemeFiles(""); err != nil {
+		return err
+	}
+
+	cmd.Println("✓ Theme files upgraded")
 	return nil
 }
 

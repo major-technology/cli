@@ -13,6 +13,32 @@ import (
 	clierrors "github.com/major-technology/cli/errors"
 )
 
+var nonInteractive bool
+
+// SetNonInteractive controls whether remote git subprocesses disable terminal
+// credential prompts. HTTPS credential helpers are left enabled.
+func SetNonInteractive(v bool) {
+	nonInteractive = v
+}
+
+func applyNonInteractiveGit(cmd *exec.Cmd) {
+	if !nonInteractive {
+		return
+	}
+	env := os.Environ()
+	env = append(env, "GIT_TERMINAL_PROMPT=0")
+	if os.Getenv("GIT_SSH_COMMAND") == "" {
+		env = append(env, "GIT_SSH_COMMAND=ssh -o BatchMode=yes")
+	}
+	cmd.Env = env
+	cmd.Stdin = nil
+}
+
+// ConfigureRemoteCommand applies non-interactive git environment to a command.
+func ConfigureRemoteCommand(cmd *exec.Cmd) {
+	applyNonInteractiveGit(cmd)
+}
+
 // RemoteInfo contains parsed information from a git remote URL
 type RemoteInfo struct {
 	Owner string
@@ -50,6 +76,7 @@ func GetRemoteURLFromDir(dir string) (string, error) {
 // Clone clones a git repository
 func Clone(url, targetDir string) error {
 	cmd := exec.Command("git", "clone", url, targetDir)
+	applyNonInteractiveGit(cmd)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		// Include the git output in the error message
@@ -83,6 +110,7 @@ func Push(repoDir string) error {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
+	applyNonInteractiveGit(cmd)
 	return cmd.Run()
 }
 
@@ -211,6 +239,7 @@ func PushToMain() error {
 	cmd := exec.Command("git", "push")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+	applyNonInteractiveGit(cmd)
 	return cmd.Run()
 }
 
@@ -220,6 +249,7 @@ func Pull(repoDir string) error {
 	if repoDir != "" {
 		cmd.Dir = repoDir
 	}
+	applyNonInteractiveGit(cmd)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		// Include the git output in the error message
@@ -237,6 +267,7 @@ func IsBehindRemote() (bool, int, error) {
 
 	// Fetch latest from origin
 	fetchCmd := exec.CommandContext(ctx, "git", "fetch", "origin", "main", "--quiet")
+	applyNonInteractiveGit(fetchCmd)
 	if err := fetchCmd.Run(); err != nil {
 		return false, 0, err
 	}

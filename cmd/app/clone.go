@@ -80,11 +80,10 @@ func runClone(cmd *cobra.Command) error {
 			return fmt.Errorf("application with ID '%s' not found in your organization", flagAppID)
 		}
 	} else {
-		// Let user select application interactively
 		var err error
 		selectedApp, err = selectApplication(cmd, appsResp.Applications)
 		if err != nil {
-			return errors.WrapError("failed to select application", err)
+			return err
 		}
 	}
 
@@ -114,7 +113,7 @@ func runClone(cmd *cobra.Command) error {
 		if isGitAuthError(gitErr) {
 			// Ensure repository access with non-interactive mode if --app-id was used
 			opts := utils.EnsureRepositoryAccessOptions{
-				NonInteractive: flagAppID != "",
+				NonInteractive: utils.IsNonInteractive(cmd),
 				GithubUsername: flagGithubUser,
 			}
 			err := utils.EnsureRepositoryAccessWithOptions(cmd, selectedApp.ID, selectedApp.CloneURLSSH, selectedApp.CloneURLHTTPS, opts)
@@ -133,7 +132,7 @@ func runClone(cmd *cobra.Command) error {
 				cmd.Println("│  After accepting, run this command again.                   │")
 				cmd.Println("│                                                             │")
 				cmd.Println("╰─────────────────────────────────────────────────────────────╯")
-				return nil // Exit cleanly, not as error
+				return invErr
 			}
 
 			if err != nil {
@@ -229,6 +228,10 @@ func selectApplication(cmd *cobra.Command, apps []api.ApplicationItem) (*api.App
 	if len(apps) == 1 {
 		cmd.Printf("Only one application available. Automatically selecting it.\n")
 		return &apps[0], nil
+	}
+
+	if err := utils.RequireInteractive(cmd, "Pass --app-id to select an application."); err != nil {
+		return nil, err
 	}
 
 	// Create options for huh select

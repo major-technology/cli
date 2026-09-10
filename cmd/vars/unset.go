@@ -6,6 +6,7 @@ import (
 	"github.com/charmbracelet/huh"
 	"github.com/major-technology/cli/errors"
 	"github.com/major-technology/cli/singletons"
+	"github.com/major-technology/cli/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -63,6 +64,9 @@ func runUnset(cmd *cobra.Command, key string) error {
 	}
 
 	if !flagUnsetYes {
+		if err := utils.RequireInteractive(cmd, "Pass --yes to confirm deletion."); err != nil {
+			return err
+		}
 		var prompt string
 		if flagUnsetAllEnvironments {
 			prompt = fmt.Sprintf("Remove %s from ALL environments?", key)

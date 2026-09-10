@@ -10,6 +10,7 @@ import (
 	"github.com/major-technology/cli/errors"
 	"github.com/major-technology/cli/middleware"
 	"github.com/major-technology/cli/singletons"
+	"github.com/major-technology/cli/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -156,6 +157,9 @@ func runDeploy(cmd *cobra.Command, versionFlag string, yes bool) error {
 	cmd.Print(renderPlan(plan))
 
 	if len(plan.Deletes) > 0 && !yes {
+		if err := utils.RequireInteractive(cmd, "Pass --yes to confirm deletion."); err != nil {
+			return err
+		}
 		var confirm bool
 		form := huh.NewForm(
 			huh.NewGroup(

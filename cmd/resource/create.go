@@ -29,8 +29,7 @@ func runCreate(cmd *cobra.Command) error {
 	resourceURL := fmt.Sprintf("%s/resources?action=add", cfg.FrontendURI)
 
 	// Open the URL in the browser
-	if err := utils.OpenBrowser(resourceURL); err != nil {
-		// If browser fails to open, still show the URL
+	if err := utils.OpenOrPrintBrowser(cmd, resourceURL); err != nil {
 		cmd.Printf("Failed to open browser automatically. Please visit:\n%s\n", resourceURL)
 		return nil
 	}

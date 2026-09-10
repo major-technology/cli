@@ -76,11 +76,14 @@ func runEnv(cobraCmd *cobra.Command) error {
 		return fmt.Errorf("environment with ID %q not found", flagEnvID)
 	}
 
-	// If only one environment, just show current and exit
 	if len(envListResp.Environments) == 1 {
 		printCurrentEnvironment(cobraCmd, currentEnvResp)
 		cobraCmd.Println("\nOnly one environment is available for this application.")
 		return nil
+	}
+
+	if err := utils.RequireInteractive(cobraCmd, "Pass --id. Discover IDs with 'major resource env-list --json'."); err != nil {
+		return err
 	}
 
 	// Let user select a new environment

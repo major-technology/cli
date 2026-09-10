@@ -25,6 +25,10 @@ var manageCmd = &cobra.Command{
 }
 
 func runManage(cobraCmd *cobra.Command) error {
+	if err := utils.RequireInteractive(cobraCmd, "Use 'major resource add --id' and 'major resource remove --id'."); err != nil {
+		return err
+	}
+
 	// Get application info from current directory
 	appInfo, err := utils.GetApplicationInfo("")
 	if err != nil {

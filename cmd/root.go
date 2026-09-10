@@ -73,6 +73,7 @@ var rootCmd = &cobra.Command{
 func rootPersistentPreRunE(cmd *cobra.Command, args []string) error {
 	return middleware.Compose(
 		rejectInjectedAuthManagement,
+		middleware.ApplyNonInteractive,
 		middleware.CheckVersion(Version),
 	)(cmd, args)
 }
@@ -102,6 +103,8 @@ func Execute() {
 
 func init() {
 	cobra.OnInitialize(initConfig)
+
+	rootCmd.PersistentFlags().Bool("non-interactive", false, "Never prompt or open a browser")
 
 	// Disable the default completion command (we use our own)
 	rootCmd.CompletionOptions.DisableDefaultCmd = true

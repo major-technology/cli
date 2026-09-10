@@ -215,9 +215,9 @@ func CheckRepositoryAccess(sshURL, httpsURL string) bool {
 // testGitAccess tests if a git repository is accessible using git ls-remote
 func testGitAccess(repoURL string) bool {
 	cmd := exec.Command("git", "ls-remote", "--heads", repoURL)
-	// Suppress output
 	cmd.Stdout = nil
 	cmd.Stderr = nil
+	git.ConfigureRemoteCommand(cmd)
 	err := cmd.Run()
 	return err == nil
 }
@@ -285,9 +285,9 @@ func EnsureRepositoryAccessWithOptions(cmd *cobra.Command, appID string, sshURL 
 		if storedUsername != "" {
 			githubUsername = storedUsername
 		} else {
-			// No username available - in non-interactive mode, fail with clear message
-			if opts.NonInteractive {
-				return fmt.Errorf("could not detect GitHub username. Run 'major user login' to set up GitHub access")
+			nonInteractive := opts.NonInteractive || IsNonInteractive(cmd)
+			if nonInteractive {
+				return fmt.Errorf("could not detect GitHub username. Pass --github-user or run 'major user gitconfig --username'")
 			}
 
 			// Interactive mode: prompt for username
@@ -336,10 +336,7 @@ func EnsureRepositoryAccessWithOptions(cmd *cobra.Command, appID string, sshURL 
 
 	// In non-interactive mode, open browser and return immediately
 	// The caller will display a message to accept the invitation
-	if opts.NonInteractive {
-		if githubURL != "" {
-			_ = OpenBrowser(githubURL)
-		}
+	if opts.NonInteractive || IsNonInteractive(cmd) {
 		return &InvitationPendingError{URL: githubURL}
 	}
 

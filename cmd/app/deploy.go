@@ -15,6 +15,7 @@ import (
 	"github.com/major-technology/cli/clients/git"
 	"github.com/major-technology/cli/errors"
 	"github.com/major-technology/cli/singletons"
+	"github.com/major-technology/cli/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -61,17 +62,20 @@ func runDeploy(cobraCmd *cobra.Command) error {
 
 	if hasChanges {
 		cobraCmd.Println("📝 Uncommitted changes detected")
+	} else {
+		cobraCmd.Println("✓ No uncommitted changes")
+	}
 
-		var commitMessage string
-
-		// Use flag if provided, otherwise prompt interactively
+	var commitMessage string
+	if hasChanges {
 		if flagDeployMessage != "" {
 			if strings.TrimSpace(flagDeployMessage) == "" {
 				return fmt.Errorf("commit message cannot be empty or whitespace only")
 			}
 			commitMessage = flagDeployMessage
+		} else if err := utils.RequireInteractive(cobraCmd, "Pass --message for uncommitted changes."); err != nil {
+			return err
 		} else {
-			// Interactive prompt for commit message
 			form := huh.NewForm(
 				huh.NewGroup(
 					huh.NewText().
@@ -86,34 +90,12 @@ func runDeploy(cobraCmd *cobra.Command) error {
 						}),
 				),
 			)
-
 			if err := form.Run(); err != nil {
 				return errors.WrapError("failed to collect commit message", err)
 			}
 		}
-
-		// Stage all changes
-		if err := git.Add(); err != nil {
-			return errors.WrapError("failed to stage changes", err)
-		}
-		cobraCmd.Println("✓ Changes staged")
-
-		// Commit changes
-		if err := git.Commit(commitMessage); err != nil {
-			return errors.WrapError("failed to commit changes", err)
-		}
-		cobraCmd.Println("✓ Changes committed")
-
-		// Push to remote
-		if err := git.PushToMain(); err != nil {
-			return errors.WrapError("failed to push changes", err)
-		}
-		cobraCmd.Println("✓ Changes pushed to remote")
-	} else {
-		cobraCmd.Println("✓ No uncommitted changes")
 	}
 
-	// Prompt for deploy URL slug on first deploy
 	deploySlug := urlSlug
 	if deploySlug == "" {
 		if flagDeploySlug != "" {
@@ -121,12 +103,31 @@ func runDeploy(cobraCmd *cobra.Command) error {
 				return fmt.Errorf("invalid slug: %w", err)
 			}
 			deploySlug = flagDeploySlug
+		} else if err := utils.RequireInteractive(cobraCmd, "Pass --slug for the first deploy URL."); err != nil {
+			return err
 		} else {
 			deploySlug, err = promptForDeployURL(cobraCmd)
 			if err != nil {
 				return errors.WrapError("failed to collect deploy URL", err)
 			}
 		}
+	}
+
+	if hasChanges {
+		if err := git.Add(); err != nil {
+			return errors.WrapError("failed to stage changes", err)
+		}
+		cobraCmd.Println("✓ Changes staged")
+
+		if err := git.Commit(commitMessage); err != nil {
+			return errors.WrapError("failed to commit changes", err)
+		}
+		cobraCmd.Println("✓ Changes committed")
+
+		if err := git.PushToMain(); err != nil {
+			return errors.WrapError("failed to push changes", err)
+		}
+		cobraCmd.Println("✓ Changes pushed to remote")
 	}
 
 	// Call API to create new version
