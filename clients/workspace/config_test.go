@@ -12,8 +12,9 @@ import (
 )
 
 const (
-	testTargetID = "11111111-1111-4111-8111-111111111111"
-	testOrgID    = "22222222-2222-4222-8222-222222222222"
+	testTargetID    = "11111111-1111-4111-8111-111111111111"
+	testOrgID       = "22222222-2222-4222-8222-222222222222"
+	betterAuthOrgID = "shjRtTSq4A9wNTMFpcB7VKBYPR5spmYm"
 )
 
 func TestTargetValidation(t *testing.T) {
@@ -38,11 +39,21 @@ func TestTargetValidation(t *testing.T) {
 	}
 }
 
-func TestConfigInvalidOrganizationID(t *testing.T) {
+func TestConfigAcceptsBetterAuthAndUUIDOrganizationID(t *testing.T) {
+	for _, orgID := range []string{betterAuthOrgID, testOrgID} {
+		cfg := validAppConfig()
+		cfg.OrganizationID = orgID
+		if err := cfg.Validate(); err != nil {
+			t.Fatalf("Validate() rejected organizationId %q: %v", orgID, err)
+		}
+	}
+}
+
+func TestConfigRejectsEmptyOrganizationID(t *testing.T) {
 	cfg := validAppConfig()
-	cfg.OrganizationID = "not-a-uuid"
+	cfg.OrganizationID = ""
 	if err := cfg.Validate(); err == nil {
-		t.Fatal("expected error for invalid organizationId")
+		t.Fatal("expected error for empty organizationId")
 	}
 }
 
@@ -70,6 +81,20 @@ func TestWriteRejectsNullExistingConfig(t *testing.T) {
 func TestWriteReadRoundTrip(t *testing.T) {
 	dir := t.TempDir()
 	cfg := validAppConfig()
+	if err := Write(dir, cfg); err != nil {
+		t.Fatal(err)
+	}
+	got, err := Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertConfigEqual(t, *got, cfg)
+}
+
+func TestWriteReadBetterAuthOrganizationID(t *testing.T) {
+	dir := t.TempDir()
+	cfg := validAppConfig()
+	cfg.OrganizationID = betterAuthOrgID
 	if err := Write(dir, cfg); err != nil {
 		t.Fatal(err)
 	}

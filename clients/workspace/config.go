@@ -78,9 +78,6 @@ func (c Config) Validate() error {
 	if strings.TrimSpace(c.OrganizationID) == "" {
 		return fmt.Errorf("organizationId is required")
 	}
-	if !uuidPattern.MatchString(c.OrganizationID) {
-		return fmt.Errorf("invalid organizationId UUID")
-	}
 	return c.Target.Validate()
 }
 
