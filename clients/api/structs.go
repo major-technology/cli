@@ -316,13 +316,17 @@ type SetEnvironmentChoiceResponse struct {
 
 // GetApplicationInfoResponse represents the response from GET /applications/:applicationId/info
 type GetApplicationInfoResponse struct {
-	Error          *AppErrorDetail `json:"error,omitempty"`
-	ApplicationID  string          `json:"applicationId,omitempty"`
-	OrganizationID string          `json:"organizationId,omitempty"`
-	URLSlug        *string         `json:"urlSlug,omitempty"`
-	Name           string          `json:"name,omitempty"`
-	AppURL         *string         `json:"appUrl,omitempty"`
-	DeployStatus   string          `json:"deployStatus,omitempty"`
+	Error           *AppErrorDetail `json:"error,omitempty"`
+	ApplicationID   string          `json:"applicationId,omitempty"`
+	OrganizationID  string          `json:"organizationId,omitempty"`
+	URLSlug         *string         `json:"urlSlug,omitempty"`
+	Name            string          `json:"name,omitempty"`
+	AppURL          *string         `json:"appUrl,omitempty"`
+	DeployStatus    string          `json:"deployStatus,omitempty"`
+	DeployError     *string         `json:"deployError,omitempty"`
+	IsPublic        bool            `json:"isPublic,omitempty"`
+	WebhooksEnabled bool            `json:"webhooksEnabled,omitempty"`
+	DeployedHash    *string         `json:"deployedHash,omitempty"`
 }
 
 // GetApplicationForLinkResponse represents the response from GET /application/:applicationId/link-info
