@@ -26,7 +26,7 @@ func TestPushFileVersionPath(t *testing.T) {
 	})
 	defer srv.Close()
 
-	resp, err := c.PushFileVersion("f1", "# v2")
+	resp, err := c.PushFileVersion("f1", "markdown", "# v2")
 	if err != nil {
 		t.Fatalf("PushFileVersion: %v", err)
 	}
@@ -91,7 +91,7 @@ func TestFileEndpointsErrorMapping(t *testing.T) {
 	})
 	defer srv.Close()
 
-	_, err := c.PushFileVersion("f1", "x")
+	_, err := c.PushFileVersion("f1", "markdown", "x")
 	if err == nil {
 		t.Fatal("expected error")
 	}

@@ -78,7 +78,7 @@ func runPush(cmd *cobra.Command, path string) error {
 	apiClient := singletons.GetAPIClient()
 
 	if flagPushFileID != "" {
-		resp, err := apiClient.PushFileVersion(flagPushFileID, string(data))
+		resp, err := apiClient.PushFileVersion(flagPushFileID, kind, string(data))
 		if err != nil {
 			return clierrors.WrapError("failed to push new version", err)
 		}

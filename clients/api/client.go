@@ -671,9 +671,9 @@ func (c *Client) CreateFile(organizationID, name, kind, content string) (*Hosted
 }
 
 // PushFileVersion adds a new version to an existing hosted file.
-func (c *Client) PushFileVersion(fileID, content string) (*HostedFileResponse, error) {
+func (c *Client) PushFileVersion(fileID, kind, content string) (*HostedFileResponse, error) {
 	var resp HostedFileResponse
-	err := c.doRequest("POST", "/files/"+url.PathEscape(fileID)+"/versions", pushHostedFileVersionRequest{Content: content}, &resp)
+	err := c.doRequest("POST", "/files/"+url.PathEscape(fileID)+"/versions", pushHostedFileVersionRequest{Kind: kind, Content: content}, &resp)
 	if err != nil {
 		return nil, err
 	}
