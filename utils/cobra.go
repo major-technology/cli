@@ -20,17 +20,17 @@ func NoArgs(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// WriteJSON marshals v to JSON and writes it to the command output.
+// WriteJSON marshals v to JSON and writes it to stdout.
 func WriteJSON(cmd *cobra.Command, v any) error {
 	data, err := json.MarshalIndent(v, "", "  ")
 	if err != nil {
 		return err
 	}
-	cmd.Println(string(data))
+	fmt.Fprintln(cmd.OutOrStdout(), string(data))
 	return nil
 }
 
-// Hint writes a hint message to the command output with a subtle style indicator.
+// Hint writes a hint message to stderr with a subtle style indicator.
 func Hint(cmd *cobra.Command, message string) {
-	cmd.Println("→", message)
+	fmt.Fprintln(cmd.ErrOrStderr(), "→", message)
 }

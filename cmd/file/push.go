@@ -106,7 +106,7 @@ func printPushResult(cmd *cobra.Command, link, fileID string, version int) error
 	if flagPushJSON {
 		return utils.WriteJSON(cmd, map[string]any{"fileId": fileID, "version": version, "link": link})
 	}
-	cmd.Println(link)
+	fmt.Fprintln(cmd.OutOrStdout(), link)
 	utils.Hint(cmd, fmt.Sprintf("file id %s, version %d. Push an update with: major file push <path> --file-id %s", fileID, version, fileID))
 	return nil
 }
