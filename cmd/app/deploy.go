@@ -15,6 +15,7 @@ import (
 	"github.com/major-technology/cli/clients/git"
 	"github.com/major-technology/cli/errors"
 	"github.com/major-technology/cli/singletons"
+	"github.com/major-technology/cli/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -23,12 +24,14 @@ var (
 	flagDeployMessage string
 	flagDeploySlug    string
 	flagDeployNoWait  bool
+	flagDeployJSON    bool
 )
 
 func init() {
 	deployCmd.Flags().StringVarP(&flagDeployMessage, "message", "m", "", "Commit message for uncommitted changes (skips interactive prompt)")
 	deployCmd.Flags().StringVar(&flagDeploySlug, "slug", "", "URL slug for first deploy (skips interactive prompt)")
 	deployCmd.Flags().BoolVar(&flagDeployNoWait, "no-wait", false, "Don't wait for deployment to complete (returns immediately after triggering)")
+	deployCmd.Flags().BoolVar(&flagDeployJSON, "json", false, "Output in JSON format")
 }
 
 // deployCmd represents the deploy command
@@ -42,36 +45,30 @@ var deployCmd = &cobra.Command{
 }
 
 func runDeploy(cobraCmd *cobra.Command) error {
-	// Check if we're in a git repository
 	if !git.IsGitRepository() {
 		return errors.ErrorNotInGitRepository
 	}
 
-	// Get application ID, organization ID, and URL slug
 	applicationID, organizationID, urlSlug, err := getApplicationAndOrgID()
 	if err != nil {
 		return errors.WrapError("failed to get application ID", err)
 	}
 
-	// Check for uncommitted changes
 	hasChanges, err := git.HasUncommittedChanges()
 	if err != nil {
 		return errors.WrapError("failed to check for uncommitted changes: %w", err)
 	}
 
+	var commitMessage string
 	if hasChanges {
-		cobraCmd.Println("📝 Uncommitted changes detected")
-
-		var commitMessage string
-
-		// Use flag if provided, otherwise prompt interactively
 		if flagDeployMessage != "" {
 			if strings.TrimSpace(flagDeployMessage) == "" {
 				return fmt.Errorf("commit message cannot be empty or whitespace only")
 			}
 			commitMessage = flagDeployMessage
+		} else if err := utils.RequireInteractive(cobraCmd, "Pass --message for uncommitted changes."); err != nil {
+			return err
 		} else {
-			// Interactive prompt for commit message
 			form := huh.NewForm(
 				huh.NewGroup(
 					huh.NewText().
@@ -86,34 +83,12 @@ func runDeploy(cobraCmd *cobra.Command) error {
 						}),
 				),
 			)
-
 			if err := form.Run(); err != nil {
 				return errors.WrapError("failed to collect commit message", err)
 			}
 		}
-
-		// Stage all changes
-		if err := git.Add(); err != nil {
-			return errors.WrapError("failed to stage changes", err)
-		}
-		cobraCmd.Println("✓ Changes staged")
-
-		// Commit changes
-		if err := git.Commit(commitMessage); err != nil {
-			return errors.WrapError("failed to commit changes", err)
-		}
-		cobraCmd.Println("✓ Changes committed")
-
-		// Push to remote
-		if err := git.PushToMain(); err != nil {
-			return errors.WrapError("failed to push changes", err)
-		}
-		cobraCmd.Println("✓ Changes pushed to remote")
-	} else {
-		cobraCmd.Println("✓ No uncommitted changes")
 	}
 
-	// Prompt for deploy URL slug on first deploy
 	deploySlug := urlSlug
 	if deploySlug == "" {
 		if flagDeploySlug != "" {
@@ -121,6 +96,8 @@ func runDeploy(cobraCmd *cobra.Command) error {
 				return fmt.Errorf("invalid slug: %w", err)
 			}
 			deploySlug = flagDeploySlug
+		} else if err := utils.RequireInteractive(cobraCmd, "Pass --slug for the first deploy URL."); err != nil {
+			return err
 		} else {
 			deploySlug, err = promptForDeployURL(cobraCmd)
 			if err != nil {
@@ -129,51 +106,125 @@ func runDeploy(cobraCmd *cobra.Command) error {
 		}
 	}
 
-	// Call API to create new version
-	apiClient := singletons.GetAPIClient()
-	resp, err := apiClient.CreateApplicationVersion(applicationID, deploySlug)
+	defaultBranch, err := git.RequireDefaultBranch()
 	if err != nil {
 		return err
 	}
 
-	cobraCmd.Printf("\n✓ Version created: %s\n", resp.VersionID)
+	if hasChanges {
+		deployLog(cobraCmd, "📝 Uncommitted changes detected\n")
+		if err := git.Add(); err != nil {
+			return errors.WrapError("failed to stage changes", err)
+		}
+		deployLog(cobraCmd, "✓ Changes staged\n")
 
-	// If --no-wait, return immediately
+		if err := git.Commit(commitMessage); err != nil {
+			return errors.WrapError("failed to commit changes", err)
+		}
+		deployLog(cobraCmd, "✓ Changes committed\n")
+	} else {
+		deployLog(cobraCmd, "✓ No uncommitted changes\n")
+	}
+
+	if err := git.PushBranch(defaultBranch); err != nil {
+		return errors.WrapError("failed to push changes", err)
+	}
+	deployLog(cobraCmd, "✓ Changes pushed to remote\n")
+
+	expectedHash, err := git.HeadSHA()
+	if err != nil {
+		return errors.WrapError("failed to read HEAD", err)
+	}
+
+	apiClient := singletons.GetAPIClient()
+	resp, err := apiClient.CreateApplicationVersion(applicationID, deploySlug)
+	if err != nil {
+		if isUnknownDeployOutcome(err) {
+			return fmt.Errorf("deployment result is unknown: %w. Inspect with: major app info --non-interactive --json", err)
+		}
+		return err
+	}
+	if resp == nil || resp.VersionID == "" {
+		return fmt.Errorf("deployment result is unknown. Inspect with: major app info --non-interactive --json")
+	}
+
+	statusHint := fmt.Sprintf("major app deploy-status --non-interactive --version-id %s", resp.VersionID)
+	if resp.VersionHash != expectedHash {
+		return fmt.Errorf("a different commit was selected for deployment (requested %s, returned %s). Inspect with: %s", expectedHash, resp.VersionHash, statusHint)
+	}
+
 	if flagDeployNoWait {
-		cobraCmd.Printf("Deployment started. Use 'major app deploy-status --version-id %s' to check status.\n", resp.VersionID)
+		utils.Hint(cobraCmd, statusHint)
+		if flagDeployJSON {
+			return utils.WriteJSON(cobraCmd, deployResultJSON{
+				VersionID:   resp.VersionID,
+				VersionHash: resp.VersionHash,
+				Status:      "started",
+			})
+		}
+		deployLog(cobraCmd, "\n✓ Version created: %s\n", resp.VersionID)
+		deployLog(cobraCmd, "Deployment started. Use '%s' to check status.\n", statusHint)
 		return nil
 	}
 
-	// Poll deployment status -- use simple polling if not a TTY, Bubble Tea otherwise
 	var finalStatus, deploymentError, appURL string
-	if xt.IsTerminal(os.Stdout.Fd()) {
-		finalStatus, deploymentError, appURL, err = pollDeploymentStatus(applicationID, organizationID, resp.VersionID)
-	} else {
+	if flagDeployJSON || !xt.IsTerminal(os.Stdout.Fd()) {
 		finalStatus, deploymentError, appURL, err = pollDeploymentStatusSimple(cobraCmd, applicationID, organizationID, resp.VersionID)
+	} else {
+		finalStatus, deploymentError, appURL, err = pollDeploymentStatus(applicationID, organizationID, resp.VersionID)
 	}
 	if err != nil {
-		return errors.WrapError("failed to track deployment status", err)
+		return fmt.Errorf("failed to track deployment status: %w. Inspect with: %s", err, statusHint)
 	}
 
-	// Print final status
-	if finalStatus == "DEPLOYED" {
-		cobraCmd.Printf("\n🎉 Deployment successful!\n")
-
-		// Print application URL from the API response
-		if appURL != "" {
-			cobraCmd.Printf("\n🌐 Your application is live at:\n")
-			cobraCmd.Printf("  %s\n", appURL)
-		}
-	} else {
-		// Display error message if available
-		if deploymentError != "" {
-			cobraCmd.Printf("\n❌ Deployment failed with status: %s\n", finalStatus)
-			cobraCmd.Printf("\n%s\n", formatDeploymentError(deploymentError))
+	if finalStatus != "DEPLOYED" {
+		if !flagDeployJSON && deploymentError != "" {
+			deployLog(cobraCmd, "\n❌ Deployment failed with status: %s\n", finalStatus)
+			deployLog(cobraCmd, "\n%s\n", formatDeploymentError(deploymentError))
 		}
 		return fmt.Errorf("deployment failed with status: %s", finalStatus)
 	}
 
+	if flagDeployJSON {
+		return utils.WriteJSON(cobraCmd, deployResultJSON{
+			VersionID:   resp.VersionID,
+			VersionHash: resp.VersionHash,
+			Status:      finalStatus,
+			AppURL:      appURL,
+		})
+	}
+
+	deployLog(cobraCmd, "\n🎉 Deployment successful!\n")
+	if appURL != "" {
+		deployLog(cobraCmd, "\n🌐 Your application is live at:\n")
+		deployLog(cobraCmd, "  %s\n", appURL)
+	}
 	return nil
+}
+
+type deployResultJSON struct {
+	VersionID   string `json:"versionId"`
+	VersionHash string `json:"versionHash"`
+	Status      string `json:"status"`
+	AppURL      string `json:"appUrl,omitempty"`
+}
+
+func deployLog(cmd *cobra.Command, format string, args ...any) {
+	w := cmd.OutOrStdout()
+	if flagDeployJSON {
+		w = cmd.ErrOrStderr()
+	}
+	fmt.Fprintf(w, format, args...)
+}
+
+func isUnknownDeployOutcome(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "failed to make request") ||
+		strings.Contains(msg, "failed to read response") ||
+		strings.Contains(msg, "failed to parse response")
 }
 
 // deploymentStatusModel represents the Bubble Tea model for deployment status tracking
@@ -439,7 +490,7 @@ func pollDeploymentStatusSimple(cobraCmd *cobra.Command, applicationID, organiza
 
 		if resp.Status != lastStatus {
 			statusText, _ := getStatusDisplay(resp.Status)
-			cobraCmd.Printf("Status: %s\n", statusText)
+			deployLog(cobraCmd, "Status: %s\n", statusText)
 			lastStatus = resp.Status
 		}
 
@@ -451,29 +502,39 @@ func pollDeploymentStatusSimple(cobraCmd *cobra.Command, applicationID, organiza
 	}
 }
 
-// promptForDeployURL prompts the user for a deploy URL slug on first deploy.
-func promptForDeployURL(cobraCmd *cobra.Command) (string, error) {
-	cfg := singletons.GetConfig()
-	suffix := cfg.AppURLSuffix
+// collectFirstDeploySlug runs the first-deploy URL prompt. Tests replace this
+// to avoid driving the huh TUI.
+var collectFirstDeploySlug = runFirstDeployURLForm
 
-	cobraCmd.Println("\n🌐 First deploy — choose your application URL")
-	cobraCmd.Printf("  Your app will be available at: https://<slug>.%s\n\n", suffix)
-
-	var slug string
+func runFirstDeployURLForm(cmd *cobra.Command, slug *string) error {
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().
 				Title("Deploy URL").
 				Description("Enter a URL slug for your application (e.g. my-app)").
-				Value(&slug).
+				Value(slug).
 				Validate(validateSlug),
 		),
 	)
+	if flagDeployJSON {
+		form = form.WithOutput(cmd.ErrOrStderr())
+	}
+	return form.Run()
+}
 
-	if err := form.Run(); err != nil {
+// promptForDeployURL prompts the user for a deploy URL slug on first deploy.
+func promptForDeployURL(cobraCmd *cobra.Command) (string, error) {
+	cfg := singletons.GetConfig()
+	suffix := cfg.AppURLSuffix
+
+	deployLog(cobraCmd, "\n🌐 First deploy — choose your application URL\n")
+	deployLog(cobraCmd, "  Your app will be available at: https://<slug>.%s\n\n", suffix)
+
+	var slug string
+	if err := collectFirstDeploySlug(cobraCmd, &slug); err != nil {
 		return "", err
 	}
 
-	cobraCmd.Printf("✓ Deploy URL: https://%s.%s\n", slug, suffix)
+	deployLog(cobraCmd, "✓ Deploy URL: https://%s.%s\n", slug, suffix)
 	return slug, nil
 }

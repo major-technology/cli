@@ -36,35 +36,12 @@ func getApplicationIDFromDir(dir string) (string, error) {
 	return appID, err
 }
 
-// getApplicationAndOrgIDFromDir retrieves the application ID, organization ID, and URL slug for a git repository in the specified directory.
-// If dir is empty, it uses the current directory.
+// getApplicationAndOrgIDFromDir retrieves the application ID, organization ID, and URL slug
+// for a workspace in the specified directory. If dir is empty, it uses the current directory.
 func getApplicationAndOrgIDFromDir(dir string) (string, string, string, error) {
-	// Get the git remote URL from the specified directory
-	remoteURL, err := git.GetRemoteURLFromDir(dir)
+	appResp, err := utils.GetApplicationInfo(dir)
 	if err != nil {
 		return "", "", "", err
-	}
-
-	if remoteURL == "" {
-		return "", "", "", fmt.Errorf("no git remote found in directory")
-	}
-
-	// Parse the remote URL to extract owner and repo
-	remoteInfo, err := git.ParseRemoteURL(remoteURL)
-	if err != nil {
-		return "", "", "", errors.WrapError("failed to parse git remote URL", err)
-	}
-
-	// Get API client
-	apiClient := singletons.GetAPIClient()
-	if apiClient == nil {
-		return "", "", "", fmt.Errorf("API client not initialized")
-	}
-
-	// Get application by repository
-	appResp, err := apiClient.GetApplicationByRepo(remoteInfo.Owner, remoteInfo.Repo)
-	if err != nil {
-		return "", "", "", errors.WrapError("failed to get application", err)
 	}
 
 	var urlSlug string
@@ -73,6 +50,10 @@ func getApplicationAndOrgIDFromDir(dir string) (string, string, string, error) {
 	}
 
 	return appResp.ApplicationID, appResp.OrganizationID, urlSlug, nil
+}
+
+func persistAppWorkspace(projectDir, organizationID, applicationID string) error {
+	return utils.PersistAppWorkspace(projectDir, organizationID, applicationID)
 }
 
 // getPreferredCloneURL returns the preferred clone URL based on SSH availability
@@ -368,6 +349,13 @@ func handleThemeSync(cmd *cobra.Command) error {
 		return nil
 	}
 
+	if flagUpgradeTheme {
+		return applyThemeUpgrade(cmd, apiClient, applicationID)
+	}
+	if utils.IsNonInteractive(cmd) {
+		return nil
+	}
+
 	// Prompt for upgrade
 	var confirm bool
 	form := huh.NewForm(
@@ -384,19 +372,22 @@ func handleThemeSync(cmd *cobra.Command) error {
 	}
 
 	if confirm {
-		// Bump the version in the database first
-		if err := apiClient.UpgradeTheme(applicationID); err != nil {
-			return errors.WrapError("failed to upgrade theme", err)
-		}
-
-		// Then write theme files at the new version
-		if err := generateThemeFiles(""); err != nil {
-			return err
-		}
-
-		cmd.Println("✓ Theme files upgraded")
+		return applyThemeUpgrade(cmd, apiClient, applicationID)
 	}
 
+	return nil
+}
+
+func applyThemeUpgrade(cmd *cobra.Command, apiClient *api.Client, applicationID string) error {
+	if err := apiClient.UpgradeTheme(applicationID); err != nil {
+		return errors.WrapError("failed to upgrade theme", err)
+	}
+
+	if err := generateThemeFiles(""); err != nil {
+		return err
+	}
+
+	cmd.Println("✓ Theme files upgraded")
 	return nil
 }
 

@@ -8,8 +8,10 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/major-technology/cli/clients/git"
 	clierrors "github.com/major-technology/cli/errors"
 	"github.com/major-technology/cli/singletons"
+	"github.com/major-technology/cli/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -52,12 +54,21 @@ func ChainParent(checks ...CommandCheck) func(cmd *cobra.Command, args []string)
 	}
 }
 
+// ApplyNonInteractive records whether child git processes must refuse credential prompts.
+func ApplyNonInteractive(cmd *cobra.Command, args []string) error {
+	git.SetNonInteractive(utils.IsNonInteractive(cmd))
+	return nil
+}
+
 // CheckLogin checks if the user is logged in and the session is valid
 func CheckLogin(cmd *cobra.Command, args []string) error {
 	client := singletons.GetAPIClient()
 
 	// VerifyToken checks if the token exists and is valid by calling the API
 	_, err := client.VerifyToken()
+	if err != nil && utils.IsNonInteractive(cmd) {
+		return fmt.Errorf("%w. In non-interactive mode supply MAJOR_TOKEN or complete a prior human login", err)
+	}
 	return err
 }
 
@@ -107,8 +118,8 @@ func CheckVersion(version string) CommandCheck {
 				fmt.Sprintf("Run %s to get the newest version.",
 					commandStyle.Render("major update")))
 
-			cmd.Println(message)
-			cmd.Println() // Add a blank line for spacing
+			fmt.Fprintln(cmd.ErrOrStderr(), message)
+			fmt.Fprintln(cmd.ErrOrStderr())
 		}
 
 		return nil

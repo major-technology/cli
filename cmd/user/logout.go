@@ -21,6 +21,10 @@ var logoutCmd = &cobra.Command{
 }
 
 func runLogout(cobraCmd *cobra.Command) error {
+	if err := rejectExternallyManagedCredential(); err != nil {
+		return err
+	}
+
 	// Get the API client
 	apiClient := singletons.GetAPIClient()
 

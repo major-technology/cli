@@ -3,8 +3,10 @@ package git
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -12,6 +14,188 @@ import (
 
 	clierrors "github.com/major-technology/cli/errors"
 )
+
+var nonInteractive bool
+
+// SetNonInteractive controls whether remote git subprocesses disable terminal
+// credential prompts. HTTPS credential helpers are left enabled.
+func SetNonInteractive(v bool) {
+	nonInteractive = v
+}
+
+func applyNonInteractiveGit(cmd *exec.Cmd) error {
+	if !nonInteractive {
+		return nil
+	}
+	sshCmd, err := ensureSSHBatchMode(os.Getenv("GIT_SSH_COMMAND"))
+	if err != nil {
+		return err
+	}
+	env := os.Environ()
+	env = append(env, "GIT_TERMINAL_PROMPT=0")
+	env = append(env, "GIT_SSH_COMMAND="+sshCmd)
+	cmd.Env = env
+	cmd.Stdin = nil
+	return nil
+}
+
+// ensureSSHBatchMode preserves the original GIT_SSH_COMMAND text and inserts
+// `-o BatchMode=yes` immediately after a single direct OpenSSH executable so
+// OpenSSH's first-wins option order cannot be overridden by a later
+// BatchMode=no. Quoted and escaped arguments are left untouched.
+//
+// Supported: empty (defaults to ssh) or one direct ssh invocation, including a
+// path whose basename is ssh. Rejected: env prefixes, wrappers, other
+// executables, and compound shell forms (;|& `$() redirects). Those must use a
+// direct ssh command or run without --non-interactive.
+func ensureSSHBatchMode(sshCmd string) (string, error) {
+	trimmed := strings.TrimSpace(sshCmd)
+	if trimmed == "" {
+		return "ssh -o BatchMode=yes", nil
+	}
+	first, rest, ok := splitFirstShellToken(trimmed)
+	if !ok || hasUnsupportedShellSyntax(first) || !executableIsSSH(first) || hasUnsupportedShellSyntax(rest) {
+		return "", clierrors.ErrorUnsupportedGITSSHCommand
+	}
+	return first + " -o BatchMode=yes" + rest, nil
+}
+
+func executableIsSSH(tok string) bool {
+	val, ok := shellTokenValue(tok)
+	if !ok || val == "" {
+		return false
+	}
+	return filepath.Base(val) == "ssh"
+}
+
+func splitFirstShellToken(s string) (first, rest string, ok bool) {
+	quote := rune(0)
+	escaped := false
+	for i, r := range s {
+		if escaped {
+			escaped = false
+			continue
+		}
+		if quote == '\'' {
+			if r == '\'' {
+				quote = 0
+			}
+			continue
+		}
+		if quote == '"' {
+			if r == '\\' {
+				escaped = true
+				continue
+			}
+			if r == '"' {
+				quote = 0
+			}
+			continue
+		}
+		switch r {
+		case '\\':
+			escaped = true
+		case '\'', '"':
+			quote = r
+		case ' ', '\t':
+			return s[:i], s[i:], true
+		}
+	}
+	if quote != 0 || escaped {
+		return "", "", false
+	}
+	return s, "", true
+}
+
+func shellTokenValue(tok string) (string, bool) {
+	var b strings.Builder
+	quote := rune(0)
+	escaped := false
+	for _, r := range tok {
+		if escaped {
+			b.WriteRune(r)
+			escaped = false
+			continue
+		}
+		if quote == '\'' {
+			if r == '\'' {
+				quote = 0
+			} else {
+				b.WriteRune(r)
+			}
+			continue
+		}
+		if quote == '"' {
+			if r == '\\' {
+				escaped = true
+				continue
+			}
+			if r == '"' {
+				quote = 0
+			} else {
+				b.WriteRune(r)
+			}
+			continue
+		}
+		switch r {
+		case '\\':
+			escaped = true
+		case '\'', '"':
+			quote = r
+		default:
+			b.WriteRune(r)
+		}
+	}
+	if quote != 0 || escaped {
+		return "", false
+	}
+	return b.String(), true
+}
+
+func hasUnsupportedShellSyntax(s string) bool {
+	quote := rune(0)
+	escaped := false
+	for _, r := range s {
+		if escaped {
+			escaped = false
+			continue
+		}
+		if quote == '\'' {
+			if r == '\'' {
+				quote = 0
+			}
+			continue
+		}
+		if quote == '"' {
+			if r == '\\' {
+				escaped = true
+				continue
+			}
+			if r == '"' {
+				quote = 0
+				continue
+			}
+			if r == '$' || r == '`' {
+				return true
+			}
+			continue
+		}
+		switch r {
+		case '\\':
+			escaped = true
+		case '\'', '"':
+			quote = r
+		case ';', '|', '&', '`', '$', '(', ')', '<', '>', '\n', '\r':
+			return true
+		}
+	}
+	return quote != 0 || escaped
+}
+
+// ConfigureRemoteCommand applies non-interactive git environment to a command.
+func ConfigureRemoteCommand(cmd *exec.Cmd) error {
+	return applyNonInteractiveGit(cmd)
+}
 
 // RemoteInfo contains parsed information from a git remote URL
 type RemoteInfo struct {
@@ -50,6 +234,9 @@ func GetRemoteURLFromDir(dir string) (string, error) {
 // Clone clones a git repository
 func Clone(url, targetDir string) error {
 	cmd := exec.Command("git", "clone", url, targetDir)
+	if err := applyNonInteractiveGit(cmd); err != nil {
+		return err
+	}
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		// Include the git output in the error message
@@ -83,6 +270,9 @@ func Push(repoDir string) error {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
+	if err := applyNonInteractiveGit(cmd); err != nil {
+		return err
+	}
 	return cmd.Run()
 }
 
@@ -193,7 +383,7 @@ func HasUncommittedChanges() (bool, error) {
 // Add stages all changes
 func Add() error {
 	cmd := exec.Command("git", "add", ".")
-	cmd.Stdout = os.Stdout
+	cmd.Stdout = os.Stderr
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
 }
@@ -201,16 +391,19 @@ func Add() error {
 // Commit commits staged changes with the given message
 func Commit(message string) error {
 	cmd := exec.Command("git", "commit", "-m", message)
-	cmd.Stdout = os.Stdout
+	cmd.Stdout = os.Stderr
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
 }
 
-// PushToMain pushes commits to the remote repository on main branch
+// PushToMain pushes commits to the remote repository on the current branch.
 func PushToMain() error {
 	cmd := exec.Command("git", "push")
-	cmd.Stdout = os.Stdout
+	cmd.Stdout = os.Stderr
 	cmd.Stderr = os.Stderr
+	if err := applyNonInteractiveGit(cmd); err != nil {
+		return err
+	}
 	return cmd.Run()
 }
 
@@ -219,6 +412,9 @@ func Pull(repoDir string) error {
 	cmd := exec.Command("git", "pull")
 	if repoDir != "" {
 		cmd.Dir = repoDir
+	}
+	if err := applyNonInteractiveGit(cmd); err != nil {
+		return err
 	}
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -237,6 +433,9 @@ func IsBehindRemote() (bool, int, error) {
 
 	// Fetch latest from origin
 	fetchCmd := exec.CommandContext(ctx, "git", "fetch", "origin", "main", "--quiet")
+	if err := applyNonInteractiveGit(fetchCmd); err != nil {
+		return false, 0, err
+	}
 	if err := fetchCmd.Run(); err != nil {
 		return false, 0, err
 	}
@@ -295,4 +494,95 @@ func GetCurrentGithubUser() (string, error) {
 	}
 
 	return "", nil
+}
+
+// RemoteDefaultBranch returns the default branch name advertised by origin.
+func RemoteDefaultBranch() (string, error) {
+	cmd := exec.Command("git", "ls-remote", "--symref", "origin", "HEAD")
+	if err := applyNonInteractiveGit(cmd); err != nil {
+		return "", err
+	}
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		msg := strings.TrimSpace(string(out))
+		if msg == "" {
+			msg = err.Error()
+		}
+		return "", fmt.Errorf("could not determine the remote default branch from origin: %s", msg)
+	}
+	for _, line := range strings.Split(string(out), "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, "ref:") {
+			continue
+		}
+		fields := strings.Fields(line)
+		if len(fields) < 2 {
+			continue
+		}
+		ref := fields[1]
+		if !strings.HasPrefix(ref, "refs/heads/") {
+			return "", fmt.Errorf("could not determine the remote default branch from origin")
+		}
+		name := strings.TrimPrefix(ref, "refs/heads/")
+		if name == "" {
+			return "", fmt.Errorf("could not determine the remote default branch from origin")
+		}
+		return name, nil
+	}
+	return "", fmt.Errorf("could not determine the remote default branch from origin")
+}
+
+// CurrentBranch returns the short name of the current branch.
+// Detached HEAD is an error.
+func CurrentBranch() (string, error) {
+	cmd := exec.Command("git", "symbolic-ref", "--quiet", "--short", "HEAD")
+	out, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("HEAD is detached")
+	}
+	name := strings.TrimSpace(string(out))
+	if name == "" {
+		return "", fmt.Errorf("HEAD is detached")
+	}
+	return name, nil
+}
+
+// HeadSHA returns the full commit SHA of HEAD.
+func HeadSHA() (string, error) {
+	cmd := exec.Command("git", "rev-parse", "HEAD")
+	out, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
+// RequireDefaultBranch returns the remote default branch when HEAD is on it.
+func RequireDefaultBranch() (string, error) {
+	defaultBranch, err := RemoteDefaultBranch()
+	if err != nil {
+		return "", err
+	}
+	current, err := CurrentBranch()
+	if err != nil {
+		return "", fmt.Errorf("%s. Checkout the remote default branch %s before deploying", err.Error(), defaultBranch)
+	}
+	if current != defaultBranch {
+		return "", fmt.Errorf("deploy requires the remote default branch %s; current branch is %s. Checkout the default branch; the CLI will not switch branches or force-push", defaultBranch, current)
+	}
+	return defaultBranch, nil
+}
+
+// PushBranch pushes HEAD to origin/<branch> with a fast-forward-only ordinary push.
+func PushBranch(branch string) error {
+	if strings.TrimSpace(branch) == "" {
+		return fmt.Errorf("could not determine the remote default branch from origin")
+	}
+	cmd := exec.Command("git", "push", "origin", "HEAD:"+branch)
+	cmd.Stdout = os.Stderr
+	cmd.Stderr = os.Stderr
+	if err := applyNonInteractiveGit(cmd); err != nil {
+		return err
+	}
+	return cmd.Run()
 }

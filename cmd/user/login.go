@@ -36,6 +36,13 @@ func runLogin(cobraCmd *cobra.Command) error {
 // doLogin performs the core login flow: browser auth, token storage, and org selection.
 // Used by both runLogin and RunLoginForLink.
 func doLogin(cobraCmd *cobra.Command, selectOrg bool) error {
+	if err := rejectExternallyManagedCredential(); err != nil {
+		return err
+	}
+	if err := utils.RequireInteractive(cobraCmd, "Supply MAJOR_TOKEN or complete a prior human login."); err != nil {
+		return err
+	}
+
 	// Get the API client (no token yet for login flow)
 	apiClient := singletons.GetAPIClient()
 	startResp, err := apiClient.StartLogin()
@@ -43,7 +50,7 @@ func doLogin(cobraCmd *cobra.Command, selectOrg bool) error {
 		return clierrors.WrapError("failed to start login", err)
 	}
 
-	if err := utils.OpenBrowser(startResp.VerificationURI); err != nil {
+	if err := utils.OpenOrPrintBrowser(cobraCmd, startResp.VerificationURI); err != nil {
 		// ignore, failed to open browser
 	}
 	cobraCmd.Println("Attempting to automatically open the SSO authorization page in your default browser.")
@@ -69,7 +76,7 @@ func doLogin(cobraCmd *cobra.Command, selectOrg bool) error {
 		if len(orgsResp.Organizations) > 0 {
 			selectedOrg, err := SelectOrganization(cobraCmd, orgsResp.Organizations)
 			if err != nil {
-				return clierrors.WrapError("failed to select organization", err)
+				return err
 			}
 
 			if err := mjrToken.StoreDefaultOrg(selectedOrg.ID, selectedOrg.Name); err != nil {
@@ -129,6 +136,10 @@ func SelectOrganization(cobraCmd *cobra.Command, orgs []apiClient.Organization) 
 	if len(orgs) == 1 {
 		cobraCmd.Printf("Only one organization available. Automatically selecting it.\n")
 		return &orgs[0], nil
+	}
+
+	if err := utils.RequireInteractive(cobraCmd, "Pass --id (major org select --id)."); err != nil {
+		return nil, err
 	}
 
 	// Create options for huh select
@@ -226,4 +237,11 @@ func printSuccessMessage(cobraCmd *cobra.Command) {
 	// Print everything
 	cobraCmd.Println(successMsg)
 	cobraCmd.Println(box)
+}
+
+func rejectExternallyManagedCredential() error {
+	if mjrToken.HasInjectedToken() {
+		return fmt.Errorf("credential is externally managed")
+	}
+	return nil
 }

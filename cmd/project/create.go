@@ -80,7 +80,20 @@ func runCreate(cmd *cobra.Command, name, description string) error {
 	// GitHub collaborator invites require acceptance before they grant clone
 	// access, so wait for it rather than attempting a clone that can't succeed yet.
 	if !utils.CheckRepositoryAccess(resp.CloneURLSSH, resp.CloneURLHTTPS) {
-		if githubURL, urlErr := utils.ExtractGitHubURL(cloneURL); urlErr == nil && githubURL != "" {
+		githubURL := ""
+		if extracted, urlErr := utils.ExtractGitHubURL(cloneURL); urlErr == nil {
+			githubURL = extracted
+		}
+
+		if utils.IsNonInteractive(cmd) {
+			if githubURL != "" {
+				return &utils.InvitationPendingError{URL: githubURL}
+			}
+
+			return utils.RequireInteractive(cmd, "Accept the GitHub invitation, then clone with: git clone "+cloneURL)
+		}
+
+		if githubURL != "" {
 			cmd.Printf("\nAction required: accept the GitHub invitation at %s\n", githubURL)
 			_ = utils.OpenBrowser(githubURL)
 		}

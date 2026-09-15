@@ -6,6 +6,7 @@ import (
 	"github.com/charmbracelet/huh"
 	mjrToken "github.com/major-technology/cli/clients/token"
 	clierrors "github.com/major-technology/cli/errors"
+	"github.com/major-technology/cli/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -42,6 +43,10 @@ func runGitConfig(cobraCmd *cobra.Command) error {
 	if flagGitconfigUsername != "" {
 		githubUsername = flagGitconfigUsername
 	} else {
+		if err := utils.RequireInteractive(cobraCmd, "Pass --username."); err != nil {
+			return err
+		}
+
 		// Show current username if it exists
 		if currentUsername != "" {
 			cobraCmd.Printf("Current GitHub username: %s\n\n", currentUsername)

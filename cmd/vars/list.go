@@ -1,12 +1,11 @@
 package vars
 
 import (
-	"encoding/json"
-	"fmt"
 	"sort"
 
 	"github.com/major-technology/cli/errors"
 	"github.com/major-technology/cli/singletons"
+	"github.com/major-technology/cli/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -85,11 +84,9 @@ func runList(cmd *cobra.Command) error {
 		for _, r := range rows {
 			out.Variables = append(out.Variables, listJSONEntry{Key: r.Key, Value: r.Value})
 		}
-		data, err := json.Marshal(out)
-		if err != nil {
+		if err := utils.WriteJSON(cmd, out); err != nil {
 			return errors.WrapError("failed to encode JSON", err)
 		}
-		fmt.Fprintln(cmd.OutOrStdout(), string(data))
 		return nil
 	}
 

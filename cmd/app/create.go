@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
@@ -19,6 +20,7 @@ import (
 var (
 	flagAppName        string
 	flagAppDescription string
+	flagThemeID        string
 )
 
 // createCmd represents the create command
@@ -30,7 +32,7 @@ var createCmd = &cobra.Command{
 By default, this command runs interactively, prompting for application name and description.
 You can also provide these values via flags for non-interactive usage:
 
-  major app create --name "my-app" --description "My application"
+  major app create --name "my-app" --description "My application" --theme-id <theme-id> --github-user <user> --non-interactive
 
 GitHub username is auto-detected from your SSH configuration.`,
 	PreRunE: middleware.Compose(
@@ -44,6 +46,7 @@ GitHub username is auto-detected from your SSH configuration.`,
 func init() {
 	createCmd.Flags().StringVar(&flagAppName, "name", "", "Application name (skips interactive prompt)")
 	createCmd.Flags().StringVar(&flagAppDescription, "description", "", "Application description (skips interactive prompt)")
+	createCmd.Flags().StringVar(&flagThemeID, "theme-id", "", "Theme ID to apply (omitted uses the server default)")
 	createCmd.Flags().StringVar(&flagGithubUser, "github-user", "", "GitHub username for repository access (for non-interactive mode)")
 }
 
@@ -62,12 +65,20 @@ func runCreate(cobraCmd *cobra.Command) error {
 	// Use flag values if provided, otherwise prompt interactively
 	appName := flagAppName
 	appDescription := flagAppDescription
-	var selectedThemeID string
+	selectedThemeID := flagThemeID
 
-	// Check if we need to prompt for any values
-	needsPrompt := appName == "" || appDescription == ""
-
-	if needsPrompt {
+	if utils.IsNonInteractive(cobraCmd) {
+		var missing []string
+		if appName == "" {
+			missing = append(missing, "--name")
+		}
+		if appDescription == "" {
+			missing = append(missing, "--description")
+		}
+		if len(missing) > 0 {
+			return utils.RequireInteractive(cobraCmd, "Pass "+strings.Join(missing, " and ")+".")
+		}
+	} else if appName == "" || appDescription == "" {
 		// Build form fields only for missing values
 		var formFields []huh.Field
 
@@ -101,15 +112,16 @@ func runCreate(cobraCmd *cobra.Command) error {
 			)
 		}
 
-		// Add theme selection field
-		themeField, themeErr := buildThemeSelectField(apiClient, orgID, &selectedThemeID)
+		if selectedThemeID == "" {
+			themeField, themeErr := buildThemeSelectField(apiClient, orgID, &selectedThemeID)
 
-		if themeErr != nil {
-			cobraCmd.Printf("Warning: Failed to load themes: %v\n", themeErr)
-		}
+			if themeErr != nil {
+				cobraCmd.Printf("Warning: Failed to load themes: %v\n", themeErr)
+			}
 
-		if themeField != nil {
-			formFields = append(formFields, themeField)
+			if themeField != nil {
+				formFields = append(formFields, themeField)
+			}
 		}
 
 		form := huh.NewForm(huh.NewGroup(formFields...))
@@ -147,7 +159,7 @@ func runCreate(cobraCmd *cobra.Command) error {
 
 	// Ensure repository access before cloning
 	// Use non-interactive mode if all required flags were provided
-	isNonInteractive := flagAppName != "" && flagAppDescription != ""
+	isNonInteractive := utils.IsNonInteractive(cobraCmd)
 	opts := utils.EnsureRepositoryAccessOptions{
 		NonInteractive: isNonInteractive,
 		GithubUsername: flagGithubUser,
@@ -169,7 +181,7 @@ func runCreate(cobraCmd *cobra.Command) error {
 		cobraCmd.Printf("│  major app clone --app-id \"%s\"  │\n", createResp.ApplicationID)
 		cobraCmd.Println("│                                                             │")
 		cobraCmd.Println("╰─────────────────────────────────────────────────────────────╯")
-		return nil // Exit cleanly, template pushed but clone pending user's invitation acceptance
+		return invErr
 	}
 
 	if err != nil {
@@ -192,6 +204,10 @@ func runCreate(cobraCmd *cobra.Command) error {
 	_, gitErr := cloneRepository(createResp.CloneURLSSH, createResp.CloneURLHTTPS, targetDir)
 	if gitErr != nil {
 		return errors.WrapError("failed to clone repository", gitErr)
+	}
+
+	if err := persistAppWorkspace(targetDir, orgID, createResp.ApplicationID); err != nil {
+		return err
 	}
 
 	cobraCmd.Printf("✓ Application '%s' successfully created in ./%s\n", appName, appName)
@@ -298,4 +314,3 @@ func printSuccessMessage(cobraCmd *cobra.Command, appName string) {
 	cobraCmd.Println(successMsg)
 	cobraCmd.Println(box)
 }
-

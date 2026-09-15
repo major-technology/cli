@@ -1,15 +1,16 @@
 package app
 
 import (
-	"encoding/json"
-	"fmt"
-
 	"github.com/major-technology/cli/errors"
 	"github.com/major-technology/cli/singletons"
+	"github.com/major-technology/cli/utils"
 	"github.com/spf13/cobra"
 )
 
-var flagDeployStatusVersionID string
+var (
+	flagDeployStatusVersionID string
+	flagDeployStatusJSON      bool
+)
 
 var deployStatusCmd = &cobra.Command{
 	Use:   "deploy-status",
@@ -22,6 +23,7 @@ var deployStatusCmd = &cobra.Command{
 
 func init() {
 	deployStatusCmd.Flags().StringVar(&flagDeployStatusVersionID, "version-id", "", "Version ID to check")
+	deployStatusCmd.Flags().BoolVar(&flagDeployStatusJSON, "json", false, "Output in JSON format")
 	deployStatusCmd.MarkFlagRequired("version-id")
 }
 
@@ -43,14 +45,9 @@ func runDeployStatus(cobraCmd *cobra.Command) error {
 		AppURL          string `json:"appUrl,omitempty"`
 	}
 
-	data, err := json.Marshal(statusJSON{
+	return utils.WriteJSON(cobraCmd, statusJSON{
 		Status:          resp.Status,
 		DeploymentError: resp.DeploymentError,
 		AppURL:          resp.AppURL,
 	})
-	if err != nil {
-		return err
-	}
-	fmt.Fprintln(cobraCmd.OutOrStdout(), string(data))
-	return nil
 }

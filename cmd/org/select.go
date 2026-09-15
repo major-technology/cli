@@ -54,10 +54,9 @@ func runSelect(cobraCmd *cobra.Command) error {
 		return fmt.Errorf("organization with ID %q not found", flagSelectOrgID)
 	}
 
-	// Interactive mode: let user select organization
 	selectedOrg, err := user.SelectOrganization(cobraCmd, orgsResp.Organizations)
 	if err != nil {
-		return errors.WrapError("failed to select organization", err)
+		return err
 	}
 
 	// Store the selected organization

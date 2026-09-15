@@ -59,8 +59,8 @@ func runLink(cmd *cobra.Command, applicationID string) error {
 	gitErr := ensureGitRepository(cmd, workingDir, appInfo.CloneURLSSH, appInfo.CloneURLHTTPS)
 	if gitErr != nil {
 		if isGitAuthError(gitErr) {
-			// Ensure repository access
-			if err := utils.EnsureRepositoryAccess(cmd, applicationID, appInfo.CloneURLSSH, appInfo.CloneURLHTTPS); err != nil {
+			opts := utils.EnsureRepositoryAccessOptions{NonInteractive: utils.IsNonInteractive(cmd)}
+			if err := utils.EnsureRepositoryAccessWithOptions(cmd, applicationID, appInfo.CloneURLSSH, appInfo.CloneURLHTTPS, opts); err != nil {
 				return errors.WrapError("failed to ensure repository access", err)
 			}
 			// Retry with retries
@@ -74,6 +74,10 @@ func runLink(cmd *cobra.Command, applicationID string) error {
 	}
 
 	cmd.Println("✓ Repository ready")
+
+	if err := persistAppWorkspace(workingDir, appInfo.OrganizationID, applicationID); err != nil {
+		return err
+	}
 
 	// Step 4: Generate .env file
 	cmd.Println("Generating .env file...")

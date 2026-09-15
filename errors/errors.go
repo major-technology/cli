@@ -78,7 +78,7 @@ func PrintError(cmd *cobra.Command, err error) {
 		message = title
 	}
 
-	cmd.Println(errorStyle.Render(message))
+	cmd.PrintErrln(errorStyle.Render(message))
 }
 
 // Authentication/Session Errors
@@ -146,6 +146,12 @@ func ErrorUnsupportedGitRemoteURLWithFormat(url string) *CLIError {
 		Suggestion: fmt.Sprintf("Only GitHub SSH (git@github.com:owner/repo.git) and HTTPS (https://github.com/owner/repo.git) URLs are supported.\n\nReceived: %s", url),
 		Err:        fmt.Errorf("unsupported git remote URL format: %s", url),
 	}
+}
+
+var ErrorUnsupportedGITSSHCommand = &CLIError{
+	Title:      "unsupported GIT_SSH_COMMAND: use a single direct ssh invocation",
+	Suggestion: "Set GIT_SSH_COMMAND to ssh or a path whose basename is ssh, quoting arguments that contain spaces (for example ssh -i '/tmp/key file'). Wrappers such as env, other executables, and compound shell commands are not supported with --non-interactive. Use a direct ssh command or run without --non-interactive.",
+	Err:        errors.New("unsupported GIT_SSH_COMMAND"),
 }
 
 // Configuration Errors

@@ -62,12 +62,36 @@ var rootCmd = &cobra.Command{
 	Version:           Version,
 	SilenceErrors:     true, // We handle errors centrally
 	SilenceUsage:      true, // Don't show usage on errors
-	PersistentPreRunE: middleware.Compose(middleware.CheckVersion(Version)),
+	PersistentPreRunE: rootPersistentPreRunE,
 	Run: func(cmd *cobra.Command, args []string) {
 		if ok := showLoginPromptIfNeeded(cmd); ok {
 			cmd.Help()
 		}
 	},
+}
+
+func rootPersistentPreRunE(cmd *cobra.Command, args []string) error {
+	return middleware.Compose(
+		rejectInjectedAuthManagement,
+		middleware.ApplyNonInteractive,
+		middleware.CheckVersion(Version),
+	)(cmd, args)
+}
+
+func rejectInjectedAuthManagement(cmd *cobra.Command, args []string) error {
+	if !mjrToken.HasInjectedToken() {
+		return nil
+	}
+	parent := cmd.Parent()
+	if parent == nil || parent.Name() != "user" {
+		return nil
+	}
+	switch cmd.Name() {
+	case "login", "logout", "token":
+		return fmt.Errorf("credential is externally managed")
+	default:
+		return nil
+	}
 }
 
 func Execute() {
@@ -80,20 +104,13 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 
+	rootCmd.PersistentFlags().Bool("non-interactive", false, "Never prompt or open a browser. GIT_SSH_COMMAND must be a single direct ssh invocation; wrappers and compound commands are rejected.")
+
 	// Disable the default completion command (we use our own)
 	rootCmd.CompletionOptions.DisableDefaultCmd = true
 
 	// Disable the help command (use -h flag instead)
 	rootCmd.SetHelpCommand(&cobra.Command{Hidden: true})
-
-	// Set custom help function to show login prompt after help
-	defaultHelpFunc := rootCmd.HelpFunc()
-	rootCmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
-		defaultHelpFunc(cmd, args)
-		if cmd == rootCmd {
-			showLoginPromptIfNeeded(cmd)
-		}
-	})
 
 	// Register subcommands
 	rootCmd.AddGroup(&cobra.Group{ID: "main", Title: "Main Commands"})

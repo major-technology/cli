@@ -32,8 +32,7 @@ func runConfigure(cmd *cobra.Command) error {
 	configureURL := fmt.Sprintf("%s/home?dialog=app-settings&appId=%s", cfg.FrontendURI, applicationID)
 
 	// Open the URL in the browser
-	if err := utils.OpenBrowser(configureURL); err != nil {
-		// If browser fails to open, still show the URL
+	if err := utils.OpenOrPrintBrowser(cmd, configureURL); err != nil {
 		cmd.Printf("Failed to open browser automatically. Please visit:\n%s\n", configureURL)
 		return nil
 	}
@@ -41,4 +40,3 @@ func runConfigure(cmd *cobra.Command) error {
 	cmd.Printf("Opening app configurations in your browser:\n%s\n", configureURL)
 	return nil
 }
-

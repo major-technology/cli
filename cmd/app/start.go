@@ -11,6 +11,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var flagUpgradeTheme bool
+
 // startCmd represents the start command
 var startCmd = &cobra.Command{
 	Use:   "start",
@@ -19,6 +21,10 @@ var startCmd = &cobra.Command{
 	RunE: func(cobraCmd *cobra.Command, args []string) error {
 		return runStart(cobraCmd)
 	},
+}
+
+func init() {
+	startCmd.Flags().BoolVar(&flagUpgradeTheme, "upgrade-theme", false, "Apply an available theme upgrade (non-interactive mode preserves the current version by default)")
 }
 
 func runStart(cobraCmd *cobra.Command) error {

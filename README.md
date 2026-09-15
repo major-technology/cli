@@ -41,6 +41,17 @@ Log in to your Major account. This stores your credentials securely in your syst
 major user login
 ```
 
+The CLI resolves credentials in this order:
+
+1. `MAJOR_TOKEN`, if set to a non-empty value
+2. The system keychain entry created by `major user login`
+
+`MAJOR_API_URL` overrides the embedded API base URL and should include the `/cli` path (for example `http://localhost:3001/cli`). A trailing slash is ignored. Other embedded defaults are unchanged when this variable is unset.
+
+When `MAJOR_TOKEN` is set, `major user login`, `major user logout`, and `major user token` refuse to run because the credential is externally managed. Ordinary commands continue to send `Authorization: Bearer <token>` using the injected value.
+
+`--non-interactive` never prompts or opens a browser and does not imply `--yes`. Git remotes set `GIT_TERMINAL_PROMPT=0` and insert OpenSSH `BatchMode=yes` after a single direct `ssh` executable (including a path whose basename is `ssh`). Quoted and escaped arguments are preserved. `GIT_SSH_COMMAND` wrappers (`env ... ssh`), other first executables, and compound commands (`ssh ...; ...`) are rejected; use a direct `ssh` command or run without `--non-interactive`.
+
 **2. Create a new App**
 Scaffolds a new Major application in your current directory. You'll be prompted to choose a template.
 

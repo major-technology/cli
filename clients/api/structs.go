@@ -75,12 +75,12 @@ type GetApplicationByRepoRequest struct {
 
 // GetApplicationByRepoResponse represents the response from GET /application/from-repo
 type GetApplicationByRepoResponse struct {
-	Error          *AppErrorDetail         `json:"error,omitempty"`
-	ApplicationID  string                  `json:"applicationId,omitempty"`
-	OrganizationID string                  `json:"organizationId,omitempty"`
-	TemplateID     *string                 `json:"templateId,omitempty"`
-	TemplateName   *string                 `json:"templateName,omitempty"`
-	URLSlug        *string                 `json:"urlSlug,omitempty"`
+	Error          *AppErrorDetail `json:"error,omitempty"`
+	ApplicationID  string          `json:"applicationId,omitempty"`
+	OrganizationID string          `json:"organizationId,omitempty"`
+	TemplateID     *string         `json:"templateId,omitempty"`
+	TemplateName   *string         `json:"templateName,omitempty"`
+	URLSlug        *string         `json:"urlSlug,omitempty"`
 }
 
 // GetApplicationEnvRequest represents the request body for POST /application/env
@@ -117,8 +117,9 @@ type CreateApplicationVersionRequest struct {
 
 // CreateApplicationVersionResponse represents the response from POST /applications/versions
 type CreateApplicationVersionResponse struct {
-	Error     *AppErrorDetail `json:"error,omitempty"`
-	VersionID string          `json:"versionId,omitempty"`
+	Error       *AppErrorDetail `json:"error,omitempty"`
+	VersionID   string          `json:"versionId,omitempty"`
+	VersionHash string          `json:"versionHash,omitempty"`
 }
 
 // ApplicationItem represents a single application in the list
@@ -315,11 +316,13 @@ type SetEnvironmentChoiceResponse struct {
 
 // GetApplicationInfoResponse represents the response from GET /applications/:applicationId/info
 type GetApplicationInfoResponse struct {
-	Error        *AppErrorDetail `json:"error,omitempty"`
-	ApplicationID string         `json:"applicationId,omitempty"`
-	Name          string         `json:"name,omitempty"`
-	AppURL        *string        `json:"appUrl,omitempty"`
-	DeployStatus  string         `json:"deployStatus,omitempty"`
+	Error          *AppErrorDetail `json:"error,omitempty"`
+	ApplicationID  string          `json:"applicationId,omitempty"`
+	OrganizationID string          `json:"organizationId,omitempty"`
+	URLSlug        *string         `json:"urlSlug,omitempty"`
+	Name           string          `json:"name,omitempty"`
+	AppURL         *string         `json:"appUrl,omitempty"`
+	DeployStatus   string          `json:"deployStatus,omitempty"`
 }
 
 // GetApplicationForLinkResponse represents the response from GET /application/:applicationId/link-info

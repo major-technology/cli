@@ -1,8 +1,10 @@
 package utils
 
 import (
+	stderrors "errors"
 	"fmt"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -10,6 +12,7 @@ import (
 	"github.com/major-technology/cli/clients/api"
 	"github.com/major-technology/cli/clients/git"
 	mjrToken "github.com/major-technology/cli/clients/token"
+	"github.com/major-technology/cli/clients/workspace"
 	"github.com/major-technology/cli/errors"
 	"github.com/major-technology/cli/singletons"
 	"github.com/spf13/cobra"
@@ -44,10 +47,52 @@ func GetApplicationIDFromDir(dir string) (string, string, error) {
 	return info.ApplicationID, info.OrganizationID, nil
 }
 
-// GetApplicationInfo retrieves full application information for a git repository in the specified directory.
-// If dir is empty, it uses the current directory.
+// GetApplicationInfo retrieves full application information for a workspace in the specified directory.
+// If dir is empty, it uses the current directory. Configured app workspaces resolve via the
+// app-ID info endpoint; only a missing config falls back to git-remote discovery.
 func GetApplicationInfo(dir string) (*api.GetApplicationByRepoResponse, error) {
-	// Get the git remote URL from the specified directory
+	startDir := dir
+	if startDir == "" {
+		startDir = "."
+	}
+
+	cfg, err := workspace.Load(startDir)
+	if err == nil {
+		return applicationInfoFromWorkspace(cfg)
+	}
+	if !stderrors.Is(err, workspace.ErrNotFound) {
+		return nil, err
+	}
+
+	return applicationInfoFromGitRemote(dir)
+}
+
+func applicationInfoFromWorkspace(cfg *workspace.Config) (*api.GetApplicationByRepoResponse, error) {
+	if cfg.Target.Kind != "app" {
+		return nil, fmt.Errorf("workspace target kind %q is not an app", cfg.Target.Kind)
+	}
+
+	apiClient := singletons.GetAPIClient()
+	if apiClient == nil {
+		return nil, fmt.Errorf("API client not initialized")
+	}
+
+	info, err := apiClient.GetApplicationInfo(cfg.Target.ApplicationID)
+	if err != nil {
+		return nil, errors.WrapError("failed to get application", err)
+	}
+	if info.OrganizationID != cfg.OrganizationID {
+		return nil, fmt.Errorf("workspace organization %s does not match application organization %s", cfg.OrganizationID, info.OrganizationID)
+	}
+
+	return &api.GetApplicationByRepoResponse{
+		ApplicationID:  info.ApplicationID,
+		OrganizationID: info.OrganizationID,
+		URLSlug:        info.URLSlug,
+	}, nil
+}
+
+func applicationInfoFromGitRemote(dir string) (*api.GetApplicationByRepoResponse, error) {
 	remoteURL, err := git.GetRemoteURLFromDir(dir)
 	if err != nil {
 		return nil, err
@@ -57,22 +102,85 @@ func GetApplicationInfo(dir string) (*api.GetApplicationByRepoResponse, error) {
 		return nil, errors.ErrorNoGitRemoteFoundInDirectory
 	}
 
-	// Parse the remote URL to extract owner and repo
 	remoteInfo, err := git.ParseRemoteURL(remoteURL)
 	if err != nil {
 		return nil, errors.WrapError("failed to parse git remote URL", err)
 	}
 
-	// Get API client
 	apiClient := singletons.GetAPIClient()
+	if apiClient == nil {
+		return nil, fmt.Errorf("API client not initialized")
+	}
 
-	// Get application by repository
 	appResp, err := apiClient.GetApplicationByRepo(remoteInfo.Owner, remoteInfo.Repo)
 	if err != nil {
 		return nil, errors.WrapError("failed to get application", err)
 	}
 
+	if err := persistAppWorkspaceAtRepo(dir, appResp.OrganizationID, appResp.ApplicationID); err != nil {
+		return nil, err
+	}
+
 	return appResp, nil
+}
+
+// PersistAppWorkspace writes an app target and locally ignores `.major/config.json`.
+// It does not persist credentials or a mutable slug.
+func PersistAppWorkspace(projectDir, organizationID, applicationID string) error {
+	return persistAppWorkspaceConfig(projectDir, organizationID, applicationID)
+}
+
+func persistAppWorkspaceAtRepo(dir, organizationID, applicationID string) error {
+	root, err := gitRepoRoot(dir)
+	if err != nil {
+		return fmt.Errorf("failed to write workspace config %s: %w", workspaceConfigPath(dir), err)
+	}
+	return persistAppWorkspaceConfig(root, organizationID, applicationID)
+}
+
+func persistAppWorkspaceConfig(projectDir, organizationID, applicationID string) error {
+	abs, err := filepath.Abs(projectDir)
+	if err != nil {
+		return err
+	}
+	path := filepath.Join(abs, ".major", "config.json")
+	cfg := workspace.Config{
+		OrganizationID: organizationID,
+		Target: workspace.Target{
+			Kind:          "app",
+			ApplicationID: applicationID,
+		},
+	}
+	if err := workspace.Write(abs, cfg); err != nil {
+		return fmt.Errorf("failed to write workspace config %s: %w", path, err)
+	}
+	if err := workspace.IgnoreLocalConfig(abs); err != nil {
+		return fmt.Errorf("failed to ignore workspace config %s: %w", path, err)
+	}
+	return nil
+}
+
+func gitRepoRoot(dir string) (string, error) {
+	cmd := exec.Command("git", "rev-parse", "--show-toplevel")
+	if dir != "" {
+		cmd.Dir = dir
+	}
+	output, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(output)), nil
+}
+
+func workspaceConfigPath(dir string) string {
+	if dir == "" {
+		dir = "."
+	}
+	abs, err := filepath.Abs(dir)
+	if err != nil {
+		return filepath.Join(dir, ".major", "config.json")
+	}
+	return filepath.Join(abs, ".major", "config.json")
 }
 
 // CanUseSSH checks if SSH is available and configured for git
@@ -107,9 +215,11 @@ func CheckRepositoryAccess(sshURL, httpsURL string) bool {
 // testGitAccess tests if a git repository is accessible using git ls-remote
 func testGitAccess(repoURL string) bool {
 	cmd := exec.Command("git", "ls-remote", "--heads", repoURL)
-	// Suppress output
 	cmd.Stdout = nil
 	cmd.Stderr = nil
+	if err := git.ConfigureRemoteCommand(cmd); err != nil {
+		return false
+	}
 	err := cmd.Run()
 	return err == nil
 }
@@ -177,9 +287,9 @@ func EnsureRepositoryAccessWithOptions(cmd *cobra.Command, appID string, sshURL 
 		if storedUsername != "" {
 			githubUsername = storedUsername
 		} else {
-			// No username available - in non-interactive mode, fail with clear message
-			if opts.NonInteractive {
-				return fmt.Errorf("could not detect GitHub username. Run 'major user login' to set up GitHub access")
+			nonInteractive := opts.NonInteractive || IsNonInteractive(cmd)
+			if nonInteractive {
+				return fmt.Errorf("could not detect GitHub username. Pass --github-user or run 'major user gitconfig --username'")
 			}
 
 			// Interactive mode: prompt for username
@@ -228,10 +338,7 @@ func EnsureRepositoryAccessWithOptions(cmd *cobra.Command, appID string, sshURL 
 
 	// In non-interactive mode, open browser and return immediately
 	// The caller will display a message to accept the invitation
-	if opts.NonInteractive {
-		if githubURL != "" {
-			_ = OpenBrowser(githubURL)
-		}
+	if opts.NonInteractive || IsNonInteractive(cmd) {
 		return &InvitationPendingError{URL: githubURL}
 	}
 

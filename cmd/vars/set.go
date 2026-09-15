@@ -5,10 +5,14 @@ import (
 
 	"github.com/major-technology/cli/errors"
 	"github.com/major-technology/cli/singletons"
+	"github.com/major-technology/cli/utils"
 	"github.com/spf13/cobra"
 )
 
-var flagSetEnv string
+var (
+	flagSetEnv  string
+	flagSetJSON bool
+)
 
 var setCmd = &cobra.Command{
 	Use:   "set <KEY>=<VALUE>",
@@ -28,6 +32,7 @@ Example:
 
 func init() {
 	setCmd.Flags().StringVar(&flagSetEnv, "env", "", "Target environment name (defaults to your current environment)")
+	setCmd.Flags().BoolVar(&flagSetJSON, "json", false, "Output in JSON format")
 }
 
 func runSet(cmd *cobra.Command, arg string) error {
@@ -58,6 +63,14 @@ func runSet(cmd *cobra.Command, arg string) error {
 	apiClient := singletons.GetAPIClient()
 	if _, err := apiClient.SetEnvVariable(appID, key, env.ID, value); err != nil {
 		return errors.WrapError("failed to set env variable", err)
+	}
+
+	if flagSetJSON {
+		return utils.WriteJSON(cmd, map[string]any{
+			"key":         key,
+			"environment": env.Name,
+			"updated":     true,
+		})
 	}
 
 	cmd.Printf("Environment: %s\n", env.Name)

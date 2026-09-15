@@ -47,5 +47,7 @@ func Load(configFile string) (*Config, error) {
 		return nil, err
 	}
 
+	cfg.APIURL = strings.TrimRight(cfg.APIURL, "/")
+
 	return &cfg, nil
 }
