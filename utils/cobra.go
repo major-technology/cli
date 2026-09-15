@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -17,4 +18,19 @@ func NoArgs(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("unknown command %q for %q", args[0], cmd.CommandPath())
 	}
 	return nil
+}
+
+// WriteJSON marshals v to JSON and writes it to the command output.
+func WriteJSON(cmd *cobra.Command, v any) error {
+	data, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		return err
+	}
+	cmd.Println(string(data))
+	return nil
+}
+
+// Hint writes a hint message to the command output with a subtle style indicator.
+func Hint(cmd *cobra.Command, message string) {
+	cmd.Println("→", message)
 }
