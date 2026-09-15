@@ -330,7 +330,6 @@ func (c *Client) SaveApplicationResources(organizationID, applicationID string, 
 	return &resp, nil
 }
 
-
 // --- Version Check endpoints ---
 
 // CheckVersion checks if the CLI version is up to date
@@ -652,4 +651,74 @@ func (c *Client) AddProjectGithubCollaborators(projectID, organizationID, github
 		return nil, err
 	}
 	return &resp, nil
+}
+
+// --- Hosted files ---
+
+// CreateFile pushes a new hosted file and returns its link.
+func (c *Client) CreateFile(organizationID, name, kind, content string) (*HostedFileResponse, error) {
+	var resp HostedFileResponse
+	err := c.doRequest("POST", "/files", createHostedFileRequest{
+		OrganizationID: organizationID,
+		Name:           name,
+		Kind:           kind,
+		Content:        content,
+	}, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+// PushFileVersion adds a new version to an existing hosted file.
+func (c *Client) PushFileVersion(fileID, content string) (*HostedFileResponse, error) {
+	var resp HostedFileResponse
+	err := c.doRequest("POST", "/files/"+url.PathEscape(fileID)+"/versions", pushHostedFileVersionRequest{Content: content}, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+// GetFileContentURL returns a short-lived download URL for the latest version.
+func (c *Client) GetFileContentURL(fileID string) (*HostedFileContentURLResponse, error) {
+	var resp HostedFileContentURLResponse
+	err := c.doRequest("GET", "/files/"+url.PathEscape(fileID)+"/content-url", nil, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+// ListFiles lists the hosted files in an organization the user can view.
+func (c *Client) ListFiles(organizationID string) (*ListHostedFilesResponse, error) {
+	var resp ListHostedFilesResponse
+	err := c.doRequest("GET", "/files?organizationId="+url.QueryEscape(organizationID), nil, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+// RenameFile changes a hosted file's display name.
+func (c *Client) RenameFile(fileID, name string) (*HostedFileResponse, error) {
+	var resp HostedFileResponse
+	err := c.doRequest("PATCH", "/files/"+url.PathEscape(fileID), renameHostedFileRequest{Name: name}, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+// DeleteFile soft-deletes a hosted file; its link stops working.
+func (c *Client) DeleteFile(fileID string) error {
+	return c.doRequest("DELETE", "/files/"+url.PathEscape(fileID), nil, nil)
+}
+
+// ShareFileByEmail grants a File role to an existing organization member.
+func (c *Client) ShareFileByEmail(fileID, email, role string) error {
+	return c.doRequest("POST", "/files/"+url.PathEscape(fileID)+"/share-by-email", shareHostedFileByEmailRequest{
+		Email: email,
+		Role:  role,
+	}, nil)
 }
