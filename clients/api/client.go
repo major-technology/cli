@@ -17,6 +17,10 @@ import (
 type Client struct {
 	baseURL    string
 	httpClient *http.Client
+	// uploadHTTPClient is used for file upload requests. A 5 MB JSON body plus
+	// the server's S3 write can exceed the default 30s timeout on a slow
+	// uplink, so uploads get a longer budget.
+	uploadHTTPClient *http.Client
 }
 
 // NewClient creates a new API client with the provided base URL and optional token
@@ -26,6 +30,9 @@ func NewClient(baseURL string) *Client {
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
+		uploadHTTPClient: &http.Client{
+			Timeout: 120 * time.Second,
+		},
 	}
 }
 
@@ -34,17 +41,23 @@ var testTokenOverride string
 
 // doRequestWithoutAuth is a helper method to make unauthenticated HTTP requests
 func (c *Client) doRequestWithoutAuth(method, path string, body interface{}, response interface{}) error {
-	return c.doRequestInternal(method, path, body, response, false)
+	return c.doRequestInternal(c.httpClient, method, path, body, response, false)
 }
 
 // doRequest is a helper method to make HTTP requests with common error handling
 // It automatically gets the token from the keyring for each request
 func (c *Client) doRequest(method, path string, body interface{}, response interface{}) error {
-	return c.doRequestInternal(method, path, body, response, true)
+	return c.doRequestInternal(c.httpClient, method, path, body, response, true)
+}
+
+// doUploadRequest is like doRequest but uses uploadHTTPClient's longer timeout,
+// for endpoints that send a file body and wait on the server's S3 write.
+func (c *Client) doUploadRequest(method, path string, body interface{}, response interface{}) error {
+	return c.doRequestInternal(c.uploadHTTPClient, method, path, body, response, true)
 }
 
 // doRequestInternal is the internal implementation for making HTTP requests
-func (c *Client) doRequestInternal(method, path string, body interface{}, response interface{}, requireAuth bool) error {
+func (c *Client) doRequestInternal(httpClient *http.Client, method, path string, body interface{}, response interface{}, requireAuth bool) error {
 	var token string
 	if requireAuth {
 		if testTokenOverride != "" {
@@ -82,7 +95,7 @@ func (c *Client) doRequestInternal(method, path string, body interface{}, respon
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return clierrors.WrapError("failed to make request", err)
 	}
@@ -658,7 +671,7 @@ func (c *Client) AddProjectGithubCollaborators(projectID, organizationID, github
 // CreateFile pushes a new hosted file and returns its link.
 func (c *Client) CreateFile(organizationID, name, kind, content string) (*HostedFileResponse, error) {
 	var resp HostedFileResponse
-	err := c.doRequest("POST", "/files", createHostedFileRequest{
+	err := c.doUploadRequest("POST", "/files", createHostedFileRequest{
 		OrganizationID: organizationID,
 		Name:           name,
 		Kind:           kind,
@@ -673,7 +686,7 @@ func (c *Client) CreateFile(organizationID, name, kind, content string) (*Hosted
 // PushFileVersion adds a new version to an existing hosted file.
 func (c *Client) PushFileVersion(fileID, kind, content string) (*HostedFileResponse, error) {
 	var resp HostedFileResponse
-	err := c.doRequest("POST", "/files/"+url.PathEscape(fileID)+"/versions", pushHostedFileVersionRequest{Kind: kind, Content: content}, &resp)
+	err := c.doUploadRequest("POST", "/files/"+url.PathEscape(fileID)+"/versions", pushHostedFileVersionRequest{Kind: kind, Content: content}, &resp)
 	if err != nil {
 		return nil, err
 	}

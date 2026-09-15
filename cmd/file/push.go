@@ -59,6 +59,13 @@ func kindForPath(path string) (string, error) {
 }
 
 func runPush(cmd *cobra.Command, path string) error {
+	if flagPushFileID != "" && flagPushName != "" {
+		return &clierrors.CLIError{
+			Title:      "--name cannot be combined with --file-id",
+			Suggestion: "Use `major file rename <file-id> <new-name>` to rename an existing file.",
+		}
+	}
+
 	kind, err := kindForPath(path)
 	if err != nil {
 		return err

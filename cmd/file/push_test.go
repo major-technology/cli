@@ -31,6 +31,8 @@ func TestKindForPath(t *testing.T) {
 }
 
 func TestPrintPushResult(t *testing.T) {
+	t.Cleanup(func() { flagPushJSON = false })
+
 	// Test with JSON=false: stdout should have link, stderr should have hint
 	cmd := &cobra.Command{}
 	stdout := &bytes.Buffer{}
@@ -84,7 +86,4 @@ func TestPrintPushResult(t *testing.T) {
 	if stderrStr != "" {
 		t.Fatalf("stderr should be empty with JSON output, got: %q", stderrStr)
 	}
-
-	// Reset flagPushJSON
-	flagPushJSON = false
 }

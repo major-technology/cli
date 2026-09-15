@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"time"
 
 	clierrors "github.com/major-technology/cli/errors"
 	"github.com/major-technology/cli/middleware"
@@ -13,6 +14,10 @@ import (
 )
 
 var flagPullOut string
+
+// downloadClient fetches the file body from the short-lived S3 URL; 120s
+// mirrors the upload timeout since these can be large files too.
+var downloadClient = &http.Client{Timeout: 120 * time.Second}
 
 var pullCmd = &cobra.Command{
 	Use:   "pull <file-id>",
@@ -38,7 +43,7 @@ func runPull(cmd *cobra.Command, fileID string) error {
 		return clierrors.WrapError("failed to resolve file", err)
 	}
 
-	resp, err := http.Get(meta.URL)
+	resp, err := downloadClient.Get(meta.URL)
 	if err != nil {
 		return clierrors.WrapError("failed to download file", err)
 	}
@@ -47,18 +52,36 @@ func runPull(cmd *cobra.Command, fileID string) error {
 		return clierrors.WrapError("failed to download file", fmt.Errorf("status %d", resp.StatusCode))
 	}
 
-	var out io.Writer = cmd.OutOrStdout()
-	if flagPullOut != "" {
-		f, err := os.Create(flagPullOut)
-		if err != nil {
-			return clierrors.WrapError("failed to create output file", err)
+	if flagPullOut == "" {
+		if _, err := io.Copy(cmd.OutOrStdout(), resp.Body); err != nil {
+			return clierrors.WrapError("failed to write file", err)
 		}
-		defer f.Close()
-		out = f
+		return nil
 	}
 
-	if _, err := io.Copy(out, resp.Body); err != nil {
+	// Write to a temp file first and rename into place on success, so a
+	// failed download never leaves a truncated file at the target path.
+	tmpPath := flagPullOut + ".tmp"
+	f, err := os.Create(tmpPath)
+	if err != nil {
+		return clierrors.WrapError("failed to create output file", err)
+	}
+
+	if _, err := io.Copy(f, resp.Body); err != nil {
+		f.Close()
+		os.Remove(tmpPath)
 		return clierrors.WrapError("failed to write file", err)
 	}
+
+	if err := f.Close(); err != nil {
+		os.Remove(tmpPath)
+		return clierrors.WrapError("failed to write file", err)
+	}
+
+	if err := os.Rename(tmpPath, flagPullOut); err != nil {
+		os.Remove(tmpPath)
+		return clierrors.WrapError("failed to write file", err)
+	}
+
 	return nil
 }

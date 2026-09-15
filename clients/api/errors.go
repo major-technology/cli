@@ -79,9 +79,16 @@ func ToCLIError(errResp *ErrorResponse) error {
 		return cliErr
 	}
 
-	// No specific mapping - create a generic CLIError with API details
+	// No specific mapping - create a generic CLIError with API details.
+	// Prefer the server's own error text as the title when it has one, since
+	// it's usually more actionable than the generic fallback.
+	title := fmt.Sprintf("API Error (Code: %d)", errResp.Error.InternalCode)
+	if errResp.Error.ErrorString != "" {
+		title = errResp.Error.ErrorString
+	}
+
 	return &clierrors.CLIError{
-		Title:      fmt.Sprintf("API Error (Code: %d)", errResp.Error.InternalCode),
+		Title:      title,
 		Suggestion: "Please try again or contact support if the issue persists.",
 		Err:        fmt.Errorf("%s", errResp.Error.ErrorString),
 		StatusCode: errResp.Error.StatusCode,

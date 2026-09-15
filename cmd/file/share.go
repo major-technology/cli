@@ -30,7 +30,7 @@ var shareCmd = &cobra.Command{
 		if err := singletons.GetAPIClient().ShareFileByEmail(args[0], flagShareEmail, role); err != nil {
 			return clierrors.WrapError("failed to share file", err)
 		}
-		fmt.Fprintf(cmd.OutOrStdout(), "Granted %s to %s\n", flagShareAccess, flagShareEmail)
+		fmt.Fprintf(cmd.OutOrStdout(), "Granted %s to %s\n", strings.ToLower(flagShareAccess), flagShareEmail)
 		return nil
 	},
 }
