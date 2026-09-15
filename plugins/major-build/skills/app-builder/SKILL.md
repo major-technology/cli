@@ -1,6 +1,6 @@
 ---
 name: app-builder
-description: Create and edit Major apps — full-stack Next.js apps with frontend, backend API routes, and a live preview — how to create or mount an app sandbox, edit through the workspace tools or query a deployed app.
+description: Create and edit Major apps — full-stack Next.js apps with frontend, backend API routes, and a live preview — how to create or mount an app sandbox and edit through the workspace tools.
 ---
 
 # Building a Major app
@@ -20,7 +20,6 @@ If this chat is already pinned to an app (the "Working with this app" section of
 - **Edit existing**: `list_edit_apps` to find it, then `mount({app: "<applicationId>"})`. This wakes the app's sandbox, attaches it to this chat, and starts a live preview. A `locked` result means another user holds the app — tell the user who; do not retry in a loop.
 - **New**: `create_app({name, description})` with a short name and a one-sentence description. It returns the new `applicationId` and automatically mounts the sandbox — you do **not** need to call `mount`. For a brand-new app's first iteration, load the `new-project` skill and follow it before writing code.
 - **Save**: commit and push on `main` using the sandbox shell tool. Stage only the files you changed (`git add <paths>`) — never `git add -A` or `git add .`: other chat sessions may be editing the same workspace. Never run `git stash` (or `git stash push` / `git stash pop` / `git stash apply`). Never create feature branches.
-- **Query deployed**: `list_use_apps` to identify the app, call `get_app_skill({applicationId})` for its endpoints and request/response shapes, then `do_get_request` for GET calls and `do_requests` for any non-GET (the user will be asked to approve writes).
 - **Deploy**: a separate, explicit step — do **not** call `deploy_app` unless the user asked to deploy/publish/ship in this conversation. Finishing an edit means committing and pushing on `main`, then telling the user the change is ready to deploy. When they do ask, batch all finished changes into a single deploy. A deploy builds for ~2 minutes — tell the user it is building and end your turn; never poll `get_app_status` in a loop.
 
 If a request is ambiguous (you can't tell which existing app it maps to, or you lack the detail to mount it), ask one or two clarifying questions first.
