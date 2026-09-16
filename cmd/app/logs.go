@@ -18,6 +18,7 @@ var (
 	flagLogsUntil     time.Time
 	flagLogsNextToken string
 	flagLogsJSON      bool
+	flagLogsPreview   bool
 )
 
 var logsTimeFormats = []string{time.RFC3339Nano, time.RFC3339}
@@ -29,6 +30,7 @@ func init() {
 	logsCmd.Flags().TimeVar(&flagLogsUntil, "until", time.Time{}, logsTimeFormats, "Show logs up until an RFC3339 timestamp")
 	logsCmd.Flags().StringVar(&flagLogsNextToken, "next-token", "", "Pagination cursor from a previous response")
 	logsCmd.Flags().BoolVar(&flagLogsJSON, "json", false, "Output in JSON format")
+	logsCmd.Flags().BoolVar(&flagLogsPreview, "preview", false, "Read the sandbox dev server's logs instead of the deployed app's")
 }
 
 var logsCmd = &cobra.Command{
@@ -68,6 +70,30 @@ func runLogs(cmd *cobra.Command) error {
 	}
 
 	apiClient := singletons.GetAPIClient()
+
+	if flagLogsPreview {
+		resp, err := apiClient.GetPreviewLogs(applicationID, req)
+		if err != nil {
+			return err
+		}
+
+		if flagLogsJSON {
+			if err := utils.WriteJSON(cmd, resp); err != nil {
+				return err
+			}
+		} else {
+			for _, entry := range resp.Logs {
+				fmt.Fprintf(cmd.OutOrStdout(), "%s  %s\n", entry.Ts, entry.Log)
+			}
+		}
+
+		if resp.NextToken != "" {
+			utils.Hint(cmd, fmt.Sprintf("more logs available — rerun with --next-token %s", resp.NextToken))
+		}
+
+		return nil
+	}
+
 	resp, err := apiClient.GetApplicationLogs(applicationID, req)
 	if err != nil {
 		return err

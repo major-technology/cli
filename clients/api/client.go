@@ -561,6 +561,37 @@ func (c *Client) GetApplicationLogs(applicationID string, req GetApplicationLogs
 	return &resp, nil
 }
 
+// GetPreviewLogs retrieves the app sandbox dev server's logs
+func (c *Client) GetPreviewLogs(applicationID string, req GetApplicationLogsRequest) (*GetPreviewLogsResponse, error) {
+	query := url.Values{}
+	if req.Limit > 0 {
+		query.Set("limit", fmt.Sprintf("%d", req.Limit))
+	}
+	if req.Search != "" {
+		query.Set("search", req.Search)
+	}
+	if req.NextToken != "" {
+		query.Set("nextToken", req.NextToken)
+	}
+	if req.Since != "" {
+		query.Set("since", req.Since)
+	}
+	if req.Until != "" {
+		query.Set("until", req.Until)
+	}
+
+	path := fmt.Sprintf("/applications/%s/preview-logs", applicationID)
+	if encoded := query.Encode(); encoded != "" {
+		path = path + "?" + encoded
+	}
+
+	var resp GetPreviewLogsResponse
+	if err := c.doRequest("GET", path, nil, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
 // --- Project endpoints ---
 
 // CreateProject creates a new project with a GitHub repository from the project template

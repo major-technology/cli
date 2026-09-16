@@ -415,6 +415,19 @@ type GetApplicationLogsResponse struct {
 	NextToken string          `json:"nextToken,omitempty"`
 }
 
+// PreviewLogEntry is one line of an app sandbox dev server's output.
+type PreviewLogEntry struct {
+	Ts  string `json:"ts"`
+	Log string `json:"log"`
+}
+
+// GetPreviewLogsResponse represents GET /applications/:applicationId/preview-logs
+type GetPreviewLogsResponse struct {
+	Error     *AppErrorDetail   `json:"error,omitempty"`
+	Logs      []PreviewLogEntry `json:"logs"`
+	NextToken string            `json:"nextToken,omitempty"`
+}
+
 // --- Project structs ---
 
 // CreateProjectRequest represents the request body for POST /projects
