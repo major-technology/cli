@@ -390,6 +390,12 @@ type GetThemeFilesResponse struct {
 	Version       *int            `json:"version,omitempty"`
 }
 
+// GetApplicationThemeResponse represents the response from GET /applications/:applicationId/theme
+type GetApplicationThemeResponse struct {
+	Error *AppErrorDetail `json:"error,omitempty"`
+	Theme *string         `json:"theme,omitempty"`
+}
+
 // --- Application log structs ---
 
 // GetApplicationLogsRequest holds the query parameters for fetching app logs.

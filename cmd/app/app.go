@@ -35,4 +35,5 @@ func init() {
 	Cmd.AddCommand(listCmd)
 	Cmd.AddCommand(logsCmd)
 	Cmd.AddCommand(startCmd)
+	Cmd.AddCommand(themeCmd)
 }

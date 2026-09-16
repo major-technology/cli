@@ -528,6 +528,26 @@ func (c *Client) UpgradeTheme(applicationID string) error {
 	return c.doRequest("POST", path, struct{}{}, &resp)
 }
 
+// GetApplicationTheme retrieves the app's design system as guidance text
+func (c *Client) GetApplicationTheme(applicationID string) (*GetApplicationThemeResponse, error) {
+	path := fmt.Sprintf("/applications/%s/theme", applicationID)
+	var resp GetApplicationThemeResponse
+	err := c.doRequest("GET", path, nil, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+// ApplyApplicationTheme pins one of the organization's themes onto the app
+func (c *Client) ApplyApplicationTheme(applicationID, themeID string) error {
+	path := fmt.Sprintf("/applications/%s/theme", applicationID)
+	var resp struct {
+		Error *AppErrorDetail `json:"error,omitempty"`
+	}
+	return c.doRequest("POST", path, map[string]string{"themeId": themeID}, &resp)
+}
+
 // --- Application log endpoints ---
 
 // GetApplicationLogs retrieves paginated logs for an application.
