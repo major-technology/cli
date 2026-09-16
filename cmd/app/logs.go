@@ -24,7 +24,7 @@ var (
 var logsTimeFormats = []string{time.RFC3339Nano, time.RFC3339}
 
 func init() {
-	logsCmd.Flags().IntVar(&flagLogsLimit, "limit", 0, "Maximum number of log lines to return (1-5000, default 500)")
+	logsCmd.Flags().IntVar(&flagLogsLimit, "limit", 0, "Maximum number of log lines to return (1-5000, default 500; --preview is capped at 1000)")
 	logsCmd.Flags().StringVar(&flagLogsSearch, "search", "", "Filter log lines by substring (case-sensitive)")
 	logsCmd.Flags().StringVar(&flagLogsSince, "since", "", "Show logs since a duration (e.g. 30m, 1h) or RFC3339 timestamp")
 	logsCmd.Flags().TimeVar(&flagLogsUntil, "until", time.Time{}, logsTimeFormats, "Show logs up until an RFC3339 timestamp")

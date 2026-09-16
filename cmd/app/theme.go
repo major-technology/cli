@@ -50,7 +50,7 @@ var themeGetCmd = &cobra.Command{
 		}
 
 		if resp.Theme == nil || *resp.Theme == "" {
-			cmd.Println("This app has no theme configured.")
+			cmd.Println("This app has no theme configured. Run 'major app theme list' to see the organization's themes, then 'major app theme apply <id>' to apply one.")
 			return nil
 		}
 
