@@ -30,6 +30,7 @@ func init() {
 	Cmd.AddCommand(createCmd)
 	Cmd.AddCommand(deployCmd)
 	Cmd.AddCommand(deployStatusCmd)
+	Cmd.AddCommand(errorsCmd)
 	Cmd.AddCommand(infoCmd)
 	Cmd.AddCommand(listCmd)
 	Cmd.AddCommand(logsCmd)

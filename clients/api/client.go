@@ -592,6 +592,61 @@ func (c *Client) GetPreviewLogs(applicationID string, req GetApplicationLogsRequ
 	return &resp, nil
 }
 
+// --- App error endpoints ---
+
+// ListAppErrors retrieves aggregated runtime errors for an application
+func (c *Client) ListAppErrors(applicationID string, req ListAppErrorsRequest) (*ListAppErrorsResponse, error) {
+	query := url.Values{}
+	if req.Environment != "" {
+		query.Set("environment", req.Environment)
+	}
+	if req.Limit > 0 {
+		query.Set("limit", fmt.Sprintf("%d", req.Limit))
+	}
+	if req.Since != "" {
+		query.Set("since", req.Since)
+	}
+	if req.Until != "" {
+		query.Set("until", req.Until)
+	}
+	if req.Fixed {
+		query.Set("fixed", "true")
+	}
+
+	path := fmt.Sprintf("/applications/%s/errors", applicationID)
+	if encoded := query.Encode(); encoded != "" {
+		path = path + "?" + encoded
+	}
+
+	var resp ListAppErrorsResponse
+	if err := c.doRequest("GET", path, nil, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+// GetAppError retrieves one error's full detail, including its stack trace
+func (c *Client) GetAppError(applicationID, errorID string) (map[string]any, error) {
+	var resp map[string]any
+	path := fmt.Sprintf("/applications/%s/errors/%s", applicationID, errorID)
+	if err := c.doRequest("GET", path, nil, &resp); err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+// ResolveAppError marks an error fixed
+func (c *Client) ResolveAppError(applicationID, errorID string) error {
+	path := fmt.Sprintf("/applications/%s/errors/%s/resolve", applicationID, errorID)
+	return c.doRequest("POST", path, nil, nil)
+}
+
+// EnableAppErrors flips the app's error-reporting flag
+func (c *Client) EnableAppErrors(applicationID string) error {
+	path := fmt.Sprintf("/applications/%s/errors/enable", applicationID)
+	return c.doRequest("POST", path, nil, nil)
+}
+
 // --- Project endpoints ---
 
 // CreateProject creates a new project with a GitHub repository from the project template

@@ -534,3 +534,35 @@ type AddProjectGithubCollaboratorsRequest struct {
 	OrganizationID string `json:"organizationId"`
 	GithubUsername string `json:"githubUsername"`
 }
+
+// --- App error structs ---
+
+// AppError is one aggregated runtime error for an application.
+type AppError struct {
+	ID          string  `json:"id"`
+	Message     string  `json:"message"`
+	Source      *string `json:"source,omitempty"`
+	Environment *string `json:"environment,omitempty"`
+	Count       int     `json:"count"`
+	FirstSeenAt *string `json:"firstSeenAt,omitempty"`
+	LastSeenAt  *string `json:"lastSeenAt,omitempty"`
+	VersionID   *string `json:"versionId,omitempty"`
+	IgnoredAt   *string `json:"ignoredAt,omitempty"`
+	FixedAt     *string `json:"fixedAt,omitempty"`
+	URL         *string `json:"url,omitempty"`
+}
+
+// ListAppErrorsRequest are the filters for GET /applications/:applicationId/errors
+type ListAppErrorsRequest struct {
+	Environment string
+	Limit       int
+	Since       string
+	Until       string
+	Fixed       bool
+}
+
+// ListAppErrorsResponse represents GET /applications/:applicationId/errors
+type ListAppErrorsResponse struct {
+	Error  *AppErrorDetail `json:"error,omitempty"`
+	Errors []AppError      `json:"errors"`
+}
