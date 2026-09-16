@@ -559,6 +559,7 @@ type ListAppErrorsRequest struct {
 	Since       string
 	Until       string
 	Fixed       bool
+	Ignored     bool
 }
 
 // ListAppErrorsResponse represents GET /applications/:applicationId/errors

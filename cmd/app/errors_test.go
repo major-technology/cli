@@ -18,6 +18,12 @@ func TestErrorsSubcommandsRegistered(t *testing.T) {
 	}
 }
 
+func TestErrorsListExposesIgnoredFlag(t *testing.T) {
+	if errorsListCmd.Flags().Lookup("ignored") == nil {
+		t.Fatal("app errors list missing --ignored")
+	}
+}
+
 func TestErrorsRegisteredOnAppCmd(t *testing.T) {
 	for _, sub := range Cmd.Commands() {
 		if sub.Name() == "errors" {

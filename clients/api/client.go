@@ -612,6 +612,9 @@ func (c *Client) ListAppErrors(applicationID string, req ListAppErrorsRequest) (
 	if req.Fixed {
 		query.Set("fixed", "true")
 	}
+	if req.Ignored {
+		query.Set("ignored", "true")
+	}
 
 	path := fmt.Sprintf("/applications/%s/errors", applicationID)
 	if encoded := query.Encode(); encoded != "" {

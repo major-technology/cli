@@ -14,6 +14,7 @@ var (
 	flagErrorsSince       string
 	flagErrorsUntil       string
 	flagErrorsFixed       bool
+	flagErrorsIgnored     bool
 )
 
 var errorsCmd = &cobra.Command{
@@ -41,6 +42,7 @@ var errorsListCmd = &cobra.Command{
 			Since:       flagErrorsSince,
 			Until:       flagErrorsUntil,
 			Fixed:       flagErrorsFixed,
+			Ignored:     flagErrorsIgnored,
 		})
 		if err != nil {
 			return errors.WrapError("failed to list app errors", err)
@@ -116,6 +118,7 @@ func init() {
 	errorsListCmd.Flags().StringVar(&flagErrorsSince, "since", "", "Earliest time window bound, as RFC3339")
 	errorsListCmd.Flags().StringVar(&flagErrorsUntil, "until", "", "Latest time window bound, as RFC3339")
 	errorsListCmd.Flags().BoolVar(&flagErrorsFixed, "fixed", false, "Return fixed-and-not-regressed errors instead of active ones")
+	errorsListCmd.Flags().BoolVar(&flagErrorsIgnored, "ignored", false, "Return ignored errors instead of active ones")
 
 	errorsCmd.AddCommand(errorsListCmd)
 	errorsCmd.AddCommand(errorsGetCmd)
