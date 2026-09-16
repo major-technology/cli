@@ -670,6 +670,22 @@ func (c *Client) EnableAppErrors(applicationID string) error {
 	return c.doRequest("POST", path, nil, nil)
 }
 
+// GetAiProxyStatus reports whether the AI proxy is on and the current month's spend
+func (c *Client) GetAiProxyStatus(applicationID string) (*AiProxyStatusResponse, error) {
+	var resp AiProxyStatusResponse
+	path := fmt.Sprintf("/applications/%s/ai-proxy", applicationID)
+	if err := c.doRequest("GET", path, nil, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+// EnableAiProxy turns the AI proxy on with the default monthly limit
+func (c *Client) EnableAiProxy(applicationID string) error {
+	path := fmt.Sprintf("/applications/%s/ai-proxy/enable", applicationID)
+	return c.doRequest("POST", path, nil, nil)
+}
+
 // --- Project endpoints ---
 
 // CreateProject creates a new project with a GitHub repository from the project template

@@ -573,3 +573,11 @@ type ListAppErrorsResponse struct {
 	Error  *AppErrorDetail `json:"error,omitempty"`
 	Errors []AppError      `json:"errors"`
 }
+
+// AiProxyStatusResponse represents GET /applications/:applicationId/ai-proxy
+type AiProxyStatusResponse struct {
+	Error                  *AppErrorDetail `json:"error,omitempty"`
+	Enabled                bool            `json:"enabled"`
+	MonthlyLimitCents      *int            `json:"monthlyLimitCents"`
+	CurrentMonthSpendCents int             `json:"currentMonthSpendCents"`
+}
