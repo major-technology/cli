@@ -3,7 +3,6 @@ package file
 import (
 	"fmt"
 
-	clierrors "github.com/major-technology/cli/errors"
 	"github.com/major-technology/cli/middleware"
 	"github.com/major-technology/cli/singletons"
 	"github.com/spf13/cobra"
@@ -19,7 +18,7 @@ var renameCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		resp, err := singletons.GetAPIClient().RenameFile(args[0], args[1])
 		if err != nil {
-			return clierrors.WrapError("failed to rename file", err)
+			return err
 		}
 		fmt.Fprintf(cmd.OutOrStdout(), "Renamed to %s\n", resp.File.Name)
 		return nil

@@ -40,7 +40,7 @@ func runPull(cmd *cobra.Command, fileID string) error {
 
 	meta, err := apiClient.GetFileContentURL(fileID)
 	if err != nil {
-		return clierrors.WrapError("failed to resolve file", err)
+		return err
 	}
 
 	resp, err := downloadClient.Get(meta.URL)

@@ -186,7 +186,7 @@ func TestFileEndpointsErrorMapping(t *testing.T) {
 
 func TestUnmappedErrorUsesServerErrorString(t *testing.T) {
 	srv, c := newTestServer(t, http.MethodPost, "/files/f1/versions", http.StatusBadRequest, ErrorResponse{
-		Error: &AppErrorDetail{InternalCode: 9999, ErrorString: "File is markdown; cannot push html content onto it", StatusCode: 400},
+		Error: &AppErrorDetail{InternalCode: 9999, ErrorString: "invalid_request", Message: "File is markdown; cannot push html content onto it", StatusCode: 400},
 	})
 	defer srv.Close()
 

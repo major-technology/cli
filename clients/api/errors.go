@@ -37,6 +37,9 @@ type AppErrorDetail struct {
 	InternalCode int    `json:"internal_code"`
 	ErrorString  string `json:"error_string"`
 	StatusCode   int    `json:"status_code"`
+	// Message is the human-readable text the API attaches to a BadRequestError
+	// and friends; ErrorString is the machine code (e.g. "invalid_request").
+	Message string `json:"message"`
 }
 
 // ErrorResponse represents an error response from the API (new format only)
@@ -83,14 +86,18 @@ func ToCLIError(errResp *ErrorResponse) error {
 	// Prefer the server's own error text as the title when it has one, since
 	// it's usually more actionable than the generic fallback.
 	title := fmt.Sprintf("API Error (Code: %d)", errResp.Error.InternalCode)
-	if errResp.Error.ErrorString != "" {
-		title = errResp.Error.ErrorString
+	detail := errResp.Error.ErrorString
+	if errResp.Error.Message != "" {
+		detail = errResp.Error.Message
+	}
+	if detail != "" {
+		title = detail
 	}
 
 	return &clierrors.CLIError{
 		Title:      title,
 		Suggestion: "Please try again or contact support if the issue persists.",
-		Err:        fmt.Errorf("%s", errResp.Error.ErrorString),
+		Err:        fmt.Errorf("%s", detail),
 		StatusCode: errResp.Error.StatusCode,
 	}
 }

@@ -87,7 +87,7 @@ func runPush(cmd *cobra.Command, path string) error {
 	if flagPushFileID != "" {
 		resp, err := apiClient.PushFileVersion(flagPushFileID, kind, string(data))
 		if err != nil {
-			return clierrors.WrapError("failed to push new version", err)
+			return err
 		}
 		return printPushResult(cmd, resp.File.Link, resp.File.ID, resp.File.Version)
 	}
@@ -104,7 +104,7 @@ func runPush(cmd *cobra.Command, path string) error {
 
 	resp, err := apiClient.CreateFile(orgID, name, kind, string(data))
 	if err != nil {
-		return clierrors.WrapError("failed to push file", err)
+		return err
 	}
 	return printPushResult(cmd, resp.File.Link, resp.File.ID, resp.File.Version)
 }

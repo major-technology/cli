@@ -5,7 +5,6 @@ import (
 	"text/tabwriter"
 
 	mjrToken "github.com/major-technology/cli/clients/token"
-	clierrors "github.com/major-technology/cli/errors"
 	"github.com/major-technology/cli/middleware"
 	"github.com/major-technology/cli/singletons"
 	"github.com/major-technology/cli/utils"
@@ -38,7 +37,7 @@ func runList(cmd *cobra.Command) error {
 
 	resp, err := singletons.GetAPIClient().ListFiles(orgID)
 	if err != nil {
-		return clierrors.WrapError("failed to list files", err)
+		return err
 	}
 
 	if flagListJSON {
