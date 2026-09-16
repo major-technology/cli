@@ -13,6 +13,7 @@ import (
 	"github.com/major-technology/cli/cmd/app"
 	cliconfig "github.com/major-technology/cli/cmd/config"
 	"github.com/major-technology/cli/cmd/demo"
+	"github.com/major-technology/cli/cmd/file"
 	"github.com/major-technology/cli/cmd/mcp"
 	"github.com/major-technology/cli/cmd/org"
 	"github.com/major-technology/cli/cmd/project"
@@ -135,6 +136,9 @@ func init() {
 
 	project.Cmd.GroupID = "main"
 	rootCmd.AddCommand(project.Cmd)
+
+	// Hidden while hosted files are internal-only.
+	rootCmd.AddCommand(file.Cmd)
 
 	rootCmd.AddCommand(mcp.Cmd)
 

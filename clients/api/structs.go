@@ -517,3 +517,51 @@ type AddProjectGithubCollaboratorsRequest struct {
 	OrganizationID string `json:"organizationId"`
 	GithubUsername string `json:"githubUsername"`
 }
+
+// --- Hosted files ---
+
+// HostedFile is one markdown/HTML file hosted at a Major link.
+type HostedFile struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Kind      string `json:"kind"`
+	Version   int    `json:"version"`
+	UpdatedAt string `json:"updatedAt"`
+	Link      string `json:"link"`
+}
+
+type HostedFileResponse struct {
+	File HostedFile `json:"file"`
+}
+
+type ListHostedFilesResponse struct {
+	Files []HostedFile `json:"files"`
+}
+
+type HostedFileContentURLResponse struct {
+	Name    string `json:"name"`
+	Kind    string `json:"kind"`
+	Version int    `json:"version"`
+	URL     string `json:"url"`
+}
+
+type createHostedFileRequest struct {
+	OrganizationID string `json:"organizationId"`
+	Name           string `json:"name"`
+	Kind           string `json:"kind"`
+	Content        string `json:"content"`
+}
+
+type pushHostedFileVersionRequest struct {
+	Kind    string `json:"kind"`
+	Content string `json:"content"`
+}
+
+type renameHostedFileRequest struct {
+	Name string `json:"name"`
+}
+
+type shareHostedFileByEmailRequest struct {
+	Email string `json:"email"`
+	Role  string `json:"role"`
+}
