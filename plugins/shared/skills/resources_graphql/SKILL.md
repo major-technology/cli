@@ -11,7 +11,7 @@ description: Executes GraphQL queries and mutations against a configured endpoin
 
 **Three ways to interact with this resource:**
 
-1. **MCP tools** (direct, no code needed): Tools follow the pattern `mcp__resources__<resourcetype>_<toolname>`. Use `mcp__resources__list_resources` to discover available resources and their IDs.
+1. **MCP tools** (via `mcp__resources__execute_resource_tool`, no code needed): Tools follow the pattern `mcp__resources__<resourcetype>_<toolname>`. Use `mcp__resources__list_resources` to discover available resources and their IDs.
 2. **Generated TypeScript clients** (for app code): Call `mcp__resource-tools__add-resource-client` with a `resourceId` to generate a typed client. Clients are created in `/clients/` (Next.js) or `/src/clients/` (Vite).
 3. **Apollo Client via the HTTP proxy** (GraphQL-specific): Pass `createProxyFetch({ resourceId, ... })` as Apollo's `fetch` so the proxy resolves the endpoint and injects auth at request time. Use this when the app needs Apollo's normalized cache, optimistic updates, or fragments. See "Apollo Client via the HTTP Proxy" below.
 
