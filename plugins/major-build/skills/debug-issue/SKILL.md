@@ -33,7 +33,7 @@ Prefer direct evidence over guesses. Use the most relevant tools below.
 
 The app's preview is always served at `http://localhost:3000`. There is no other port or host to discover — navigate, screenshot, and read logs against that URL every time.
 
-Always check app errors and app logs before opening Playwright. `list_app_errors` and the preview/app log tools explain almost every server, route handler, and runtime failure without needing the browser. Only open the browser when the bug is purely visual, layout-related, or only observable from the rendered page.
+Always check app errors and app logs before opening Playwright. `major app errors list` and `major app logs` explain almost every server, route handler, and runtime failure without needing the browser. Run these CLI commands through `mcp__sandbox__bash` in the mounted app workspace; load `app-builder` if you need to mount it first. Only open the browser when the bug is purely visual, layout-related, or only observable from the rendered page.
 
 When you do use Playwright, you are limited to **looking at the page**, not driving it:
 
@@ -55,21 +55,21 @@ When investigating a user-reported issue whose affected surface is broad — a s
 
 For blank pages, error overlays, server crashes, failed route handlers, or deployed runtime failures, check app errors early.
 
-- Use `mcp__major-app__list_app_errors` to find recent errors.
-- Use `mcp__major-app__get_app_error` for details before editing.
+- Use `major app errors list` to find recent errors.
+- Use `major app errors get <errorId>` for details before editing.
 - Prefer sourcemapped stack traces and request context from app errors over broad log searches.
-- After fixing a confirmed app error, use `mcp__major-app__mark_app_error_fixed` only when the issue is actually addressed.
-- If app errors are unavailable and the task is specifically about runtime error monitoring, use `mcp__major-app__enable_app_errors`.
+- After fixing and committing a confirmed app error, use `major app errors resolve <errorId>` only when the issue is actually addressed.
+- If app errors are unavailable and the task is specifically about runtime error monitoring, add the reporter scaffolding before running `major app errors enable`.
 
 ## App logs
 
 Use logs when behavior depends on server startup, route handlers, background work, request handling, or errors that are not captured by app errors.
 
-- For the live local preview/dev server, query logs with `mcp__major-app__query_preview_logs`.
-- For deployed app/runtime logs, use `mcp__resources__execute_resource_tool` with `toolName: "mcp__resources__query_app_logs"`. Do not call the canonical resource tool directly.
-- Start with a small `limit` and a focused `search` term from the route, error message, request ID, resource name, or timestamp.
-- Use `since` and `until` for time-bounded reports.
-- Use `nextToken` only to paginate older logs after reading the first result.
+- For the live local preview/dev server, run `major app logs --preview`.
+- For deployed app/runtime logs, run `major app logs`.
+- Start with a small `--limit` and a focused `--search` term from the route, error message, request ID, resource name, or timestamp.
+- Use `--since` and `--until` for time-bounded reports.
+- Use `--json` to obtain `nextToken`, then `--next-token <token>` to paginate deployed logs after reading the first result. Preview logs do not support pagination.
 - Logs are reverse chronological. Do not assume absence of evidence means the code path did not run if the time window or search term is too narrow.
 
 ## Code and data investigation

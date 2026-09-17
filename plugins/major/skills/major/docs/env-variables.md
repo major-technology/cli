@@ -24,7 +24,7 @@ JSON output with full values -- suitable for scripting.
 
 ### Targeting a Specific Environment
 
-All vars commands accept `--env <name>` (case-insensitive):
+All vars commands except `request` accept `--env <name>` (case-insensitive):
 
 ```bash
 major vars list --env staging
@@ -52,6 +52,16 @@ major vars get DATABASE_URL --json
 ```
 
 Wraps the result as `{"key":"...","value":"...","environment":"..."}`.
+
+## Requesting Secret Values
+
+```bash
+major vars request --keys STRIPE_SECRET_KEY,WEBHOOK_SECRET
+```
+
+Run from the linked app workspace. This requests frontend entry without putting secret values in chat or command arguments. It returns immediately: either the user is prompted in the originating chat and the agent is notified on completion, or a frontend URL is returned for the user to open. Reply with at most one short sentence directing the user to the form, then wait. External callers wait for the user's confirmation; there is no polling request.
+
+Use `--json` for the `delivery` (`thread` or `url`), `message`, and optional `url` fields. The frontend lets the user choose values per environment; this command has no `--env` option and never returns those values.
 
 ## Setting Variables
 
