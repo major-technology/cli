@@ -67,9 +67,9 @@ Use logs when behavior depends on server startup, route handlers, background wor
 
 - For the live local preview/dev server, run `major app logs --preview`.
 - For deployed app/runtime logs, run `major app logs`.
-- Start with a small `--limit` and a focused `--search` term from the route, error message, request ID, resource name, or timestamp.
+- Start with a small `--limit` and a focused `--search` term from the route, error message, request ID, resource name, or timestamp. Search is case-sensitive for deployed logs and case-insensitive with `--preview`.
 - Use `--since` and `--until` for time-bounded reports.
-- Use `--json` to obtain `nextToken`, then `--next-token <token>` to paginate deployed logs after reading the first result. Preview logs do not support pagination.
+- Both deployed and preview logs support pagination: use `--json` to obtain `nextToken`, then `--next-token <token>` after reading the first result. Keep `--preview` when paging preview logs.
 - Logs are reverse chronological. Do not assume absence of evidence means the code path did not run if the time window or search term is too narrow.
 
 ## Code and data investigation
