@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-func TestRequestSetupForwardsOnlyExplicitThreadHint(t *testing.T) {
+func TestRequestAppEnvSetupForwardsOnlyExplicitThreadHint(t *testing.T) {
 	previous := testTokenOverride
 	testTokenOverride = ""
 	t.Cleanup(func() { testTokenOverride = previous })
@@ -35,7 +35,7 @@ func TestRequestSetupForwardsOnlyExplicitThreadHint(t *testing.T) {
 				fmt.Fprint(w, `{"delivery":"thread","message":"Prompted"}`)
 			}))
 			defer server.Close()
-			if _, err := NewClient(server.URL).RequestSetup("app", SetupRequest{Kind: "env", Keys: []string{"API_KEY"}}); err != nil {
+			if _, err := NewClient(server.URL).RequestAppEnvSetup("app", AppEnvSetupRequest{Kind: "env", Keys: []string{"API_KEY"}}); err != nil {
 				t.Fatal(err)
 			}
 		})

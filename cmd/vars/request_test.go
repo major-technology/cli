@@ -31,7 +31,7 @@ func TestRequestSecretSetup(t *testing.T) {
 				switch r.URL.Path {
 				case "/applications/" + appID + "/info":
 					fmt.Fprintf(w, `{"applicationId":%q,"organizationId":"org-1"}`, appID)
-				case "/application/" + appID + "/request-setup":
+				case "/application/" + appID + "/env-variables/request-setup":
 					called = true
 					var body struct {
 						Kind string

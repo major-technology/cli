@@ -33,7 +33,7 @@ func runRequest(cmd *cobra.Command, keys []string, jsonOutput bool) error {
 	if err != nil {
 		return err
 	}
-	response, err := singletons.GetAPIClient().RequestSetup(appID, api.SetupRequest{Kind: "env", Keys: keys})
+	response, err := singletons.GetAPIClient().RequestAppEnvSetup(appID, api.AppEnvSetupRequest{Kind: "env", Keys: keys})
 	if err != nil {
 		return errors.WrapError("failed to request environment variable setup", err)
 	}
