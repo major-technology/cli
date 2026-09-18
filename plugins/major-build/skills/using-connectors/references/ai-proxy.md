@@ -4,15 +4,12 @@ Major provides a built-in AI proxy that lets apps call Anthropic, OpenAI, and Ge
 
 ## Workflow
 
-1. Call `check_ai_proxy_status` to see if the proxy is enabled for this app
+Run these commands in the app workspace (through `mcp__sandbox__bash` when working in a hosted sandbox).
+
+1. Run `major app ai-proxy status` to see if the proxy is enabled for this app
 2. If enabled: use it directly with the env vars below
 3. If not enabled: ask the user if they want to enable it (recommended) or use their own API keys
-4. If user wants to enable it: call `enable_ai_proxy`
-
-## MCP Tools
-
-- `mcp__major-platform__check_ai_proxy_status` — Check if proxy is enabled and current month spend
-- `mcp__major-platform__enable_ai_proxy` — Enable the proxy for the current app
+4. If user wants to enable it: run `major app ai-proxy enable` (starts with a $10/month spending limit)
 
 ## Environment Variables
 

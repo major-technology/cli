@@ -18,17 +18,19 @@ var (
 	flagLogsUntil     time.Time
 	flagLogsNextToken string
 	flagLogsJSON      bool
+	flagLogsPreview   bool
 )
 
 var logsTimeFormats = []string{time.RFC3339Nano, time.RFC3339}
 
 func init() {
-	logsCmd.Flags().IntVar(&flagLogsLimit, "limit", 0, "Maximum number of log lines to return (1-5000, default 500)")
-	logsCmd.Flags().StringVar(&flagLogsSearch, "search", "", "Filter log lines by substring (case-sensitive)")
+	logsCmd.Flags().IntVar(&flagLogsLimit, "limit", 0, "Maximum log lines (1-5000, default 500; --preview: 1-1000, default 100)")
+	logsCmd.Flags().StringVar(&flagLogsSearch, "search", "", "Filter by substring (case-sensitive for deployed logs; case-insensitive with --preview)")
 	logsCmd.Flags().StringVar(&flagLogsSince, "since", "", "Show logs since a duration (e.g. 30m, 1h) or RFC3339 timestamp")
 	logsCmd.Flags().TimeVar(&flagLogsUntil, "until", time.Time{}, logsTimeFormats, "Show logs up until an RFC3339 timestamp")
 	logsCmd.Flags().StringVar(&flagLogsNextToken, "next-token", "", "Pagination cursor from a previous response")
 	logsCmd.Flags().BoolVar(&flagLogsJSON, "json", false, "Output in JSON format")
+	logsCmd.Flags().BoolVar(&flagLogsPreview, "preview", false, "Read the sandbox dev server's logs instead of the deployed app's")
 }
 
 var logsCmd = &cobra.Command{
@@ -36,8 +38,8 @@ var logsCmd = &cobra.Command{
 	Short: "Display application logs",
 	Long: `Display logs for the application in the current directory.
 
-Logs are returned newest-first. When there are more logs than the limit,
-a pagination cursor is printed that can be passed back with --next-token.`,
+Logs are returned newest-first. Both deployed and preview logs support pagination.
+When a cursor is returned, pass it back with --next-token (keep --preview for preview logs).`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return runLogs(cmd)
 	},
@@ -68,6 +70,30 @@ func runLogs(cmd *cobra.Command) error {
 	}
 
 	apiClient := singletons.GetAPIClient()
+
+	if flagLogsPreview {
+		resp, err := apiClient.GetPreviewLogs(applicationID, req)
+		if err != nil {
+			return err
+		}
+
+		if flagLogsJSON {
+			if err := utils.WriteJSON(cmd, resp); err != nil {
+				return err
+			}
+		} else {
+			for _, entry := range resp.Logs {
+				fmt.Fprintf(cmd.OutOrStdout(), "%s  %s\n", entry.Ts, entry.Log)
+			}
+		}
+
+		if resp.NextToken != "" {
+			utils.Hint(cmd, fmt.Sprintf("more logs available — rerun with --next-token %s", resp.NextToken))
+		}
+
+		return nil
+	}
+
 	resp, err := apiClient.GetApplicationLogs(applicationID, req)
 	if err != nil {
 		return err

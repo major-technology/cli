@@ -30,6 +30,16 @@ Major is a platform for building and deploying Next.js web applications. It crea
 | `major app logs` | Show recent application logs (newest-first) | Direct |
 | `major app logs --since 30m --search "error"` | Filter logs by time window and substring | Direct |
 | `major app logs --json` | Output logs as JSON (includes `nextToken` for pagination) | Direct |
+| `major app logs --preview` | Read the sandbox dev server's logs | Direct |
+| `major app errors list` | List active runtime errors | Direct |
+| `major app errors get <errorId>` | Inspect an error and its stack trace | Direct |
+| `major app errors resolve <errorId>` | Mark a confirmed error fixed after committing the fix | Direct |
+| `major app errors enable` | Enable runtime error reporting after adding its scaffolding | Direct |
+| `major app theme list` | List available themes | Direct |
+| `major app theme get` | Read the app's current theme | Direct |
+| `major app theme apply <themeId>` | Select a theme and write its files into the checkout | Direct |
+| `major app ai-proxy status` | Inspect AI proxy configuration and spend | Direct |
+| `major app ai-proxy enable` | Enable the proxy with a $10/month limit (ask the user first) | Direct |
 
 ### Environment Variable Commands
 
@@ -40,6 +50,7 @@ Major is a platform for building and deploying Next.js web applications. It crea
 | `major vars list --json` | List env vars as JSON (includes full values) | Direct |
 | `major vars get KEY` | Print a single env var's raw value | Direct |
 | `major vars get KEY --json` | Print a single env var as JSON | Direct |
+| `major vars request --keys KEY[,KEY...]` | Ask the user to enter secret values in the frontend | Direct |
 | `major vars set KEY=VALUE` | Create or update an env var | Direct |
 | `major vars unset KEY` | Remove an env var from current env | Interactive |
 | `major vars unset KEY --yes` | Remove an env var without prompting | Direct |
@@ -47,7 +58,9 @@ Major is a platform for building and deploying Next.js web applications. It crea
 | `major vars pull` | Download env vars to local .env file | Direct |
 | `major vars pull --file .env.staging` | Download to a custom file path | Direct |
 
-All vars commands accept `--env <name>` to target a specific environment (case-insensitive). Without it, they use the user's currently-selected environment.
+Prefer `major vars request` for secrets: never ask the user to paste them into chat. If it returns a URL, share it and wait for the user's confirmation; if it reports a thread prompt, wait for the completion message. Use `major vars set` for known values the user explicitly wants configured.
+
+All vars commands except `request` accept `--env <name>` to target a specific environment (case-insensitive). Without it, they use the user's currently-selected environment.
 
 ### Resource Commands
 

@@ -528,6 +528,26 @@ func (c *Client) UpgradeTheme(applicationID string) error {
 	return c.doRequest("POST", path, struct{}{}, &resp)
 }
 
+// GetApplicationTheme retrieves the app's design system as guidance text
+func (c *Client) GetApplicationTheme(applicationID string) (*GetApplicationThemeResponse, error) {
+	path := fmt.Sprintf("/applications/%s/theme", applicationID)
+	var resp GetApplicationThemeResponse
+	err := c.doRequest("GET", path, nil, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+// ApplyApplicationTheme pins one of the organization's themes onto the app
+func (c *Client) ApplyApplicationTheme(applicationID, themeID string) error {
+	path := fmt.Sprintf("/applications/%s/theme", applicationID)
+	var resp struct {
+		Error *AppErrorDetail `json:"error,omitempty"`
+	}
+	return c.doRequest("POST", path, map[string]string{"themeId": themeID}, &resp)
+}
+
 // --- Application log endpoints ---
 
 // GetApplicationLogs retrieves paginated logs for an application.
@@ -559,6 +579,111 @@ func (c *Client) GetApplicationLogs(applicationID string, req GetApplicationLogs
 		return nil, err
 	}
 	return &resp, nil
+}
+
+// GetPreviewLogs retrieves the app sandbox dev server's logs
+func (c *Client) GetPreviewLogs(applicationID string, req GetApplicationLogsRequest) (*GetPreviewLogsResponse, error) {
+	query := url.Values{}
+	if req.Limit > 0 {
+		query.Set("limit", fmt.Sprintf("%d", req.Limit))
+	}
+	if req.Search != "" {
+		query.Set("search", req.Search)
+	}
+	if req.NextToken != "" {
+		query.Set("nextToken", req.NextToken)
+	}
+	if req.Since != "" {
+		query.Set("since", req.Since)
+	}
+	if req.Until != "" {
+		query.Set("until", req.Until)
+	}
+
+	path := fmt.Sprintf("/applications/%s/preview-logs", applicationID)
+	if encoded := query.Encode(); encoded != "" {
+		path = path + "?" + encoded
+	}
+
+	var resp GetPreviewLogsResponse
+	if err := c.doRequest("GET", path, nil, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+// --- App error endpoints ---
+
+// ListAppErrors retrieves aggregated runtime errors for an application
+func (c *Client) ListAppErrors(applicationID string, req ListAppErrorsRequest) (*ListAppErrorsResponse, error) {
+	query := url.Values{}
+	if req.Environment != "" {
+		query.Set("environment", req.Environment)
+	}
+	if req.Limit > 0 {
+		query.Set("limit", fmt.Sprintf("%d", req.Limit))
+	}
+	if req.Since != "" {
+		query.Set("since", req.Since)
+	}
+	if req.Until != "" {
+		query.Set("until", req.Until)
+	}
+	if req.Fixed {
+		query.Set("fixed", "true")
+	}
+	if req.Ignored {
+		query.Set("ignored", "true")
+	}
+
+	path := fmt.Sprintf("/applications/%s/errors", applicationID)
+	if encoded := query.Encode(); encoded != "" {
+		path = path + "?" + encoded
+	}
+
+	var resp ListAppErrorsResponse
+	if err := c.doRequest("GET", path, nil, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+// GetAppError retrieves one error's full detail, including its stack trace
+func (c *Client) GetAppError(applicationID, errorID string) (map[string]any, error) {
+	var resp map[string]any
+	path := fmt.Sprintf("/applications/%s/errors/%s", applicationID, errorID)
+	if err := c.doRequest("GET", path, nil, &resp); err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+// ResolveAppError marks an error fixed
+func (c *Client) ResolveAppError(applicationID, errorID string) error {
+	path := fmt.Sprintf("/applications/%s/errors/%s/resolve", applicationID, errorID)
+	return c.doRequest("POST", path, nil, nil)
+}
+
+// EnableAppErrors flips the app's error-reporting flag
+func (c *Client) EnableAppErrors(applicationID string) error {
+	path := fmt.Sprintf("/applications/%s/errors/enable", applicationID)
+	return c.doRequest("POST", path, nil, nil)
+}
+
+// GetAiProxyStatus reports whether the AI proxy is on and the current month's spend
+func (c *Client) GetAiProxyStatus(applicationID string) (*AiProxyStatusResponse, error) {
+	var resp AiProxyStatusResponse
+	path := fmt.Sprintf("/applications/%s/ai-proxy", applicationID)
+	if err := c.doRequest("GET", path, nil, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+// EnableAiProxy turns the AI proxy on with the default monthly limit
+func (c *Client) EnableAiProxy(applicationID string) error {
+	path := fmt.Sprintf("/applications/%s/ai-proxy/enable", applicationID)
+	return c.doRequest("POST", path, nil, nil)
 }
 
 // --- Project endpoints ---

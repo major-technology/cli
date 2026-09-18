@@ -25,13 +25,16 @@ var Cmd = &cobra.Command{
 
 func init() {
 	// Add app subcommands
+	Cmd.AddCommand(aiProxyCmd)
 	Cmd.AddCommand(cloneCmd)
 	Cmd.AddCommand(configureCmd)
 	Cmd.AddCommand(createCmd)
 	Cmd.AddCommand(deployCmd)
 	Cmd.AddCommand(deployStatusCmd)
+	Cmd.AddCommand(errorsCmd)
 	Cmd.AddCommand(infoCmd)
 	Cmd.AddCommand(listCmd)
 	Cmd.AddCommand(logsCmd)
 	Cmd.AddCommand(startCmd)
+	Cmd.AddCommand(themeCmd)
 }
