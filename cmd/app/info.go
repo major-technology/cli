@@ -36,22 +36,42 @@ func runInfo(cmd *cobra.Command) error {
 
 	if flagInfoJSON {
 		type infoJSON struct {
-			ApplicationID string  `json:"applicationId"`
-			Name          string  `json:"name"`
-			DeployStatus  string  `json:"deployStatus"`
-			AppURL        *string `json:"appUrl"`
+			ApplicationID   string  `json:"applicationId"`
+			Name            string  `json:"name"`
+			DeployStatus    string  `json:"deployStatus"`
+			AppURL          *string `json:"appUrl"`
+			DeployError     *string `json:"deployError"`
+			IsPublic        bool    `json:"isPublic"`
+			WebhooksEnabled bool    `json:"webhooksEnabled"`
+			DeployedHash    *string `json:"deployedHash"`
 		}
 		return utils.WriteJSON(cmd, infoJSON{
-			ApplicationID: appInfo.ApplicationID,
-			Name:          appInfo.Name,
-			DeployStatus:  appInfo.DeployStatus,
-			AppURL:        appInfo.AppURL,
+			ApplicationID:   appInfo.ApplicationID,
+			Name:            appInfo.Name,
+			DeployStatus:    appInfo.DeployStatus,
+			AppURL:          appInfo.AppURL,
+			DeployError:     appInfo.DeployError,
+			IsPublic:        appInfo.IsPublic,
+			WebhooksEnabled: appInfo.WebhooksEnabled,
+			DeployedHash:    appInfo.DeployedHash,
 		})
 	}
 
 	cmd.Printf("Application ID: %s\n", appInfo.ApplicationID)
 	cmd.Printf("Name: %s\n", appInfo.Name)
 	cmd.Printf("Deploy Status: %s\n", appInfo.DeployStatus)
+
+	if appInfo.DeployError != nil && *appInfo.DeployError != "" {
+		cmd.Printf("Deploy Error: %s\n", *appInfo.DeployError)
+	}
+
+	if appInfo.DeployedHash != nil && *appInfo.DeployedHash != "" {
+		cmd.Printf("Deployed Hash: %s\n", *appInfo.DeployedHash)
+	}
+
+	cmd.Printf("Public: %t\n", appInfo.IsPublic)
+	cmd.Printf("Webhooks Enabled: %t\n", appInfo.WebhooksEnabled)
+
 	if appInfo.AppURL != nil {
 		cmd.Printf("URL: %s\n", *appInfo.AppURL)
 	}

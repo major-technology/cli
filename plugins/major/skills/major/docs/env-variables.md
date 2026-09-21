@@ -24,7 +24,7 @@ JSON output with full values -- suitable for scripting.
 
 ### Targeting a Specific Environment
 
-All vars commands accept `--env <name>` (case-insensitive):
+All vars commands except `request` accept `--env <name>` (case-insensitive):
 
 ```bash
 major vars list --env staging

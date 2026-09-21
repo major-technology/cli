@@ -316,13 +316,17 @@ type SetEnvironmentChoiceResponse struct {
 
 // GetApplicationInfoResponse represents the response from GET /applications/:applicationId/info
 type GetApplicationInfoResponse struct {
-	Error          *AppErrorDetail `json:"error,omitempty"`
-	ApplicationID  string          `json:"applicationId,omitempty"`
-	OrganizationID string          `json:"organizationId,omitempty"`
-	URLSlug        *string         `json:"urlSlug,omitempty"`
-	Name           string          `json:"name,omitempty"`
-	AppURL         *string         `json:"appUrl,omitempty"`
-	DeployStatus   string          `json:"deployStatus,omitempty"`
+	Error           *AppErrorDetail `json:"error,omitempty"`
+	ApplicationID   string          `json:"applicationId,omitempty"`
+	OrganizationID  string          `json:"organizationId,omitempty"`
+	URLSlug         *string         `json:"urlSlug,omitempty"`
+	Name            string          `json:"name,omitempty"`
+	AppURL          *string         `json:"appUrl,omitempty"`
+	DeployStatus    string          `json:"deployStatus,omitempty"`
+	DeployError     *string         `json:"deployError,omitempty"`
+	IsPublic        bool            `json:"isPublic,omitempty"`
+	WebhooksEnabled bool            `json:"webhooksEnabled,omitempty"`
+	DeployedHash    *string         `json:"deployedHash,omitempty"`
 }
 
 // GetApplicationForLinkResponse represents the response from GET /application/:applicationId/link-info
@@ -386,6 +390,12 @@ type GetThemeFilesResponse struct {
 	Version       *int            `json:"version,omitempty"`
 }
 
+// GetApplicationThemeResponse represents the response from GET /applications/:applicationId/theme
+type GetApplicationThemeResponse struct {
+	Error *AppErrorDetail `json:"error,omitempty"`
+	Theme *string         `json:"theme,omitempty"`
+}
+
 // --- Application log structs ---
 
 // GetApplicationLogsRequest holds the query parameters for fetching app logs.
@@ -409,6 +419,19 @@ type GetApplicationLogsResponse struct {
 	Error     *AppErrorDetail `json:"error,omitempty"`
 	Logs      []LogEntry      `json:"logs"`
 	NextToken string          `json:"nextToken,omitempty"`
+}
+
+// PreviewLogEntry is one line of an app sandbox dev server's output.
+type PreviewLogEntry struct {
+	Ts  string `json:"ts"`
+	Log string `json:"log"`
+}
+
+// GetPreviewLogsResponse represents GET /applications/:applicationId/preview-logs
+type GetPreviewLogsResponse struct {
+	Error     *AppErrorDetail   `json:"error,omitempty"`
+	Logs      []PreviewLogEntry `json:"logs"`
+	NextToken string            `json:"nextToken,omitempty"`
 }
 
 // --- Project structs ---
@@ -516,4 +539,45 @@ type CreateProjectDeployResponse struct {
 type AddProjectGithubCollaboratorsRequest struct {
 	OrganizationID string `json:"organizationId"`
 	GithubUsername string `json:"githubUsername"`
+}
+
+// --- App error structs ---
+
+// AppError is one aggregated runtime error for an application.
+type AppError struct {
+	ID          string  `json:"id"`
+	Message     string  `json:"message"`
+	Source      *string `json:"source,omitempty"`
+	Environment *string `json:"environment,omitempty"`
+	Count       int     `json:"count"`
+	FirstSeenAt *string `json:"firstSeenAt,omitempty"`
+	LastSeenAt  *string `json:"lastSeenAt,omitempty"`
+	VersionID   *string `json:"versionId,omitempty"`
+	IgnoredAt   *string `json:"ignoredAt,omitempty"`
+	FixedAt     *string `json:"fixedAt,omitempty"`
+	URL         *string `json:"url,omitempty"`
+}
+
+// ListAppErrorsRequest are the filters for GET /applications/:applicationId/errors
+type ListAppErrorsRequest struct {
+	Environment string
+	Limit       int
+	Since       string
+	Until       string
+	Fixed       bool
+	Ignored     bool
+}
+
+// ListAppErrorsResponse represents GET /applications/:applicationId/errors
+type ListAppErrorsResponse struct {
+	Error  *AppErrorDetail `json:"error,omitempty"`
+	Errors []AppError      `json:"errors"`
+}
+
+// AiProxyStatusResponse represents GET /applications/:applicationId/ai-proxy
+type AiProxyStatusResponse struct {
+	Error                  *AppErrorDetail `json:"error,omitempty"`
+	Enabled                bool            `json:"enabled"`
+	MonthlyLimitCents      *int            `json:"monthlyLimitCents"`
+	CurrentMonthSpendCents int             `json:"currentMonthSpendCents"`
 }
