@@ -13,7 +13,7 @@ Reference: https://business-api.tiktok.com/portal/docs
 
 **Three ways to interact with TikTok Ads:**
 
-1. **MCP tools** (direct, no code needed): Tools follow the pattern `mcp__resources__tiktokads_<toolname>`. Use `mcp__resources__list_resources` to discover available resources and their IDs.
+1. **MCP tools** (via `mcp__resources__execute_resource_tool`, no code needed): Tools follow the pattern `mcp__resources__tiktokads_<toolname>`. Use `mcp__resources__list_resources` to discover available resources and their IDs.
 2. **Generated TypeScript clients** (for app code): Call `mcp__resource-tools__add-resource-client` with a `resourceId` to generate a typed client. Clients are created in `/clients/` (Next.js) or `/src/clients/` (Vite).
 3. **HTTP proxy** (Next.js apps): Use `createProxyFetch` from `@major-tech/resource-client/next` to call the TikTok Marketing API directly with automatic auth injection. See [using-http-proxy](../http-proxy/SKILL.md) for setup and usage — preferred when you need to hit endpoints not covered by MCP tools or the typed client, or when using an official SDK that accepts a custom `fetch`.
 
