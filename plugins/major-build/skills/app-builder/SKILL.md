@@ -94,8 +94,6 @@ Use each command's `--help` for filters and pagination.
 
 ## User setup
 
-For app secrets, prefer `major vars request --keys KEY[,KEY...]` rather than asking the user to paste values into chat. The user supplies values through the frontend; no values belong in this command. Use `major vars set KEY=VALUE` only for known values the user explicitly wants you to configure.
-
-If the response says the form is in this thread, reply with at most one short sentence (e.g. "Please fill out the form above."), end your turn, and wait for the completion notification. If it returns a URL, reply with one short sentence linking to the form and wait for the user's confirmation. Do not recap the command, add caveats, or ask follow-up questions after handing off.
+For app secrets, use the available MCP setup tool: `set-app-env-variables` in app chats, or `set_env_variables` on the build server. The user supplies values through the frontend; never ask them to paste secrets into chat. If the tool returns a setup URL, share it in one short sentence and wait for the user's confirmation. Use `major vars set KEY=VALUE` only for known values the user explicitly wants you to configure.
 
 New connector setup still uses `mcp__interactions__request_resource_setup`; load `using-connectors` for that flow. An existing connector can be added to app code separately.

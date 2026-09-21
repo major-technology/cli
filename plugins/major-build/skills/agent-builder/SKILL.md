@@ -60,7 +60,7 @@ The bundle declares which env **keys** a version wants. A non-secret value can s
 
 `get_agent` returns `envKeys` — every declared key with `hasValue`. Check it before you publish, and name the keys that are still empty.
 
-There is no tool that sets an agent's env value. `major vars request` is for application workspaces only — never use it for an agent's env values.
+There is no tool that sets an agent's env value.
 
 On Slack there is no panel. Tell the user to open the agent in the web app to fill in a value.
 
