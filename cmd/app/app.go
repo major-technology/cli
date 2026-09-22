@@ -12,11 +12,19 @@ var Cmd = &cobra.Command{
 	Short: "Application management commands",
 	Long:  `Commands for creating and managing applications.`,
 	Args:  utils.NoArgs,
-	PersistentPreRunE: middleware.ChainParent(
-		middleware.CheckNodeInstalled,
-		middleware.CheckNodeVersion("22.12"),
-		middleware.CheckPnpmInstalled,
-	),
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		if cmd.Name() == "list" {
+			if root := cmd.Parent().Parent(); root != nil && root.PersistentPreRunE != nil {
+				return root.PersistentPreRunE(cmd, args)
+			}
+			return nil
+		}
+		return middleware.ChainParent(
+			middleware.CheckNodeInstalled,
+			middleware.CheckNodeVersion("22.12"),
+			middleware.CheckPnpmInstalled,
+		)(cmd, args)
+	},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.Help()
 		return nil
