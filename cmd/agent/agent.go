@@ -126,7 +126,7 @@ func init() {
 	runs.AddCommand(rl)
 	content := command("content <run-id>", 1, 1, func(c *cobra.Command, a []string) (api.Record, error) {
 		n, _ := c.Flags().GetInt("limit")
-		if n < 0 {
+		if n < 0 || (c.Flags().Changed("limit") && n == 0) {
 			return nil, fmt.Errorf("limit must be positive")
 		}
 		return singletons.GetAPIClient().GetAgentRunContent(a[0], n)
