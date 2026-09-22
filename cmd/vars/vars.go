@@ -12,7 +12,7 @@ var Cmd = &cobra.Command{
 	Short: "Manage environment variables",
 	Long: `Manage environment variables for the current application.
 
-Variables are scoped per-environment (e.g. development, staging, production).
+Each variable holds one value, shared by every environment.
 Run these commands from inside a linked application directory.`,
 	Args: utils.NoArgs,
 	PersistentPreRunE: middleware.Compose(

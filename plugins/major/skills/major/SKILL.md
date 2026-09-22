@@ -45,21 +45,18 @@ Major is a platform for building and deploying Next.js web applications. It crea
 
 | Command | Description | Mode |
 |---------|-------------|------|
-| `major vars list` | List env vars for current environment (masked values) | Direct |
+| `major vars list` | List env vars (masked values) | Direct |
 | `major vars list --show-values` | List env vars with full values | Direct |
 | `major vars list --json` | List env vars as JSON (includes full values) | Direct |
 | `major vars get KEY` | Print a single env var's raw value | Direct |
 | `major vars get KEY --json` | Print a single env var as JSON | Direct |
 | `major vars set KEY=VALUE` | Create or update an env var | Direct |
-| `major vars unset KEY` | Remove an env var from current env | Interactive |
+| `major vars unset KEY` | Remove an env var | Interactive |
 | `major vars unset KEY --yes` | Remove an env var without prompting | Direct |
-| `major vars unset KEY --all-environments --yes` | Remove an env var from all environments | Direct |
 | `major vars pull` | Download env vars to local .env file | Direct |
-| `major vars pull --file .env.staging` | Download to a custom file path | Direct |
+| `major vars pull --file .env.local` | Download to a custom file path | Direct |
 
 Prefer entering secrets through Major's frontend; never ask the user to paste them into chat. Use `major vars set` for known values the user explicitly wants configured.
-
-All vars commands accept `--env <name>` to target a specific environment (case-insensitive). Without it, they use the user's currently-selected environment.
 
 ### Resource Commands
 

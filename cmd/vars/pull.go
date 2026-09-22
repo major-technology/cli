@@ -16,16 +16,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	flagPullEnv  string
-	flagPullFile string
-)
+var flagPullFile string
 
 var pullCmd = &cobra.Command{
 	Use:   "pull",
 	Short: "Download environment variables to a local .env file",
-	Long: `Download all environment variables for the selected environment into a
-local dotenv file.
+	Long: `Download all environment variables into a local dotenv file.
 
 Writes both user-defined variables and platform-managed MAJOR_* system
 variables needed for local development. Overwrites the target file.
@@ -34,14 +30,13 @@ If the target file is inside a git repository and is not yet ignored,
 appends it to the repo's .gitignore.
 
 Example:
-  major vars pull --env staging --file .env.staging`,
+  major vars pull --file .env.local`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return runPull(cmd)
 	},
 }
 
 func init() {
-	pullCmd.Flags().StringVar(&flagPullEnv, "env", "", "Target environment name (defaults to your current environment)")
 	pullCmd.Flags().StringVar(&flagPullFile, "file", ".env", "Path to write the dotenv file")
 }
 
@@ -52,28 +47,6 @@ func runPull(cmd *cobra.Command) error {
 	}
 
 	apiClient := singletons.GetAPIClient()
-
-	// Resolve target environment (flag takes precedence over stored choice).
-	env, err := resolveEnvironment(info.ApplicationID, flagPullEnv)
-	if err != nil {
-		return err
-	}
-
-	// If the user passed --env and it differs from their stored choice, switch
-	// their stored choice to the requested environment before fetching. The
-	// POST /application/env endpoint always uses the user's stored choice.
-	if flagPullEnv != "" {
-		currentResp, err := apiClient.GetApplicationEnvironment(info.ApplicationID)
-		if err != nil {
-			return errors.WrapError("failed to get current environment", err)
-		}
-		if currentResp.EnvironmentID == nil || *currentResp.EnvironmentID != env.ID {
-			cmd.Printf("Setting your active environment to %q...\n", env.Name)
-			if _, err := apiClient.SetApplicationEnvironment(info.ApplicationID, env.ID); err != nil {
-				return errors.WrapError("failed to switch environment", err)
-			}
-		}
-	}
 
 	envVars, err := apiClient.GetApplicationEnv(info.OrganizationID, info.ApplicationID)
 	if err != nil {
@@ -94,7 +67,7 @@ func runPull(cmd *cobra.Command) error {
 	sort.Strings(majorKeys)
 
 	var builder strings.Builder
-	fmt.Fprintf(&builder, "# Pulled from Major %q environment at %s\n", env.Name, time.Now().UTC().Format(time.RFC3339))
+	fmt.Fprintf(&builder, "# Pulled from Major at %s\n", time.Now().UTC().Format(time.RFC3339))
 	builder.WriteString("# Do not edit MAJOR_* variables - they are managed by the platform\n\n")
 	for _, k := range userKeys {
 		builder.WriteString(formatDotenvLine(k, envVars[k]))
@@ -120,7 +93,6 @@ func runPull(cmd *cobra.Command) error {
 		cmd.Printf("Warning: failed to update .gitignore: %v\n", err)
 	}
 
-	cmd.Printf("Environment: %s\n", env.Name)
 	cmd.Printf("Pulled %d variables to %s.\n", len(envVars), flagPullFile)
 	return nil
 }
