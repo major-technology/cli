@@ -47,28 +47,30 @@ func command(use string, min, max int, invoke func(*cobra.Command, []string) (ap
 		if j, _ := cmd.Flags().GetBool("json"); j {
 			return utils.WriteJSON(cmd, v)
 		}
-		printResult(cmd, v)
-		return nil
+		return printResult(cmd, v)
 	}}
 	c.Flags().Bool("json", false, "Output route fields as JSON")
 	return c
 }
-func printResult(cmd *cobra.Command, v api.Record) {
+func printResult(cmd *cobra.Command, v api.Record) error {
 	if runs, ok := v["runs"].([]any); ok {
 		w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 2, ' ', 0)
-		fmt.Fprintln(w, "Run ID\tAgent ID\tTitle\tStarted by\tStatus")
+		if _, err := fmt.Fprintln(w, "Run ID\tAgent ID\tTitle\tStarted by\tStatus"); err != nil {
+			return err
+		}
 		for _, item := range runs {
 			r, _ := item.(map[string]any)
 			user := "—"
 			if u, ok := r["user"].(map[string]any); ok {
 				user = fmt.Sprint(u["name"])
 			}
-			fmt.Fprintf(w, "%v\t%v\t%v\t%s\t%v\n", r["threadId"], r["agentId"], r["title"], user, r["status"])
+			if _, err := fmt.Fprintf(w, "%v\t%v\t%v\t%s\t%v\n", r["threadId"], r["agentId"], r["title"], user, r["status"]); err != nil {
+				return err
+			}
 		}
-		w.Flush()
-		return
+		return w.Flush()
 	}
-	utils.WriteJSON(cmd, v)
+	return utils.WriteJSON(cmd, v)
 }
 func id(args []string) (string, error) {
 	s := ""

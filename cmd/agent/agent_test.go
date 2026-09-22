@@ -3,10 +3,12 @@ package agent
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"github.com/major-technology/cli/clients/api"
 	"github.com/major-technology/cli/clients/workspace"
 	"github.com/major-technology/cli/singletons"
 	"github.com/spf13/cobra"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -267,5 +269,32 @@ func TestPermissionsResourceExplicitIDOverridesWorkspaceCobra(t *testing.T) {
 	out, err := executeAgent(t, "permissions", "resource", "explicit-agent", "resource-id", "--json")
 	if err != nil || !strings.Contains(out, `"resourcePermissions":[]`) {
 		t.Fatalf("output %q: %v", out, err)
+	}
+}
+
+var errOutput = errors.New("output failed")
+
+type failingWriter struct{}
+
+func (failingWriter) Write([]byte) (int, error) { return 0, errOutput }
+
+func TestAgentCommandPropagatesNonJSONOutputError(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		response api.Record
+	}{
+		{"record", api.Record{"id": "agent-id"}},
+		{"run table", api.Record{"runs": []any{map[string]any{"threadId": "run-id", "agentId": "agent-id", "title": "test", "status": "running"}}}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c := command("probe", 0, 0, func(*cobra.Command, []string) (api.Record, error) { return tc.response, nil })
+			c.SetOut(failingWriter{})
+			c.SetErr(io.Discard)
+			c.SilenceErrors = true
+			c.SilenceUsage = true
+			if err := c.Execute(); !errors.Is(err, errOutput) {
+				t.Fatalf("output error = %v, want %v", err, errOutput)
+			}
+		})
 	}
 }
