@@ -11,20 +11,14 @@ import (
 )
 
 var (
-	flagUnsetEnv             string
-	flagUnsetAllEnvironments bool
-	flagUnsetYes             bool
-	flagUnsetJSON            bool
+	flagUnsetYes  bool
+	flagUnsetJSON bool
 )
 
 var unsetCmd = &cobra.Command{
 	Use:   "unset <KEY>",
 	Short: "Remove an environment variable",
 	Long: `Remove an environment variable.
-
-By default, removes only the value for the target environment, preserving
-values set in other environments. Pass --all-environments to delete the key
-across every environment.
 
 Prompts for confirmation unless --yes is passed.`,
 	Args: cobra.ExactArgs(1),
@@ -34,8 +28,6 @@ Prompts for confirmation unless --yes is passed.`,
 }
 
 func init() {
-	unsetCmd.Flags().StringVar(&flagUnsetEnv, "env", "", "Target environment name (defaults to your current environment)")
-	unsetCmd.Flags().BoolVar(&flagUnsetAllEnvironments, "all-environments", false, "Remove the key across every environment")
 	unsetCmd.Flags().BoolVarP(&flagUnsetYes, "yes", "y", false, "Skip the confirmation prompt")
 	unsetCmd.Flags().BoolVar(&flagUnsetJSON, "json", false, "Output in JSON format")
 }
@@ -50,31 +42,11 @@ func runUnset(cmd *cobra.Command, key string) error {
 		return err
 	}
 
-	var envID, envName string
-	if !flagUnsetAllEnvironments {
-		env, err := resolveEnvironment(appID, flagUnsetEnv)
-		if err != nil {
-			return err
-		}
-		envID = env.ID
-		envName = env.Name
-	} else if flagUnsetEnv != "" {
-		return &errors.CLIError{
-			Title:      "Conflicting flags",
-			Suggestion: "--env and --all-environments cannot be used together.",
-		}
-	}
-
 	if !flagUnsetYes {
 		if err := utils.RequireInteractive(cmd, "Pass --yes to confirm deletion."); err != nil {
 			return err
 		}
-		var prompt string
-		if flagUnsetAllEnvironments {
-			prompt = fmt.Sprintf("Remove %s from ALL environments?", key)
-		} else {
-			prompt = fmt.Sprintf("Remove %s from %q environment?", key, envName)
-		}
+		prompt := fmt.Sprintf("Remove %s?", key)
 		var confirm bool
 		form := huh.NewForm(
 			huh.NewGroup(
@@ -90,41 +62,22 @@ func runUnset(cmd *cobra.Command, key string) error {
 	}
 
 	apiClient := singletons.GetAPIClient()
-	resp, err := apiClient.DeleteEnvVariableByKey(appID, key, envID, flagUnsetAllEnvironments)
+	resp, err := apiClient.DeleteEnvVariableByKey(appID, key)
 	if err != nil {
 		return errors.WrapError("failed to unset env variable", err)
 	}
 
 	if flagUnsetJSON {
-		if flagUnsetAllEnvironments {
-			return utils.WriteJSON(cmd, map[string]any{
-				"key":             key,
-				"allEnvironments": true,
-				"deleted":         resp.Deleted,
-			})
-		}
 		return utils.WriteJSON(cmd, map[string]any{
-			"key":         key,
-			"environment": envName,
-			"deleted":     resp.Deleted,
+			"key":     key,
+			"deleted": resp.Deleted,
 		})
 	}
 
-	switch {
-	case !resp.Deleted && flagUnsetAllEnvironments:
+	if !resp.Deleted {
 		cmd.Printf("%s was not set.\n", key)
-	case !resp.Deleted:
-		cmd.Printf("Environment: %s\n", envName)
-		cmd.Printf("%s was not set in %q.\n", key, envName)
-	case flagUnsetAllEnvironments:
-		cmd.Printf("Removed %s from all environments.\n", key)
-	default:
-		cmd.Printf("Environment: %s\n", envName)
-		if resp.RemovedRow {
-			cmd.Printf("Removed %s (last value, key deleted).\n", key)
-		} else {
-			cmd.Printf("Removed %s.\n", key)
-		}
+		return nil
 	}
+	cmd.Printf("Removed %s.\n", key)
 	return nil
 }

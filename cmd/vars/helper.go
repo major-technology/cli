@@ -5,9 +5,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/major-technology/cli/clients/api"
 	"github.com/major-technology/cli/errors"
-	"github.com/major-technology/cli/singletons"
 	"github.com/major-technology/cli/utils"
 )
 
@@ -39,48 +37,6 @@ func validateKey(key string) error {
 	return nil
 }
 
-// resolvedEnv holds the target environment for a command invocation.
-type resolvedEnv struct {
-	ID   string
-	Name string
-}
-
-// resolveEnvironment resolves the target environment for a command.
-// If envFlag is non-empty, it looks up the environment by name (case-insensitive).
-// Otherwise, it falls back to the user's currently-selected environment for the app.
-func resolveEnvironment(applicationID, envFlag string) (*resolvedEnv, error) {
-	apiClient := singletons.GetAPIClient()
-
-	if envFlag != "" {
-		listResp, err := apiClient.ListApplicationEnvironments(applicationID)
-		if err != nil {
-			return nil, errors.WrapError("failed to list environments", err)
-		}
-		lower := strings.ToLower(envFlag)
-		for _, env := range listResp.Environments {
-			if strings.ToLower(env.Name) == lower {
-				return &resolvedEnv{ID: env.ID, Name: env.Name}, nil
-			}
-		}
-		return nil, &errors.CLIError{
-			Title:      fmt.Sprintf("Environment %q not found", envFlag),
-			Suggestion: "Run 'major resource env' to see the environments available for this application.",
-		}
-	}
-
-	envResp, err := apiClient.GetApplicationEnvironment(applicationID)
-	if err != nil {
-		return nil, errors.WrapError("failed to get current environment", err)
-	}
-	if envResp.EnvironmentID == nil || envResp.EnvironmentName == nil {
-		return nil, &errors.CLIError{
-			Title:      "No environment selected",
-			Suggestion: "Run 'major resource env' to select an environment, or pass --env <name>.",
-		}
-	}
-	return &resolvedEnv{ID: *envResp.EnvironmentID, Name: *envResp.EnvironmentName}, nil
-}
-
 // getAppID resolves the application ID for the current working directory.
 func getAppID() (string, error) {
 	info, err := utils.GetApplicationInfo("")
@@ -98,15 +54,4 @@ func maskValue(value string) string {
 		return strings.Repeat("•", len(value))
 	}
 	return value[:4] + strings.Repeat("•", 8)
-}
-
-// findValueForEnv returns the value for a specific environment from a row's values slice,
-// and whether it was found.
-func findValueForEnv(values []api.EnvVariableValue, environmentID string) (string, bool) {
-	for _, v := range values {
-		if v.EnvironmentID == environmentID {
-			return v.Value, true
-		}
-	}
-	return "", false
 }

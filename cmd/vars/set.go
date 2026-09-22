@@ -9,21 +9,18 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	flagSetEnv  string
-	flagSetJSON bool
-)
+var flagSetJSON bool
 
 var setCmd = &cobra.Command{
 	Use:   "set <KEY>=<VALUE>",
 	Short: "Create or update an environment variable",
-	Long: `Create or update a single environment variable for the selected environment.
+	Long: `Create or update a single environment variable.
 
-Other environments' values are preserved. Values may contain '=' characters;
-only the first '=' in the argument is treated as the separator.
+Values may contain '=' characters; only the first '=' in the argument is
+treated as the separator.
 
 Example:
-  major vars set DATABASE_URL=postgres://localhost/mydb --env staging`,
+  major vars set DATABASE_URL=postgres://localhost/mydb`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return runSet(cmd, args[0])
@@ -31,7 +28,6 @@ Example:
 }
 
 func init() {
-	setCmd.Flags().StringVar(&flagSetEnv, "env", "", "Target environment name (defaults to your current environment)")
 	setCmd.Flags().BoolVar(&flagSetJSON, "json", false, "Output in JSON format")
 }
 
@@ -55,25 +51,18 @@ func runSet(cmd *cobra.Command, arg string) error {
 		return err
 	}
 
-	env, err := resolveEnvironment(appID, flagSetEnv)
-	if err != nil {
-		return err
-	}
-
 	apiClient := singletons.GetAPIClient()
-	if _, err := apiClient.SetEnvVariable(appID, key, env.ID, value); err != nil {
+	if _, err := apiClient.SetEnvVariable(appID, key, value); err != nil {
 		return errors.WrapError("failed to set env variable", err)
 	}
 
 	if flagSetJSON {
 		return utils.WriteJSON(cmd, map[string]any{
-			"key":         key,
-			"environment": env.Name,
-			"updated":     true,
+			"key":     key,
+			"updated": true,
 		})
 	}
 
-	cmd.Printf("Environment: %s\n", env.Name)
 	cmd.Printf("Set %s.\n", key)
 	return nil
 }

@@ -37,9 +37,6 @@ func TestUnsetNonInteractiveRequiresYes(t *testing.T) {
 		case r.URL.Path == "/applications/"+appID+"/info":
 			w.Header().Set("Content-Type", "application/json")
 			fmt.Fprintf(w, `{"applicationId":%q,"organizationId":%q,"urlSlug":"prototype","name":"Prototype","deployStatus":"not_deployed","appUrl":null}`, appID, orgID)
-		case r.URL.Path == "/application/"+appID+"/environment" && r.Method == http.MethodGet:
-			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprint(w, `{"environmentId":"e1","environmentName":"dev"}`)
 		case strings.Contains(r.URL.Path, "/env-variables/by-key/"):
 			deletes.Add(1)
 			w.WriteHeader(http.StatusInternalServerError)
@@ -54,12 +51,8 @@ func TestUnsetNonInteractiveRequiresYes(t *testing.T) {
 	t.Cleanup(func() { singletons.SetAPIClient(prev) })
 
 	flagUnsetYes = false
-	flagUnsetEnv = ""
-	flagUnsetAllEnvironments = false
 	t.Cleanup(func() {
 		flagUnsetYes = false
-		flagUnsetEnv = ""
-		flagUnsetAllEnvironments = false
 	})
 
 	cmd := nonInteractiveVarsCmd(t)
