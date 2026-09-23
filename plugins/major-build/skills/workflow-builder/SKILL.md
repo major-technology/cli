@@ -7,7 +7,7 @@ description: Create and manage Major workflows — JSONC graphs of agent calls, 
 
 A _workflow_ is a graph of steps executed by Major's workflow engine: agents run with prompts, deployed apps get called over HTTP, routers branch on state, loops fan over collections, humans approve over Slack, and schedules, connector events, or authenticated webhooks start the graph. You author the definition as a JSONC file (JSON with comments) on the workflow's sandbox and edit it through the sandbox tools (the "Working with sandboxes" section of your system prompt covers addressing, provisioning, and sharing).
 
-Orchestrator tools are `mcp__orchestrator-platform__*` (`list_workflows`, `mount`, `create_workflow`, `publish`, `run_workflow`, `list_workflow_runs`, `get_workflow_run`, `delete_workflow`, `list_connector_event_types`). File editing and sync go through the sandbox tools `mcp__plugin_major-build_major__sandbox_*` (`sandbox_read_file`, `sandbox_edit_file`, `sandbox_write_file`, `sandbox_pull`, `sandbox_push`, `sandbox_validate`), each called with `workflow: "<workflowId>"` as the target. `publish` takes the same `workflow` argument.
+Finding, creating, and opening workflows is on `mcp__plugin_major-build_major__*` (`list_workflows`, `create_workflow`, `start_sandbox`). Orchestrator tools are `mcp__orchestrator-platform__*` (`publish`, `run_workflow`, `list_workflow_runs`, `get_workflow_run`, `delete_workflow`, `list_connector_event_types`). File editing and sync go through the sandbox tools `mcp__plugin_major-build_major__sandbox_*` (`sandbox_read_file`, `sandbox_edit_file`, `sandbox_write_file`, `sandbox_pull`, `sandbox_push`, `sandbox_validate`), each called with `workflow: "<workflowId>"` as the target. `publish` takes the same `workflow` argument.
 
 ## The working file, saving, and publishing
 
@@ -89,8 +89,8 @@ Node outputs by type:
 
 ## Workflow
 
-1. Ask what the workflow should do, which agents/apps it touches (`list_agents`, `list_use_apps` / `list_edit_apps` to discover ids), and the cadence. When an `app_call` needs endpoints or request/response shapes, load the `using-apps` skill.
-2. `create_workflow` (or `mount` for an existing one) — the builder panel opens so the user can see the graph.
+1. Ask what the workflow should do, which agents/apps it touches (`list_agents` / `list_apps` with `include_read_only: true`, or `list_use_apps`, to discover ids), and the cadence. When an `app_call` needs endpoints or request/response shapes, load the `using-apps` skill.
+2. `create_workflow` (or `start_sandbox` for an existing one) — the builder panel opens so the user can see the graph.
 3. Draft the JSONC. Iterate with the sandbox file tools, `sandbox_validate` as you go, and `sandbox_push` at the end of every turn you edited in.
 4. Test with `run_workflow` (it runs what you last saved), then inspect with `get_workflow_run`.
 5. Write the requested cron, connector event, or webhook into the file once its configuration is known. An unpublished trigger is inert, so it costs nothing to save. Never invent an automated trigger the user didn't ask for.
