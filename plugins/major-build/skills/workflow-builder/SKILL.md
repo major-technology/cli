@@ -7,13 +7,13 @@ description: Create and manage Major workflows — JSONC graphs of agent calls, 
 
 A _workflow_ is a graph of steps executed by Major's workflow engine: agents run with prompts, deployed apps get called over HTTP, routers branch on state, loops fan over collections, humans approve over Slack, and schedules, connector events, or authenticated webhooks start the graph. You author the definition as a JSONC file (JSON with comments) on the workflow's sandbox and edit it through the sandbox tools (the "Working with sandboxes" section of your system prompt covers addressing, provisioning, and sharing).
 
-Orchestrator tools are `mcp__orchestrator-platform__*` (`list_workflows`, `mount`, `create_workflow`, `publish`, `run_workflow`, `list_workflow_runs`, `get_workflow_run`, `delete_workflow`, `list_connector_event_types`). File editing and sync go through the sandbox tools `mcp__major__*` (`read_file`, `edit_file`, `write_file`, `pull`, `push`, `validate`), each called with `workflow: "<workflowId>"` as the target. `publish` takes the same `workflow` argument.
+Orchestrator tools are `mcp__orchestrator-platform__*` (`list_workflows`, `mount`, `create_workflow`, `publish`, `run_workflow`, `list_workflow_runs`, `get_workflow_run`, `delete_workflow`, `list_connector_event_types`). File editing and sync go through the sandbox tools `mcp__major__sandbox_*` (`sandbox_read_file`, `sandbox_edit_file`, `sandbox_write_file`, `sandbox_pull`, `sandbox_push`, `sandbox_validate`), each called with `workflow: "<workflowId>"` as the target. `publish` takes the same `workflow` argument.
 
 ## The working file, saving, and publishing
 
 Each workflow's working copy lives on its own sandbox at `<workflowId>.jsonc` (workspace-relative). Two separate steps take it off the sandbox:
 
-- **Save** (`push`) writes the file as a new immutable version. Nothing about the workflow's behaviour changes — saving is free. **The sandbox is torn down once it goes idle and comes back seeded from the last saved version, so anything unsaved is lost.**
+- **Save** (`sandbox_push`) writes the file as a new immutable version. Nothing about the workflow's behaviour changes — saving is free. **The sandbox is torn down once it goes idle and comes back seeded from the last saved version, so anything unsaved is lost.**
 - **Publish** (`publish`) points the workflow at its latest saved version. This is the only thing that changes live trigger behavior: schedules begin firing, connector endpoints are reconciled, and webhook URLs are materialized.
 
 So triggers sitting in a saved-but-unpublished draft are inert, and `run_workflow` runs the last **saved** version — you never have to publish to test.
@@ -22,22 +22,22 @@ Always use a `workflowId` returned by `list_workflows` or `create_workflow` — 
 
 ## Save discipline
 
-- **Never `pull` routinely** — it overwrites the sandbox file with the last saved version and destroys any unsaved edits, the user's included. Pull only to recover a corrupted file or on the user's explicit ask to discard.
-- **Always `push` before you finish a turn in which you edited the file.** Unsaved work dies with the sandbox. Saving needs no permission and changes nothing about how the workflow runs.
+- **Never `sandbox_pull` routinely** — it overwrites the sandbox file with the last saved version and destroys any unsaved edits, the user's included. Pull only to recover a corrupted file or on the user's explicit ask to discard.
+- **Always `sandbox_push` before you finish a turn in which you edited the file.** Unsaved work dies with the sandbox. Saving needs no permission and changes nothing about how the workflow runs.
 - **Publish only when the user asks for it.** That is the moment the workflow starts acting on its own.
 
 ## Lifecycle
 
 - **Edit existing**: `list_workflows` to find it, then `mount({workflow: "<workflowId>"})` — it mounts (or joins) the workflow's sandbox and returns the file name. Edit the file with the sandbox tools, saving as you finish each round.
 - **New**: `create_workflow({})` — it creates a skeleton workflow (server-minted `workflowId`), mounts its sandbox, and returns the file name. Build the definition in that file; there is no push-a-loose-draft path.
-- **Check a draft**: `validate` — validates the sandbox file against the server's rules without saving. Saving also validates; on failure nothing is saved and the error list comes back — fix the file and save again.
-- **Save**: `push` — every save writes a new immutable version; comments are preserved verbatim.
+- **Check a draft**: `sandbox_validate` — validates the sandbox file against the server's rules without saving. Saving also validates; on failure nothing is saved and the error list comes back — fix the file and save again.
+- **Save**: `sandbox_push` — every save writes a new immutable version; comments are preserved verbatim.
 - **Test**: `run_workflow` (save first — it runs the last saved version), then `get_workflow_run` — it returns the per-node trace (status, resolved input, output, errors). App calls use deployed apps by default. Pass `appTarget: "sandbox"` to test `app_call` nodes against the acting user's live app sandboxes (spun up on demand) before deploying; a sandbox held by another user fails that node with the holder's name.
-- **Publish**: `publish({workflow})` — makes the latest saved version live. Name the target the same way the sandbox tools do: pass the `workflowId` you passed to `push`. Only on the user's explicit go-ahead. Add `versionId` to roll back to an earlier version.
+- **Publish**: `publish({workflow})` — makes the latest saved version live. Name the target the same way the sandbox tools do: pass the `workflowId` you passed to `sandbox_push`. Only on the user's explicit go-ahead. Add `versionId` to roll back to an earlier version.
 
 ## The definition format
 
-The definition shape AND the enforced graph rules are the workflow-definition JSON Schema the Major API serves at `GET https://api.prod.major.build/public/workflow.schema.json` — the single source of truth (the graph rules are its `x-validatorRules`). YOU MUST CURL THIS SCHEMA BEFORE BUILDING A WORKFLOW. `validate` (and every push) enforces all of it, with errors naming the offending path.
+The definition shape AND the enforced graph rules are the workflow-definition JSON Schema the Major API serves at `GET https://api.prod.major.build/public/workflow.schema.json` — the single source of truth (the graph rules are its `x-validatorRules`). YOU MUST CURL THIS SCHEMA BEFORE BUILDING A WORKFLOW. `sandbox_validate` (and every push) enforces all of it, with errors naming the offending path.
 
 Runtime semantics the schema can't express:
 
@@ -91,7 +91,7 @@ Node outputs by type:
 
 1. Ask what the workflow should do, which agents/apps it touches (`list_agents`, `list_use_apps` / `list_edit_apps` to discover ids), and the cadence. When an `app_call` needs endpoints or request/response shapes, load the `using-apps` skill.
 2. `create_workflow` (or `mount` for an existing one) — the builder panel opens so the user can see the graph.
-3. Draft the JSONC. Iterate with the sandbox file tools, `validate` as you go, and `push` at the end of every turn you edited in.
+3. Draft the JSONC. Iterate with the sandbox file tools, `sandbox_validate` as you go, and `sandbox_push` at the end of every turn you edited in.
 4. Test with `run_workflow` (it runs what you last saved), then inspect with `get_workflow_run`.
 5. Write the requested cron, connector event, or webhook into the file once its configuration is known. An unpublished trigger is inert, so it costs nothing to save. Never invent an automated trigger the user didn't ask for.
 6. Once the user confirms it's ready, publish it. For a newly added webhook, ask the user to open the workflow editor after publish and click **View credential** so the browser can show its one-time setup details. For other changes, `publish({workflow})` makes the saved version live.

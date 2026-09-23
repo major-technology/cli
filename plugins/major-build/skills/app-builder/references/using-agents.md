@@ -8,9 +8,9 @@ A **run is a chat thread.** The `chatThreadId` returned by `run()` is the `runId
 
 ## Generated clients — never hand-write them
 
-Always call `add-agent-client` first (find the id with the `list_agents` tool). It generates a typed singleton into `clients/` and returns the import line — **use that import VERBATIM**. Do not `createAgentsClient()`, do not `getAgentId()`, do not bake a uuid. The generated client already binds the agent id.
+Always call `sandbox_add-agent-client` first (find the id with the `list_agents` tool). It generates a typed singleton into `clients/` and returns the import line — **use that import VERBATIM**. Do not `createAgentsClient()`, do not `getAgentId()`, do not bake a uuid. The generated client already binds the agent id.
 
-To stop triggering an agent, delete the code that references it and call `remove-agent-client`.
+To stop triggering an agent, delete the code that references it and call `sandbox_remove-agent-client`.
 
 ## If the agent should post back into the app
 
@@ -83,7 +83,7 @@ The package throws typed errors — branch on them rather than parsing messages:
 
 - **`AgentRunNotActiveError`** (from `sendMessage` on a finished run): the run has completed and the pod is gone. Start a fresh run with `run()` rather than retrying the message.
 - **`AgentNotFoundError`**: unknown run/agent id — also thrown by `respondToApproval` when the approval is no longer pending (already answered, or it expired and auto-denied). Re-fetch with `listPendingApprovals` and re-render.
-- **`AgentsAuthError`**: the runner lacks `agent:use`, or the generated client is missing / stale. Re-run `add-agent-client`.
+- **`AgentsAuthError`**: the runner lacks `agent:use`, or the generated client is missing / stale. Re-run `sandbox_add-agent-client`.
 - **`AgentsValidationError`**: bad input (missing `prompt` / `message`).
 
 ```typescript

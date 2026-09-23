@@ -15,7 +15,7 @@ Major apps are protected by an authentication gateway by default. Enabling **Web
 
 ## Checking & Enabling Webhooks
 
-Run `major app info --json` from the app workspace to check the current app status, including `webhooksEnabled`. In a hosted sandbox, run it through `mcp__major__bash`.
+Run `major app info --json` from the app workspace to check the current app status, including `webhooksEnabled`. In a hosted sandbox, run it through `mcp__major__sandbox_bash`.
 
 If webhooks are not enabled, instruct the user to enable them from the **Major dashboard → App Settings → Webhook Access** toggle.
 

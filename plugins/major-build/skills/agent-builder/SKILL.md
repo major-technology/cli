@@ -15,13 +15,13 @@ prompt.md     the system prompt — the file IS the prompt, no wrapper
 
 If you don't have enough information to write a good system prompt or pick connectors, ask the user — it is better to ask than to guess.
 
-Orchestrator tools are `mcp__orchestrator-platform__*` (`list_editable_agents`, `mount`, `create_agent`, `get_agent`, `publish`). File editing and sync go through the sandbox tools `mcp__major__*` (`read_file`, `edit_file`, `write_file`, `pull`, `push`, `validate`), each called with `agent: "<agentId>"` as the target. `publish` takes the same `agent` argument.
+Orchestrator tools are `mcp__orchestrator-platform__*` (`list_editable_agents`, `mount`, `create_agent`, `get_agent`, `publish`). File editing and sync go through the sandbox tools `mcp__major__sandbox_*` (`sandbox_read_file`, `sandbox_edit_file`, `sandbox_write_file`, `sandbox_pull`, `sandbox_push`, `sandbox_validate`), each called with `agent: "<agentId>"` as the target. `publish` takes the same `agent` argument.
 
 ## The working files, saving, and publishing
 
 The working copy lives on the agent's sandbox under the workspace root. Two separate steps take it off the sandbox:
 
-- **Save** (`push`) validates the bundle and writes it as a new immutable version. Nothing the agent runs changes — saving is free. **The sandbox is torn down once it goes idle and comes back seeded from the last saved version, so anything unsaved is lost.**
+- **Save** (`sandbox_push`) validates the bundle and writes it as a new immutable version. Nothing the agent runs changes — saving is free. **The sandbox is torn down once it goes idle and comes back seeded from the last saved version, so anything unsaved is lost.**
 - **Publish** (`publish`) points the agent at its latest saved version. This makes the agent live.
 
 An agent with no published version can't be run deployed at all — starting a session against it fails with "no published version yet". So a brand-new agent needs one `publish` before anyone can use it.
@@ -30,21 +30,21 @@ Always use an `agentId` returned by `list_editable_agents` or `create_agent` —
 
 ## Save discipline
 
-- **Never `pull` routinely** — it overwrites the sandbox files with the last saved version and destroys any unsaved edits, the user's included. Pull only to recover corrupted files or on the user's explicit ask to discard.
-- **Always `push` before you finish a turn in which you edited files.** Unsaved work dies with the sandbox. Saving needs no permission and changes nothing about what the agent runs.
+- **Never `sandbox_pull` routinely** — it overwrites the sandbox files with the last saved version and destroys any unsaved edits, the user's included. Pull only to recover corrupted files or on the user's explicit ask to discard.
+- **Always `sandbox_push` before you finish a turn in which you edited files.** Unsaved work dies with the sandbox. Saving needs no permission and changes nothing about what the agent runs.
 - **Publish only when the user asks for it.** That is the moment the agent's behaviour changes for everyone.
 
 ## Lifecycle
 
 - **Edit existing**: `list_editable_agents` to find it, then `mount({agent: "<agentId>"})` — it mounts (or joins) the agent's sandbox. Edit the two files with the sandbox tools, saving as you finish each round.
 - **New**: `create_agent({name, description})` — creates the agent (server-minted `agentId`), mounts its sandbox seeded with a scaffold bundle, and returns where the files live.
-- **Check a draft**: `validate` — parses `agent.jsonc` against the schema without saving. Saving validates too (and additionally checks that every referenced skill/connector/app exists in the org); on failure nothing is saved and the error list comes back.
-- **Save**: `push({notes})` — every save writes a new immutable version.
-- **Publish**: `publish({agent})` — makes the latest saved version live. Name the target the same way the sandbox tools do: pass the `agentId` you passed to `push`. Only on the user's explicit go-ahead. Add `versionId` to roll back to an earlier version.
+- **Check a draft**: `sandbox_validate` — parses `agent.jsonc` against the schema without saving. Saving validates too (and additionally checks that every referenced skill/connector/app exists in the org); on failure nothing is saved and the error list comes back.
+- **Save**: `sandbox_push({notes})` — every save writes a new immutable version.
+- **Publish**: `publish({agent})` — makes the latest saved version live. Name the target the same way the sandbox tools do: pass the `agentId` you passed to `sandbox_push`. Only on the user's explicit go-ahead. Add `versionId` to roll back to an earlier version.
 
 ## `agent.jsonc`
 
-The definition shape — fields, the allowed model ids, permission decisions — is the JSON Schema the Major API serves at `GET https://api.prod.major.build/public/agent.schema.json`, the single source of truth. YOU MUST CURL THIS SCHEMA BEFORE WRITING `agent.jsonc`; its `x-validatorRules` carry the rules beyond shape (membership grants access, ids must exist in the org, bundle is exactly the two files). `validate` and every `push` enforce all of it, with errors naming the offending path.
+The definition shape — fields, the allowed model ids, permission decisions — is the JSON Schema the Major API serves at `GET https://api.prod.major.build/public/agent.schema.json`, the single source of truth. YOU MUST CURL THIS SCHEMA BEFORE WRITING `agent.jsonc`; its `x-validatorRules` carry the rules beyond shape (membership grants access, ids must exist in the org, bundle is exactly the two files). `sandbox_validate` and every `sandbox_push` enforce all of it, with errors naming the offending path.
 
 ## Tool permissions
 
