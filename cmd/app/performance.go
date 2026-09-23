@@ -52,8 +52,8 @@ returned unless --all is set. Sorted by total time descending.`,
 }
 
 func init() {
-	performanceListCmd.Flags().StringVar(&flagPerformanceEnvironment, "environment", "", "Traffic to include: deployment (default), coding-session, or local-dev")
-	performanceListCmd.Flags().IntVar(&flagPerformanceDays, "days", 0, "Aggregation window in days (1-30, default 7)")
+	performanceListCmd.Flags().StringVar(&flagPerformanceEnvironment, "environment", "", "Traffic to include: deployment (default), coding-session, local-dev, or all")
+	performanceListCmd.Flags().IntVar(&flagPerformanceDays, "days", 0, "Aggregation window in days, 1-30 (server default 7)")
 	performanceListCmd.Flags().BoolVar(&flagPerformanceAll, "all", false, "Include operations at or under 500 ms p95")
 
 	performanceCmd.AddCommand(performanceListCmd)
