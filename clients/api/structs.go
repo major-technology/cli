@@ -558,7 +558,6 @@ type AppError struct {
 	URL         *string `json:"url,omitempty"`
 }
 
-// ListAppErrorsRequest are the filters for GET /applications/:applicationId/errors
 // ListSlowOperationsRequest filters GET /applications/:applicationId/slow-operations
 type ListSlowOperationsRequest struct {
 	ExecutionEnvironment string
@@ -598,6 +597,7 @@ type ListSlowOperationsResponse struct {
 	Operations []SlowOperation `json:"operations"`
 }
 
+// ListAppErrorsRequest are the filters for GET /applications/:applicationId/errors
 type ListAppErrorsRequest struct {
 	Environment string
 	Limit       int
