@@ -5,7 +5,28 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	clierrors "github.com/major-technology/cli/errors"
 )
+
+func TestAgentRunWrongTokenTypeMessage(t *testing.T) {
+	previous := testTokenOverride
+	testTokenOverride = "session-token"
+	defer func() { testTokenOverride = previous }()
+
+	const message = "Can't start an agent run through the CLI from an AI session. Use the MCP run_agent tool instead."
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = w.Write([]byte(`{"error":{"internal_code":1006,"error_string":"forbidden","status_code":403,"message":"` + message + `"}}`))
+	}))
+	defer server.Close()
+
+	_, err := NewClient(server.URL).StartAgentRun("agent-id", "hello", "")
+	cliErr, ok := err.(*clierrors.CLIError)
+	if !ok || cliErr.Title != message || cliErr.StatusCode != http.StatusForbidden {
+		t.Fatalf("wrong token error = %#v, want API message and 403", err)
+	}
+}
 
 func TestAgentSkillRoutes(t *testing.T) {
 	previous := testTokenOverride

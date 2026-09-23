@@ -492,7 +492,7 @@ func TestPrintErrorWritesToStderrWithoutToken(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	cmd.SetOut(&stdout)
 	cmd.SetErr(&stderr)
-	clierrors.PrintError(cmd, clierrors.ErrorUnauthorized)
+	clierrors.PrintError(cmd, clierrors.ErrorUnauthorized, false)
 	if stdout.Len() != 0 {
 		t.Fatalf("PrintError wrote stdout: %q", stdout.String())
 	}
@@ -501,6 +501,20 @@ func TestPrintErrorWritesToStderrWithoutToken(t *testing.T) {
 	}
 	if strings.Contains(stderr.String(), "Authorization") || strings.Contains(stderr.String(), "Bearer") || strings.Contains(stderr.String(), contractToken) {
 		t.Fatalf("headers or token leaked: %q", stderr.String())
+	}
+}
+
+func TestInjectedTokenErrorIsPlainText(t *testing.T) {
+	cmd := &cobra.Command{}
+	var stdout, stderr bytes.Buffer
+	cmd.SetOut(&stdout)
+	cmd.SetErr(&stderr)
+	clierrors.PrintError(cmd, &clierrors.CLIError{Title: "Use the MCP run_agent tool instead."}, true)
+	if got := stderr.String(); got != "Error: Use the MCP run_agent tool instead.\n" {
+		t.Fatalf("plain error = %q", got)
+	}
+	if stdout.Len() != 0 {
+		t.Fatalf("error wrote stdout: %q", stdout.String())
 	}
 }
 

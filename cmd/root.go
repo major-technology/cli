@@ -98,7 +98,8 @@ func rejectInjectedAuthManagement(cmd *cobra.Command, args []string) error {
 
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		clierrors.PrintError(rootCmd, err)
+		nonInteractive, _ := rootCmd.PersistentFlags().GetBool("non-interactive")
+		clierrors.PrintError(rootCmd, err, mjrToken.HasInjectedToken() || nonInteractive)
 		os.Exit(1)
 	}
 }
