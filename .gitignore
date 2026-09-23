@@ -2,4 +2,5 @@ vendor/
 cli
 /major
 major-dev
+.DS_Store
 .idea
