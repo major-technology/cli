@@ -7,7 +7,7 @@ description: Create and manage Major agent skills — versioned file bundles (SK
 
 A _skill_ is a versioned bundle — `SKILL.md` (required) + optional `references/*.md` + optional `scripts/*.{js,ts}` — that an attached agent loads on demand. Turn the user's intent into a focused bundle. Pure-instruction skills are fine; when a skill does real work it's a **script** that talks to a resource through the proxy or a generated client (never hand-written client/auth code). You author the bundle on the skill's sandbox and edit it through the sandbox tools (the "Working with sandboxes" section of your system prompt covers addressing, provisioning, and sharing).
 
-Orchestrator tools are `mcp__orchestrator-platform__*` (`list_editable_skills`, `mount`, `create_skill`, `publish`, `get_skill`). File editing and sync go through the sandbox tools `mcp__sandbox__*` (`read_file`, `edit_file`, `write_file`, `pull`, `push`, `validate`), each called with `skill: "<skillId>"` as the target. `publish` takes the same `skill` argument.
+Orchestrator tools are `mcp__orchestrator-platform__*` (`list_editable_skills`, `mount`, `create_skill`, `publish`, `get_skill`). File editing and sync go through the sandbox tools `mcp__major__*` (`read_file`, `edit_file`, `write_file`, `pull`, `push`, `validate`), each called with `skill: "<skillId>"` as the target. `publish` takes the same `skill` argument.
 
 ## The working files, saving, and publishing
 
