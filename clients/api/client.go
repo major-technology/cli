@@ -314,6 +314,15 @@ func (c *Client) GetResources(organizationID string) (*GetResourcesResponse, err
 	return &resp, nil
 }
 
+// ListResources retrieves resources in the authenticated token's organization.
+func (c *Client) ListResources() (*GetResourcesResponse, error) {
+	var resp GetResourcesResponse
+	if err := c.doRequest("GET", "/resources", nil, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
 // SaveApplicationResources saves the selected resources for an application
 func (c *Client) SaveApplicationResources(organizationID, applicationID string, resourceIDs []string) (*SaveApplicationResourcesResponse, error) {
 	req := SaveApplicationResourcesRequest{
@@ -329,7 +338,6 @@ func (c *Client) SaveApplicationResources(organizationID, applicationID string, 
 	}
 	return &resp, nil
 }
-
 
 // --- Version Check endpoints ---
 

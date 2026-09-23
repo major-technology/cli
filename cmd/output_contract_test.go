@@ -333,16 +333,10 @@ func TestVarsUnsetJSONSingleEnvironmentNamedAll(t *testing.T) {
 func TestResourceListJSONKeepsFullIDs(t *testing.T) {
 	const resourceID = "cccccccc-cccc-4ccc-8ccc-cccccccccccc"
 	stdout, stderr, err := runContractCommand(t, contractServer(t, map[string]http.HandlerFunc{
-		"GET /applications/" + contractAppID + "/info": func(w http.ResponseWriter, r *http.Request) {
-			writeJSON(w, contractInfoBody)
-		},
 		"GET /verify": func(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, `{"active":true,"user_id":"user-1"}`)
 		},
-		"POST /resources": func(w http.ResponseWriter, r *http.Request) {
-			writeJSON(w, `{"resources":[{"id":"`+resourceID+`","name":"db","type":"postgres","description":"db"}]}`)
-		},
-		"GET /applications/" + contractAppID + "/resources": func(w http.ResponseWriter, r *http.Request) {
+		"GET /resources": func(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, `{"resources":[{"id":"`+resourceID+`","name":"db","type":"postgres","description":"db"}]}`)
 		},
 	}), []string{"resource", "list"}, nil, true, nil)
@@ -367,6 +361,9 @@ func TestResourceListJSONKeepsFullIDs(t *testing.T) {
 	row, _ := result[0].(map[string]any)
 	if row["id"] != resourceID {
 		t.Fatalf("id truncated or missing: %#v", row["id"])
+	}
+	if _, exists := row["isAttached"]; exists {
+		t.Fatalf("obsolete isAttached field: %#v", row)
 	}
 }
 
@@ -492,7 +489,7 @@ func TestPrintErrorWritesToStderrWithoutToken(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	cmd.SetOut(&stdout)
 	cmd.SetErr(&stderr)
-	clierrors.PrintError(cmd, clierrors.ErrorUnauthorized)
+	clierrors.PrintError(cmd, clierrors.ErrorUnauthorized, false)
 	if stdout.Len() != 0 {
 		t.Fatalf("PrintError wrote stdout: %q", stdout.String())
 	}
@@ -501,6 +498,20 @@ func TestPrintErrorWritesToStderrWithoutToken(t *testing.T) {
 	}
 	if strings.Contains(stderr.String(), "Authorization") || strings.Contains(stderr.String(), "Bearer") || strings.Contains(stderr.String(), contractToken) {
 		t.Fatalf("headers or token leaked: %q", stderr.String())
+	}
+}
+
+func TestInjectedTokenErrorIsPlainText(t *testing.T) {
+	cmd := &cobra.Command{}
+	var stdout, stderr bytes.Buffer
+	cmd.SetOut(&stdout)
+	cmd.SetErr(&stderr)
+	clierrors.PrintError(cmd, &clierrors.CLIError{Title: "Use the MCP run_agent tool instead."}, true)
+	if got := stderr.String(); got != "Error: Use the MCP run_agent tool instead.\n" {
+		t.Fatalf("plain error = %q", got)
+	}
+	if stdout.Len() != 0 {
+		t.Fatalf("error wrote stdout: %q", stdout.String())
 	}
 }
 

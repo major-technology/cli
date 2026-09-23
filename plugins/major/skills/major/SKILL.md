@@ -1,8 +1,8 @@
 ---
 name: major
 description: >
-  Use the Major platform to create, develop, and deploy Next.js web applications.
-  Triggers when user mentions Major apps, deploying, creating apps,
+  Use the Major platform to manage apps, agents, skills, resources, and deployments.
+  Triggers when user mentions Major apps, agents, skills, deploying,
   managing resources, or working with the Major CLI.
 disable-model-invocation: false
 allowed-tools: Bash(major *), Read(**/plugins/major/skills/major/docs/*)
@@ -23,7 +23,7 @@ Major is a platform for building and deploying Next.js web applications. It crea
 | `major app start` | Start local dev server (warns if behind origin) | Direct |
 | `major app deploy --message "description" --no-wait` | Deploy to production (returns version ID) | Direct |
 | `major app deploy-status --version-id "ID"` | Check deployment status (JSON: status, appUrl, error) | Direct |
-| `major app list` | List all apps in org (JSON: id, name) | Direct |
+| `major app list [--editable] [--json]` | List visible apps, including undeployed apps; optionally only editable ones | Direct |
 | `major app info` | Show app ID, name, deploy status, URL | Direct |
 | `major app info --json` | App info as JSON | Direct |
 | `major app configure` | Open app settings in browser | Direct |
@@ -40,6 +40,37 @@ Major is a platform for building and deploying Next.js web applications. It crea
 | `major app theme apply <themeId>` | Select a theme and write its files into the checkout | Direct |
 | `major app ai-proxy status` | Inspect AI proxy configuration and spend | Direct |
 | `major app ai-proxy enable` | Enable the proxy with a $10/month limit (ask the user first) | Direct |
+
+### Agent Commands
+
+| Command | Description | Mode |
+|---------|-------------|------|
+| `major agent list [--editable]` | List visible agents; optionally only editable ones | Direct |
+| `major agent get [agent-id]` | Read agent detail and declared env-key status (never values) | Direct |
+| `major agent create --name "X" [--description "Y"]` | Create an unpublished draft; does not mount it | Direct |
+| `major agent run [agent-id] --prompt "..." [--name "title"]` | Start an independent run — **human CLI token only**; AI sessions use MCP `run_agent` | MCP for AI |
+| `major agent runs list [--agent <agent-id>] [--all-users]` | List your runs; `--all-users` includes others' runs only on editable agents | Direct |
+| `major agent runs content <run-id> [--limit N]` | Read run messages | Direct |
+| `major agent runs send <run-id> --message "..."` | Send a follow-up message | Direct |
+| `major agent runs stop <run-id>` | Stop a run | Direct |
+| `major agent channel connect [agent-id] --type slack` | Connect Slack — **human CLI token only**; AI sessions use MCP `connect_agent_to_slack` | MCP for AI |
+| `major agent channel pause [agent-id] --type slack` | Pause Slack replies | Direct |
+| `major agent channel resume [agent-id] --type slack` | Resume Slack replies | Direct |
+| `major agent channel delete [agent-id] --type slack` | Delete a Slack connection — human CLI only; agents must not do this | Human only |
+| `major agent permissions resource [agent-id] <resource-id>` | Inspect published resource tool permissions | Direct |
+| `major agent permissions app [agent-id] <app-id>` | Inspect published app endpoint permissions | Direct |
+
+### Skill Commands
+
+| Command | Description | Mode |
+|---------|-------------|------|
+| `major skill list [--editable] [--published]` | List visible skills; optionally narrow to editable or published | Direct |
+| `major skill get [skill-id]` | Read skill detail | Direct |
+| `major skill create` | Create an unpublished draft; does not mount it | Direct |
+
+Agent and skill target commands use the matching `.major/config.json` in a mounted workspace when the ID is omitted; an explicit ID wins. Lists and creates do not need a workspace. Use `--json` for machine-readable output.
+
+Before mounting, use MCP `list_apps`, `list_agents`, or `list_skills` to discover targets. After mounting, use the CLI for reads and run follow-ups. To start a run in an AI session, call the approval-gated `mcp__orchestrator-platform__run_agent({agentId, prompt})`, not `major agent run`. To connect Slack, use approval-gated `mcp__orchestrator-platform__connect_agent_to_slack({agentId})`, not the CLI. Do not use the removed app-scoped `major-app` run tools. The deployed-app runtime API is separate.
 
 ### Environment Variable Commands
 
@@ -65,7 +96,7 @@ All vars commands accept `--env <name>` to target a specific environment (case-i
 
 | Command | Description | Mode |
 |---------|-------------|------|
-| `major resource list` | List org resources as JSON (shows which are attached to app) | Direct |
+| `major resource list` | List org resources as JSON (no app workspace required) | Direct |
 | `major resource add --id "UUID"` | Add a resource to current app | Direct |
 | `major resource remove --id "UUID"` | Remove a resource from current app | Direct |
 | `major resource env` | View/switch environments (interactive, or `--id` for non-interactive) | Direct |
@@ -103,6 +134,8 @@ All vars commands accept `--env <name>` to target a specific environment (case-i
 ## Rules
 
 **Direct** commands: Run these yourself via Bash.
+**MCP for AI** commands: Use the named approval-gated MCP tool; the CLI form is for human CLI tokens only.
+**Human only** commands: Do not run these as an agent.
 **Interactive** commands: Tell the user to run these in their terminal -- they require browser or TUI interaction.
 
 ### Critical Rules

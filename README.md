@@ -73,3 +73,7 @@ For detailed usage instructions, configuration options, and full command referen
 ## License
 
 [MIT](LICENSE)
+
+### Agent and skill commands
+
+`major app list [--editable]`, `major agent list [--editable]`, `major agent get [agent-id]`, `major agent create --name NAME [--description TEXT]`, `major agent run [agent-id] --prompt TEXT [--name TITLE]`, `major agent runs list [--agent ID] [--all-users]`, `major agent runs content RUN-ID [--limit N]`, `major agent runs send RUN-ID --message TEXT`, `major agent runs stop RUN-ID`, `major agent channel connect|pause|resume|delete [agent-id] --type slack`, `major agent permissions resource|app [agent-id] TARGET-ID`, `major skill list [--editable] [--published]`, `major skill get [skill-id]`, and `major skill create` accept `--json` for route-shaped output. In an agent or skill workspace, its `.major/config.json` supplies an omitted matching ID; an explicit ID overrides it. Lists and creates use the organization bound to the API token without a checkout or keyring default. Starting runs, connecting Slack, deleting channels, and creating definitions require a human CLI token; server authorization governs other operations.

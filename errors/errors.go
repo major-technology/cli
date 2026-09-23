@@ -48,7 +48,7 @@ func WrapError(msg string, ogerr error) *CLIError {
 	}
 }
 
-func PrintError(cmd *cobra.Command, err error) {
+func PrintError(cmd *cobra.Command, err error, plain bool) {
 	errorStyle := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(lipgloss.Color("#FF5F87")).
@@ -76,6 +76,14 @@ func PrintError(cmd *cobra.Command, err error) {
 		message = fmt.Sprintf("%s\n\n%s", title, commandStyle.Render(suggestion))
 	} else {
 		message = title
+	}
+
+	if plain {
+		cmd.PrintErrln("Error: " + title)
+		if suggestion != "" {
+			cmd.PrintErrln(suggestion)
+		}
+		return
 	}
 
 	cmd.PrintErrln(errorStyle.Render(message))

@@ -18,7 +18,7 @@ var (
 var removeCmd = &cobra.Command{
 	Use:   "remove",
 	Short: "Remove a resource from the current application",
-	Long:  `Remove a resource by ID from the current application. Use 'major resource list' to see attached resources.`,
+	Long:  `Remove a resource by ID from the current application. Use 'major resource list' to see available resources.`,
 	PreRunE: middleware.ChainParent(
 		middleware.CheckLogin,
 		middleware.CheckNodeInstalled,
