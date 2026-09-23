@@ -563,6 +563,8 @@ type AppError struct {
 type ListSlowOperationsRequest struct {
 	ExecutionEnvironment string
 	WindowDays           int
+	// IncludeAll disables the server's 500 ms p95 floor.
+	IncludeAll bool
 }
 
 // SlowOperationCallSite is where the operation lives in the app's source, when the
