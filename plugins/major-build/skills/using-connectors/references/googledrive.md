@@ -6,7 +6,7 @@ Google Drive requires OAuth authentication before use.
 
 ### When the user asks you to set up Google Drive or connect their files:
 
-1. Call `mcp__interactions__request_resource_setup` with `connectorId: "googledrive"` — this prompts the user to authenticate with Google
+1. Call `mcp__plugin_major-build_major__request_resource_setup` with `connectorId: "googledrive"` — this prompts the user to authenticate with Google
 2. Once setup completes, the resource is ready to use
 
 ---

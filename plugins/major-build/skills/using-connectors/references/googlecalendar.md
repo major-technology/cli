@@ -6,7 +6,7 @@ Google Calendar requires OAuth authentication before use.
 
 ### When the user asks you to set up Google Calendar or connect their calendar:
 
-1. Call `mcp__interactions__request_resource_setup` with `connectorId: "googlecalendar"` — this prompts the user to authenticate with Google
+1. Call `mcp__plugin_major-build_major__request_resource_setup` with `connectorId: "googlecalendar"` — this prompts the user to authenticate with Google
 2. Once setup completes, the resource is ready to use
 
 ---

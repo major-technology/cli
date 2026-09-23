@@ -96,4 +96,4 @@ Use each command's `--help` for filters and pagination.
 
 For app secrets, use the available MCP setup tool: `set-app-env-variables` in app chats, or `set_env_variables` on the build server. The user supplies values through the frontend; never ask them to paste secrets into chat. If the tool returns a setup URL, share it in one short sentence and wait for the user's confirmation. Use `major vars set KEY=VALUE` only for known values the user explicitly wants you to configure.
 
-New connector setup still uses `mcp__interactions__request_resource_setup`; load `using-connectors` for that flow. An existing connector can be added to app code separately.
+New connector setup still uses `mcp__plugin_major-build_major__request_resource_setup`; load `using-connectors` for that flow. An existing connector can be added to app code separately.

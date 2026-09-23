@@ -4,7 +4,7 @@
 
 GitHub uses a GitHub App installation. When the user asks to connect GitHub:
 
-1. Call `mcp__interactions__request_resource_setup` with `connectorId: "github"`.
+1. Call `mcp__plugin_major-build_major__request_resource_setup` with `connectorId: "github"`.
 2. Ask the user to finish the GitHub installation flow and select the repositories the app may access.
 3. After setup completes, call `mcp__resources__list_resources` and use the connected GitHub resource's `resourceId` and mounted MCP slug.
 
