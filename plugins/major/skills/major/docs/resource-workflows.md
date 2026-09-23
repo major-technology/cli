@@ -23,10 +23,10 @@ Opens the resource creation page in the browser. Resources are created at the or
 major resource list
 ```
 
-Lists all resources in the organization as JSON. Each resource includes `isAttached` to show if it's connected to the current app. Example output:
+Lists resources in the authenticated token's organization as JSON, without requiring an app workspace. Example output:
 
 ```json
-[{"id":"uuid","name":"My DB","type":"postgresql","description":"Production database","isAttached":true}]
+[{"id":"uuid","name":"My DB","type":"postgresql","description":"Production database"}]
 ```
 
 ## Adding a Resource to an App

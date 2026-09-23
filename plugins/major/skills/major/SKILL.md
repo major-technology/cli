@@ -65,7 +65,7 @@ All vars commands accept `--env <name>` to target a specific environment (case-i
 
 | Command | Description | Mode |
 |---------|-------------|------|
-| `major resource list` | List org resources as JSON (shows which are attached to app) | Direct |
+| `major resource list` | List org resources as JSON (no app workspace required) | Direct |
 | `major resource add --id "UUID"` | Add a resource to current app | Direct |
 | `major resource remove --id "UUID"` | Remove a resource from current app | Direct |
 | `major resource env` | View/switch environments (interactive, or `--id` for non-interactive) | Direct |
