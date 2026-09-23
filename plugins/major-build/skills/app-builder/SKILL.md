@@ -9,9 +9,9 @@ An _app_ on Major is a full-stack Next.js app: frontend and backend API routes, 
 
 Treat apps as **compute**. Whenever you need to run code, use an app. Apps also visualize results for the user. Offload deterministic behavior into the app; agents and workflows call it.
 
-The main way to work on an app is to mount its sandbox onto this chat and edit it yourself. Orchestrator tools are `mcp__orchestrator-platform__*` (`list_edit_apps`, `create_app`, `mount`, `list_sandboxes`, `unmount_app_sandbox`). File and shell work go through the `mcp__major__sandbox_*` tools — the "Working with sandboxes" section of your system prompt covers the tools, argument conventions, provisioning, shared-sandbox etiquette, and local-file uploads; an app's target argument is `slug`. Run `major` CLI commands through `mcp__major__sandbox_bash` inside the mounted app workspace; they infer the app from the working directory, so do not pass an app ID or run them in the agent's local filesystem. Deployment and app-to-agent wiring still use major-app MCP tools.
+The main way to work on an app is to mount its sandbox onto this chat and edit it yourself. Orchestrator tools are `mcp__orchestrator-platform__*` (`list_edit_apps`, `create_app`, `mount`, `list_sandboxes`, `unmount_app_sandbox`). File and shell work go through the `mcp__plugin_major-build_major__sandbox_*` tools — the "Working with sandboxes" section of your system prompt covers the tools, argument conventions, provisioning, shared-sandbox etiquette, and local-file uploads; an app's target argument is `slug`. Run `major` CLI commands through `mcp__plugin_major-build_major__sandbox_bash` inside the mounted app workspace; they infer the app from the working directory, so do not pass an app ID or run them in the agent's local filesystem. Deployment and app-to-agent wiring still use major-app MCP tools.
 
-You are in general chat — **nothing is bound to this thread**, and a sandbox is not always mounted. Always use an `applicationId` returned by `list_edit_apps` or `create_app` — never invent one. If the app you need is not in `list_sandboxes`, mount it (`mount({app: "<applicationId>"})`) or create it (`create_app`) before using `mcp__major__sandbox_*` tools.
+You are in general chat — **nothing is bound to this thread**, and a sandbox is not always mounted. Always use an `applicationId` returned by `list_edit_apps` or `create_app` — never invent one. If the app you need is not in `list_sandboxes`, mount it (`mount({app: "<applicationId>"})`) or create it (`create_app`) before using `mcp__plugin_major-build_major__sandbox_*` tools.
 
 If this chat is already pinned to an app (the "Working with this app" section of your system prompt), its sandbox is auto-mounted — skip create/mount and edit that app through the sandbox tools with its slug.
 
@@ -30,10 +30,10 @@ The preview dev server is ALREADY running in the sandbox and hot-reloads on save
 
 - NEVER run `next build`, `pnpm build`, `npm run build`, or `yarn build`. Only run a build if you are specifically debugging a build issue.
 - NEVER delete or remove the `.next` directory — it crashes the preview server and the entire session.
-- To check for errors, run lint (through `mcp__major__sandbox_bash`) instead of building. After you finish editing, always run a lint check and fix what it reports — lint failures will fail a deploy. Lint ONCE per finished change, not after every file edit.
+- To check for errors, run lint (through `mcp__plugin_major-build_major__sandbox_bash`) instead of building. After you finish editing, always run a lint check and fix what it reports — lint failures will fail a deploy. Lint ONCE per finished change, not after every file edit.
 - When using parallel subagents, each subagent should ONLY write code and run lint. Do NOT have subagents run build commands.
 
-The preview/sandbox runtime has these environment variables available — use `mcp__major__sandbox_bash` with curl to hit the APIs you write:
+The preview/sandbox runtime has these environment variables available — use `mcp__plugin_major-build_major__sandbox_bash` with curl to hit the APIs you write:
 
 - `MAJOR_API_BASE_URL` — the base url of the Major API
 - `MAJOR_JWT_TOKEN` — the JWT token for the Major API
@@ -43,7 +43,7 @@ The preview/sandbox runtime has these environment variables available — use `m
 
 Every tool result you pull into this chat is re-read on each later step, so keep results small:
 
-- Don't re-read files you just read or wrote — the content is already in your context. For large files, page with `mcp__major__sandbox_read_file`'s offset/limit instead of re-reading the whole file.
+- Don't re-read files you just read or wrote — the content is already in your context. For large files, page with `mcp__plugin_major-build_major__sandbox_read_file`'s offset/limit instead of re-reading the whole file.
 - Push bulk lookups to subagents and have them return conclusions only: database verification queries (postgresql_psql), broad code exploration, and log digging. Don't run row-dump queries in the main chat.
 - Do not verify the UI unless explicitly asked. Playwright verification is costly and should be used sparingly.
 - When dispatching a subagent (or running a workflow of subagents), explicitly select its model instead of leaving it unset. Prefer a smaller/cheaper model (e.g. haiku) for routine work — bulk lookups, log digging, simple code exploration, mechanical edits — and reserve a larger model for tasks that genuinely need deeper reasoning (architecture decisions, tricky debugging, ambiguous requirements).
@@ -81,7 +81,7 @@ App code can call LLMs through Major's AI proxy — no API key needed, spend is 
 
 ## Inspecting
 
-Run these commands in the mounted app workspace through `mcp__major__sandbox_bash`:
+Run these commands in the mounted app workspace through `mcp__plugin_major-build_major__sandbox_bash`:
 
 - `major app info --json` — deployment status, the deployed URL, and visibility
 - `major app logs --preview` — preview/dev-server output

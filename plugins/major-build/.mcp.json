@@ -1,0 +1,8 @@
+{
+  "major": {
+    "type": "http",
+    "url": "${MAJOR_URL:-https://api.prod.major.build}/mcp/major",
+    "headersHelper": "bash -c 'if [ -n \"$MAJOR_RESOURCES_API_TOKEN\" ]; then echo \"{\\\"x-major-jwt\\\": \\\"$MAJOR_RESOURCES_API_TOKEN\\\"}\"; else TOKEN=$(major user token 2>/dev/null); ORG=$(major org id 2>/dev/null); echo \"{\\\"x-major-jwt\\\": \\\"$TOKEN\\\", \\\"x-major-org-id\\\": \\\"$ORG\\\"}\"; fi'",
+    "alwaysLoad": true
+  }
+}
