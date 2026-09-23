@@ -33,7 +33,7 @@ After setup completes and you have the resource ID:
    - `mcp__orchestrator-platform__run_migration` — DDL/DML migrations (managed databases only). Args: `applicationId`, `migration`, `description`
 
 2. **Generated TypeScript clients** (for app code):
-   - Call `mcp__resource-tools__add-resource-client` with the `resourceId` to generate a typed PostgreSQL client
+   - Call `mcp__plugin_major-build_major__sandbox_add-resource-client` with the app's `slug` and the `resourceId` to generate a typed PostgreSQL client
    - Use the client for read/write operations in your application code
 
 ## Identifying Managed Databases

@@ -9,7 +9,7 @@ Major provides a built-in AI proxy that lets apps call Anthropic, OpenAI, and Ge
 
 ## Workflow
 
-Run these commands in the app workspace (through `mcp__sandbox__bash` when working in a hosted sandbox).
+Run these commands in the app workspace (through `mcp__plugin_major-build_major__sandbox_bash` when working in a hosted sandbox).
 
 1. Run `major app ai-proxy status` to see if the proxy is enabled for this app
 2. If enabled: use it directly with the env vars below

@@ -6,7 +6,7 @@ Google Calendar requires OAuth authentication before use.
 
 ### When the user asks you to set up Google Calendar or connect their calendar:
 
-1. Call `mcp__resource-setup__request-resource-setup` with `subtype: "googlecalendar"` — this prompts the user to authenticate with Google
+1. Call `mcp__interactions__request_resource_setup` with `connectorId: "googlecalendar"` — this prompts the user to authenticate with Google
 2. Once setup completes, the resource is ready to use
 
 ---
@@ -20,7 +20,7 @@ Google Calendar requires OAuth authentication before use.
 **Three ways to interact with Google Calendar:**
 
 1. **MCP tools** (direct, no code needed): Tools follow the pattern `mcp__resources__<resourcetype>_<toolname>`. Use `mcp__resources__list_resources` to discover available resources and their IDs.
-2. **Generated TypeScript clients** (for app code): Call `mcp__resource-tools__add-resource-client` with a `resourceId` to generate a typed client. Clients are created in `/clients/` (Next.js) or `/src/clients/` (Vite).
+2. **Generated TypeScript clients** (for app code): Call `mcp__plugin_major-build_major__sandbox_add-resource-client` with the app's `slug` and a `resourceId` to generate a typed client. Clients are created in `/clients/` (Next.js) or `/src/clients/` (Vite).
 3. **HTTP proxy** (Next.js apps): Use `createProxyFetch` from `@major-tech/resource-client/next` to call the Google Calendar API directly with automatic auth injection. See [using-http-proxy](http-proxy.md) for setup and usage — preferred when you need to hit endpoints not covered by MCP tools or the typed client, or when using an official SDK that accepts a custom `fetch`.
 
 **CRITICAL: Do NOT guess client method names or signatures.** The TypeScript clients in `@major-tech/resource-client` have strongly typed inputs and outputs. ALWAYS read the actual client source code in the generated `/clients/` directory (or the package itself) to verify available methods and their exact signatures before writing any client code.

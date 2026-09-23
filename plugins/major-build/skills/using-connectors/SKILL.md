@@ -24,7 +24,7 @@ For each resource you plan to use:
 
 ## Step 3: Read the connector's reference
 
-Find the connector's row below and read its reference file (in this skill's `references/` directory) **before** writing any query, tool call, or client code. Match on the resource's `subtype` (or, for Pipedream-backed connectors, its app slug), comparing case-insensitively and ignoring `-` and `_`. Each reference documents the connector's MCP tools (called through `mcp__resources__execute_resource_tool`), its generated clients, and the underlying API.
+Find the connector's row below and read its reference file (in this skill's `references/` directory) **before** writing any query, tool call, or client code. Match on the resource's `subtype` (or, for Pipedream-backed connectors, its app slug), comparing case-insensitively and ignoring `-` and `_`. Each reference documents the connector's MCP tools (called through `mcp__plugin_major-build_major__execute_resource_tool`), its generated clients, and the underlying API.
 
 ### Connectors
 

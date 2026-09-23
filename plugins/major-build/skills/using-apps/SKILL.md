@@ -7,7 +7,7 @@ description: Use for ANY call against a deployed Major app — listing apps the 
 
 A deployed Major app is compute you call over HTTP. Major handles auth and plumbing. This skill is for **invoking** an existing deployed app — not for creating, editing, mounting, or deploying one (load `app-builder` for that).
 
-Always use an `applicationId` returned by `list_use_apps` — never invent one. `list_use_apps` is the catalog of apps you can call. `list_edit_apps` is a different list (apps the user can edit or grant to an agent); do not use it to pick a call target.
+Always use an `applicationId` returned by `list_use_apps` — never invent one. `list_use_apps` is the catalog of apps you can call. `list_apps` is a different list (apps the user can edit or grant to an agent); do not use it to pick a call target.
 
 ## Steps
 
@@ -20,5 +20,5 @@ Do not issue writes via `do_requests` just to learn a shape — `get_app_skill` 
 ## Related
 
 - To change the app itself (sandbox, preview, deploy), load `app-builder`.
-- To grant an agent access to an app, load `agent-builder` — attach via `list_edit_apps`, not `list_use_apps`.
+- To grant an agent access to an app, load `agent-builder` — attach via `list_apps`, not `list_use_apps`.
 - For a scheduled or event-driven call, load `workflow-builder` and use an `app_call` node.

@@ -33,15 +33,15 @@ Prefer direct evidence over guesses. Use the most relevant tools below.
 
 The app's preview is always served at `http://localhost:3000`. There is no other port or host to discover — navigate, screenshot, and read logs against that URL every time.
 
-Always check app errors and app logs before opening Playwright. `major app errors list` and `major app logs` explain almost every server, route handler, and runtime failure without needing the browser. Run these CLI commands through `mcp__sandbox__bash` in the mounted app workspace; load `app-builder` if you need to mount it first. Only open the browser when the bug is purely visual, layout-related, or only observable from the rendered page.
+Always check app errors and app logs before opening Playwright. `major app errors list` and `major app logs` explain almost every server, route handler, and runtime failure without needing the browser. Run these CLI commands through `mcp__plugin_major-build_major__sandbox_bash` in the mounted app workspace; load `app-builder` if you need to mount it first. Only open the browser when the bug is purely visual, layout-related, or only observable from the rendered page.
 
 When you do use Playwright, you are limited to **looking at the page**, not driving it:
 
-- ✅ `mcp__sandbox__browser_navigate` — open a URL on `http://localhost:3000`.
-- ✅ `mcp__sandbox__browser_take_screenshot` — capture the rendered page. Always save under `/workspace/.session-files/`; never use `/workspace/app`, repo paths, or relative paths.
-- ✅ `mcp__sandbox__browser_snapshot` — accessibility snapshot for reading text/structure.
-- ✅ `mcp__sandbox__browser_wait_for` — wait briefly for a pending/loading state to settle before re-screenshotting.
-- ✅ `mcp__sandbox__browser_console_messages` — read the browser console when investigating client-side errors.
+- ✅ `mcp__plugin_major-build_major__sandbox_browser_navigate` — open a URL on `http://localhost:3000`.
+- ✅ `mcp__plugin_major-build_major__sandbox_browser_take_screenshot` — capture the rendered page. Always save under `/workspace/.session-files/`; never use `/workspace/app`, repo paths, or relative paths.
+- ✅ `mcp__plugin_major-build_major__sandbox_browser_snapshot` — accessibility snapshot for reading text/structure.
+- ✅ `mcp__plugin_major-build_major__sandbox_browser_wait_for` — wait briefly for a pending/loading state to settle before re-screenshotting.
+- ✅ `mcp__plugin_major-build_major__sandbox_browser_console_messages` — read the browser console when investigating client-side errors.
 
 Do **not** click, type, drag, hover, resize, fill forms, press keys, evaluate JavaScript, or otherwise interact with or mutate the page. If the bug only reproduces through user interaction, describe the reproduction steps and ask the user to perform them — do not attempt to drive the page yourself.
 
@@ -76,8 +76,8 @@ Use logs when behavior depends on server startup, route handlers, background wor
 
 After collecting runtime evidence, trace the responsible code path.
 
-- Search for the route, component, handler, resource client, env var, or error text using `mcp__sandbox__grep` / `mcp__sandbox__glob`.
-- Read nearby code with `mcp__sandbox__read_file` before editing with `mcp__sandbox__edit_file` or `mcp__sandbox__write_file`.
+- Search for the route, component, handler, resource client, env var, or error text using `mcp__plugin_major-build_major__sandbox_grep` / `mcp__plugin_major-build_major__sandbox_glob`.
+- Read nearby code with `mcp__plugin_major-build_major__sandbox_read_file` before editing with `mcp__plugin_major-build_major__sandbox_edit_file` or `mcp__plugin_major-build_major__sandbox_write_file`.
 - Follow the app-specific conventions provided to you as context.
 - If data shape is involved, inspect the relevant MCP resource or generated client before changing UI assumptions.
 - If an external API, connector, auth provider, or resource appears unavailable, verify that dependency before patching app code. Report dependency failures as uncertainty instead of looping on frontend fixes.
