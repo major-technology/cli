@@ -656,6 +656,9 @@ func (c *Client) ListSlowOperations(applicationID string, req ListSlowOperations
 	if req.WindowDays > 0 {
 		query.Set("windowDays", fmt.Sprintf("%d", req.WindowDays))
 	}
+	if req.IncludeAll {
+		query.Set("minP95Ms", "0")
+	}
 
 	path := fmt.Sprintf("/applications/%s/slow-operations", applicationID)
 	if encoded := query.Encode(); encoded != "" {
