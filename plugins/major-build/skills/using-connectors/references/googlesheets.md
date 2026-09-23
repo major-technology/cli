@@ -6,8 +6,8 @@ Google Sheets requires a two-step setup: (1) OAuth authentication, (2) spreadshe
 
 ### When the user asks you to set up Google Sheets or connect a spreadsheet:
 
-1. Call `mcp__interactions__request_resource_setup` with `connectorId: "googlesheets"` — this prompts the user to authenticate with Google
-2. After setup completes, call `mcp__interactions__request_resource_update` with the returned `resourceId` and `message: "Please select your spreadsheet. Click 'Configure Resource' below, then use the spreadsheet picker to choose your sheet."` — this prompts them to select their spreadsheet
+1. Call `mcp__plugin_major-build_major__request_resource_setup` with `connectorId: "googlesheets"` — this prompts the user to authenticate with Google
+2. After setup completes, call `mcp__plugin_major-build_major__request_resource_update` with the returned `resourceId` and `message: "Please select your spreadsheet. Click 'Configure Resource' below, then use the spreadsheet picker to choose your sheet."` — this prompts them to select their spreadsheet
 3. Once both steps complete, the resource is ready to use
 
 ### When the user sends a Google Sheets link:
@@ -20,7 +20,7 @@ If the user shares a Google Sheets URL (e.g., `https://docs.google.com/spreadshe
 
 ### When a Google Sheets resource exists but has no spreadsheet selected:
 
-If you call a Google Sheets MCP tool and get an error indicating no spreadsheet is configured, use `mcp__interactions__request_resource_update` to prompt the user to select one.
+If you call a Google Sheets MCP tool and get an error indicating no spreadsheet is configured, use `mcp__plugin_major-build_major__request_resource_update` to prompt the user to select one.
 
 ---
 

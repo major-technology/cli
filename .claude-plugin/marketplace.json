@@ -10,12 +10,6 @@
   },
   "plugins": [
     {
-      "name": "major",
-      "source": "./plugins/major",
-      "description": "Use the Major platform agentically via Claude Code",
-      "version": "1.0.7"
-    },
-    {
       "name": "major-build",
       "source": "./plugins/major-build",
       "description": "Skills for building on Major (apps, agents, skills, workflows) and using its connectors — shared by Claude Code and the Major orchestrator",

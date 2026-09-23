@@ -10,7 +10,7 @@ Customers see a flat key namespace (e.g. `user/avatar.png`); the underlying buck
 
 ## Setting It Up
 
-Managed file storage is **not** offered through `mcp__interactions__request_resource_setup` — that tool only covers connectors set up via the standard Add-Connector dialog, and file storage is provisioned differently. Do not try to set it up that way; it will not appear. Use the dedicated tools instead:
+Managed file storage is **not** offered through `mcp__plugin_major-build_major__request_resource_setup` — that tool only covers connectors set up via the standard Add-Connector dialog, and file storage is provisioned differently. Do not try to set it up that way; it will not appear. Use the dedicated tools instead:
 
 - `mcp__resources__list_managed_file_stores` — list existing file stores in the org. **Always call this first** — reuse an existing store if one fits the use case.
 - `mcp__resources__provision_managed_file_store` — create a new org-level file store. Synchronous; returns `{ resourceId, name }` immediately. Args: `name`. The caller is auto-granted `Resource:Admin`; the All Builders group gets `Resource:Builder`, so any builder in the org can use it.
