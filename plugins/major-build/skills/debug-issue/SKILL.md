@@ -58,6 +58,8 @@ For blank pages, error overlays, server crashes, failed route handlers, or deplo
 - Use `major app errors list` to find recent errors.
 - Use `major app errors get <errorId>` for details before editing.
 - Prefer sourcemapped stack traces and request context from app errors over broad log searches.
+
+When the complaint is slowness rather than failure, run `major app slow-queries list` first. It ranks the app's resource operations by total time with p95 latency and the call site (`callSite.filePath:line`); open that file, and for SQL run EXPLAIN through the connector's tools before editing.
 - After fixing and committing a confirmed app error, use `major app errors resolve <errorId>` only when the issue is actually addressed.
 - If app errors are unavailable and the task is specifically about runtime error monitoring, add the reporter scaffolding before running `major app errors enable`.
 
