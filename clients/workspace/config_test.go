@@ -78,6 +78,25 @@ func TestWriteRejectsNullExistingConfig(t *testing.T) {
 	}
 }
 
+func TestLocateReturnsWorkspaceRootFromNestedDirectory(t *testing.T) {
+	root := t.TempDir()
+	cfg := Config{OrganizationID: testOrgID, Target: Target{Kind: "agent", AgentID: testTargetID}}
+	if err := Write(root, cfg); err != nil {
+		t.Fatal(err)
+	}
+	nested := filepath.Join(root, "notes")
+	if err := os.Mkdir(nested, 0755); err != nil {
+		t.Fatal(err)
+	}
+	gotRoot, got, err := Locate(nested)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if gotRoot != root || got.Target.ID() != testTargetID {
+		t.Fatalf("root=%q target=%+v", gotRoot, got.Target)
+	}
+}
+
 func TestWriteReadRoundTrip(t *testing.T) {
 	dir := t.TempDir()
 	cfg := validAppConfig()

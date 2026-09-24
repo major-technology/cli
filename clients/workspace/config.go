@@ -74,6 +74,21 @@ func (t Target) Validate() error {
 	return nil
 }
 
+func (t Target) ID() string {
+	switch t.Kind {
+	case "app":
+		return t.ApplicationID
+	case "skill":
+		return t.SkillID
+	case "agent":
+		return t.AgentID
+	case "workflow":
+		return t.WorkflowID
+	default:
+		return ""
+	}
+}
+
 func (c Config) Validate() error {
 	if strings.TrimSpace(c.OrganizationID) == "" {
 		return fmt.Errorf("organizationId is required")
@@ -82,9 +97,14 @@ func (c Config) Validate() error {
 }
 
 func Load(startDir string) (*Config, error) {
+	_, cfg, err := Locate(startDir)
+	return cfg, err
+}
+
+func Locate(startDir string) (string, *Config, error) {
 	dir, err := filepath.Abs(startDir)
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	}
 
 	for {
@@ -93,21 +113,21 @@ func Load(startDir string) (*Config, error) {
 		if err == nil {
 			cfg, parseErr := parseConfig(path, data)
 			if parseErr != nil {
-				return nil, parseErr
+				return "", nil, parseErr
 			}
-			return cfg, nil
+			return dir, cfg, nil
 		}
 		if !os.IsNotExist(err) {
-			return nil, err
+			return "", nil, err
 		}
 
 		if _, statErr := os.Lstat(filepath.Join(dir, ".git")); statErr == nil {
-			return nil, ErrNotFound
+			return "", nil, ErrNotFound
 		}
 
 		parent := filepath.Dir(dir)
 		if parent == dir {
-			return nil, ErrNotFound
+			return "", nil, ErrNotFound
 		}
 		dir = parent
 	}
