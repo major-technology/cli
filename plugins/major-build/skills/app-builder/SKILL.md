@@ -70,6 +70,7 @@ Two playbooks — use the relevant one before you start:
 
 - Load the `debug-issue` skill whenever you're investigating a failure, regression, or broken/blank/errored behavior in the app (covers the preview, app errors, logs, and browser inspection).
 - Read [references/using-agents.md](references/using-agents.md) (in this skill's directory) when wiring the app's runtime code to trigger Major agents (run / sendMessage / stop / approvals; `sandbox_add-agent-client` generates the typed client, same pattern as resource clients).
+- To call another app in the org, run `major app-client add --id <appId>` (ids from `major app list`), then `await <name>Fetch('/path')` from server code.
 
 ## Recurring work
 
