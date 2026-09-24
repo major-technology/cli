@@ -100,3 +100,25 @@ func TestRegisteredTargetRunsAllActionsWithoutRunnerChanges(t *testing.T) {
 		t.Fatalf("calls=%v", f.called)
 	}
 }
+
+func TestTextOutputIsReadableAndOmitsDownloadURL(t *testing.T) {
+	cmd := &cobra.Command{}
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	cmd.Flags().Bool("json", false, "")
+	if err := output(cmd, versionResult{AgentID: "a1", Name: "Helper", Version: 2, action: "Pulled"}); err != nil {
+		t.Fatal(err)
+	}
+	if out.String() != "Pulled Helper (version 2).\n" {
+		t.Fatalf("text output: %q", out.String())
+	}
+	out.Reset()
+	_ = cmd.Flags().Set("json", "true")
+	if err := output(cmd, versionResult{AgentID: "a1", Name: "Helper", Version: 2, action: "Pulled"}); err != nil {
+		t.Fatal(err)
+	}
+	if out.String() != "{\"agentId\":\"a1\",\"name\":\"Helper\",\"version\":2}\n" {
+		t.Fatalf("json output: %q", out.String())
+	}
+}

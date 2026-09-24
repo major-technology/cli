@@ -3,7 +3,6 @@ package agent
 import (
 	"archive/zip"
 	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -35,6 +34,34 @@ type bundleTarget struct {
 	kind    string
 	apiPath string
 	files   []string
+}
+
+// versionResult is the pull/push output; it leaves out the presigned download URL.
+type versionResult struct {
+	AgentID string `json:"agentId"`
+	Name    string `json:"name"`
+	Version int    `json:"version"`
+	action  string
+}
+
+func (r versionResult) String() string {
+	return fmt.Sprintf("%s %s (version %d).", r.action, r.Name, r.Version)
+}
+
+type validateResult struct{ *api.AgentValidateResponse }
+
+func (r validateResult) String() string {
+	lines := []string{"Agent bundle is valid."}
+	for _, warning := range r.Warnings {
+		lines = append(lines, "Warning: "+warning)
+	}
+	return strings.Join(lines, "\n")
+}
+
+type publishResult struct{ *api.AgentPublishResponse }
+
+func (r publishResult) String() string {
+	return fmt.Sprintf("Published version %d.", r.Version)
 }
 
 var registry = map[string]Target{"agent": bundleTarget{kind: "agent", apiPath: "agents", files: []string{"agent.jsonc", "agent.json", "prompt.md"}}}
@@ -75,12 +102,7 @@ func runTargetAction(cmd *cobra.Command, action string) error {
 	if err != nil {
 		return err
 	}
-	jsonOutput, _ := cmd.Flags().GetBool("json")
-	if jsonOutput {
-		return json.NewEncoder(cmd.OutOrStdout()).Encode(result)
-	}
-	cmd.Println(result)
-	return nil
+	return output(cmd, result)
 }
 
 func (t bundleTarget) Pull(ctx *TargetContext) (any, error) {
@@ -95,7 +117,7 @@ func (t bundleTarget) Pull(ctx *TargetContext) (any, error) {
 	if err := unpackAgent(ctx.Root, data); err != nil {
 		return nil, err
 	}
-	return resp, nil
+	return versionResult{AgentID: resp.AgentID, Name: resp.Name, Version: resp.Version, action: "Pulled"}, nil
 }
 func (t bundleTarget) Push(ctx *TargetContext) (any, error) {
 	files, err := readAgentFiles(ctx.Root)
@@ -123,7 +145,11 @@ func (t bundleTarget) Push(ctx *TargetContext) (any, error) {
 	if err := transfer.Upload(upload.UploadURL, b.Bytes()); err != nil {
 		return nil, err
 	}
-	return ctx.API.PushAgent(ctx.Config.Target.ID(), upload.UploadKey, ctx.Notes)
+	pushed, err := ctx.API.PushAgent(ctx.Config.Target.ID(), upload.UploadKey, ctx.Notes)
+	if err != nil {
+		return nil, err
+	}
+	return versionResult{AgentID: pushed.AgentID, Name: pushed.Name, Version: pushed.Version, action: "Saved"}, nil
 }
 func (t bundleTarget) Validate(ctx *TargetContext) (any, error) {
 	files, err := readAgentFiles(ctx.Root)
@@ -141,10 +167,14 @@ func (t bundleTarget) Validate(ctx *TargetContext) (any, error) {
 		}
 		return nil, fmt.Errorf("agent bundle is invalid: %s", strings.Join(messages, "; "))
 	}
-	return result, nil
+	return validateResult{result}, nil
 }
 func (t bundleTarget) Publish(ctx *TargetContext) (any, error) {
-	return ctx.API.PublishAgent(ctx.Config.Target.ID())
+	published, err := ctx.API.PublishAgent(ctx.Config.Target.ID())
+	if err != nil {
+		return nil, err
+	}
+	return publishResult{published}, nil
 }
 
 func readAgentFiles(root string) ([]api.AgentFile, error) {

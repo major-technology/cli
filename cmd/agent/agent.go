@@ -1,11 +1,11 @@
 package agent
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/charmbracelet/huh"
 	"github.com/major-technology/cli/clients/api"
@@ -42,11 +42,40 @@ func organizationID() (string, error) {
 func output(cmd *cobra.Command, result any) error {
 	jsonOutput, _ := cmd.Flags().GetBool("json")
 	if jsonOutput {
-		return json.NewEncoder(cmd.OutOrStdout()).Encode(result)
+		return utils.WriteJSON(cmd, result)
 	}
 	cmd.Println(result)
 	return nil
 }
+
+type listResult struct{ *api.AgentListResponse }
+
+func (r listResult) String() string {
+	if len(r.Agents) == 0 {
+		return "No agents found."
+	}
+	lines := make([]string, 0, len(r.Agents))
+	for _, item := range r.Agents {
+		status := "draft"
+		if item.IsPublished {
+			status = "published"
+		}
+		lines = append(lines, fmt.Sprintf("%s  %s  (%s)", item.AgentID, item.Name, status))
+	}
+	return strings.Join(lines, "\n")
+}
+
+type cloneResult struct {
+	AgentID string `json:"agentId"`
+	Path    string `json:"path"`
+	Version int    `json:"version"`
+	name    string
+}
+
+func (r cloneResult) String() string {
+	return fmt.Sprintf("Cloned %s (version %d) into %s.", r.name, r.Version, r.Path)
+}
+
 func newListCmd() *cobra.Command {
 	var readOnly bool
 	cmd := &cobra.Command{Use: "list", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
@@ -58,7 +87,7 @@ func newListCmd() *cobra.Command {
 		if err != nil {
 			return err
 		}
-		return output(cmd, result)
+		return output(cmd, listResult{result})
 	}}
 	cmd.Flags().BoolVar(&readOnly, "include-read-only", false, "Include agents you can use but not edit")
 	return cmd
@@ -148,8 +177,8 @@ func cloneToDirectory(cmd *cobra.Command, org, id, dir string) error {
 	if err != nil {
 		return err
 	}
-	pull := result.(*api.AgentPullResponse)
-	return output(cmd, map[string]any{"agentId": pull.AgentID, "path": dir, "version": pull.Version})
+	pull := result.(versionResult)
+	return output(cmd, cloneResult{AgentID: pull.AgentID, Path: dir, Version: pull.Version, name: pull.Name})
 }
 
 func TargetCommands() []*cobra.Command {

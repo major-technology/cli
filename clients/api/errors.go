@@ -76,17 +76,14 @@ var errorCodeToCLIError = map[int]*clierrors.CLIError{
 // If a specific error code mapping exists, it returns that CLIError
 // Otherwise, it creates a generic CLIError with the API error details
 func ToCLIError(errResp *ErrorResponse) error {
-	if errResp.Error.Message != "" {
-		result := &clierrors.CLIError{Title: errResp.Error.Message, StatusCode: errResp.Error.StatusCode}
-		if mapped, exists := errorCodeToCLIError[errResp.Error.InternalCode]; exists {
-			result.Suggestion = mapped.Suggestion
-		}
-		return result
-	}
-
 	// Check if we have a specific mapping for this error code
 	if cliErr, exists := errorCodeToCLIError[errResp.Error.InternalCode]; exists {
 		return cliErr
+	}
+
+	// Unmapped codes (including 2007) carry a server message that names the next step
+	if errResp.Error.Message != "" {
+		return &clierrors.CLIError{Title: errResp.Error.Message, StatusCode: errResp.Error.StatusCode}
 	}
 
 	// No specific mapping - create a generic CLIError with API details
