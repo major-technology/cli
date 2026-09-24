@@ -63,7 +63,7 @@ For blank pages, error overlays, server crashes, failed route handlers, or deplo
 
 ## Slow operations
 
-When the complaint is slowness rather than failure, run `major app performance list` first. It ranks the app's resource operations by total time with p95 latency and the call site (`callSite.filePath:line`). Only operations over 500 ms p95 are returned; add `--all` to see everything, and `--environment coding-session` for preview traffic. Open the call site, and for SQL run EXPLAIN through the connector's tools before editing.
+When the complaint is slowness rather than failure, run `major resource invocations --slow` first. It ranks the app's resource operations by total time with p95 latency and the call site (`callSite.filePath:line`). The `--slow` flag includes only operations over 500 ms p95; omit it to see everything, and use `--environment coding-session` for preview traffic. Open the call site, and for SQL run EXPLAIN through the connector's tools before editing.
 
 ## App logs
 
