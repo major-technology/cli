@@ -66,7 +66,7 @@ Run `major app theme get` in the app workspace before frontend work. It returns 
 
 ## Debugging & agent-triggering playbooks
 
-Two playbooks — use the relevant one before you start:
+Use whichever applies before you start:
 
 - Load the `debug-issue` skill whenever you're investigating a failure, regression, or broken/blank/errored behavior in the app (covers the preview, app errors, logs, and browser inspection).
 - Read [references/using-agents.md](references/using-agents.md) (in this skill's directory) when wiring the app's runtime code to trigger Major agents (run / sendMessage / stop / approvals; `sandbox_add-agent-client` generates the typed client, same pattern as resource clients).
