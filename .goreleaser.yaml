@@ -60,4 +60,7 @@ blobs:
     bucket: major-cli-releases
     region: us-west-1
     directory: "{{ .Version }}"
-    acl: public-read
+    # Public read is served by the bucket policy on major-cli-releases
+    # (terraform/global/releases.tf in mono-builder); goreleaser must not set
+    # per-object ACLs - its ACL upload path regressed under version: latest
+    # and broke the v1.0.9 release twice ("could not apply before write").
