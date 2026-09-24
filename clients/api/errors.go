@@ -15,6 +15,7 @@ const (
 	ErrorCodeTokenNotFound        = 2003
 	ErrorCodeInvalidDeviceCode    = 2004
 	ErrorCodeAuthorizationPending = 2005
+	ErrorCodeTokenTypeNotAllowed  = 2007
 
 	// Organization Errors (3000-3099)
 	ErrorCodeOrganizationNotFound = 3000
@@ -36,6 +37,7 @@ const (
 type AppErrorDetail struct {
 	InternalCode int    `json:"internal_code"`
 	ErrorString  string `json:"error_string"`
+	Message      string `json:"message"`
 	StatusCode   int    `json:"status_code"`
 }
 
@@ -77,6 +79,11 @@ func ToCLIError(errResp *ErrorResponse) error {
 	// Check if we have a specific mapping for this error code
 	if cliErr, exists := errorCodeToCLIError[errResp.Error.InternalCode]; exists {
 		return cliErr
+	}
+
+	// Unmapped codes (including 2007) carry a server message that names the next step
+	if errResp.Error.Message != "" {
+		return &clierrors.CLIError{Title: errResp.Error.Message, StatusCode: errResp.Error.StatusCode}
 	}
 
 	// No specific mapping - create a generic CLIError with API details

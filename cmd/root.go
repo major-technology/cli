@@ -10,6 +10,7 @@ import (
 	"github.com/major-technology/cli/clients/api"
 	"github.com/major-technology/cli/clients/config"
 	mjrToken "github.com/major-technology/cli/clients/token"
+	"github.com/major-technology/cli/cmd/agent"
 	"github.com/major-technology/cli/cmd/app"
 	cliconfig "github.com/major-technology/cli/cmd/config"
 	"github.com/major-technology/cli/cmd/demo"
@@ -124,6 +125,13 @@ func init() {
 
 	app.Cmd.GroupID = "main"
 	rootCmd.AddCommand(app.Cmd)
+
+	agent.Cmd.GroupID = "main"
+	rootCmd.AddCommand(agent.Cmd)
+	for _, command := range agent.TargetCommands() {
+		command.GroupID = "main"
+		rootCmd.AddCommand(command)
+	}
 
 	rootCmd.AddCommand(demo.Cmd)
 
