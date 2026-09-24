@@ -50,23 +50,16 @@ func runAdd(cobraCmd *cobra.Command) error {
 		return fmt.Errorf("an application cannot add a client for itself")
 	}
 
-	apps, err := singletons.GetAPIClient().GetOrganizationApplications(appInfo.OrganizationID)
+	targetInfo, err := singletons.GetAPIClient().GetApplicationInfo(flagAddID)
 	if err != nil {
-		return errors.WrapError("failed to list applications", err)
+		return errors.WrapError(fmt.Sprintf("application with ID %q not found or not visible", flagAddID), err)
 	}
 
-	name := ""
-	for _, a := range apps.Applications {
-		if a.ID == flagAddID {
-			name = a.Name
-			break
-		}
+	if targetInfo.OrganizationID != appInfo.OrganizationID {
+		return fmt.Errorf("application with ID %q is not in this organization", flagAddID)
 	}
 
-	if name == "" {
-		return fmt.Errorf("application with ID %q not found in organization", flagAddID)
-	}
-
+	name := targetInfo.Name
 	if flagAddName != "" {
 		name = flagAddName
 	}
