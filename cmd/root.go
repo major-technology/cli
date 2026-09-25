@@ -19,6 +19,7 @@ import (
 	"github.com/major-technology/cli/cmd/org"
 	"github.com/major-technology/cli/cmd/project"
 	"github.com/major-technology/cli/cmd/resource"
+	"github.com/major-technology/cli/cmd/sandbox"
 	"github.com/major-technology/cli/cmd/skill"
 	"github.com/major-technology/cli/cmd/target"
 	"github.com/major-technology/cli/cmd/user"
@@ -158,6 +159,9 @@ func init() {
 
 	project.Cmd.GroupID = "main"
 	rootCmd.AddCommand(project.Cmd)
+
+	sandbox.Cmd.GroupID = "main"
+	rootCmd.AddCommand(sandbox.Cmd)
 
 	rootCmd.AddCommand(mcp.Cmd)
 
