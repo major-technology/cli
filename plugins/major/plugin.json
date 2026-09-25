@@ -1,0 +1,24 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "major",
+  "version": "1.0.0",
+  "description": "Build and manage Major apps, agents, skills, workflows, and connected resources.",
+  "author": {
+    "name": "Major Technology"
+  },
+  "repository": "https://github.com/major-technology/cli",
+  "license": "MIT",
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "Major",
+        "shortDescription": "Build apps and agents on Major",
+        "longDescription": "Create and manage Major apps, agents, skills, workflows, and connected resources from ChatGPT.",
+        "developerName": "Major Technology",
+        "category": "Developer Tools",
+        "capabilities": ["Interactive"],
+        "defaultPrompt": "Help me build something on Major."
+      }
+    }
+  }
+}
