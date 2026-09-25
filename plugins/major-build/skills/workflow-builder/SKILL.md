@@ -89,7 +89,7 @@ Node outputs by type:
 
 ## Workflow
 
-1. Ask what the workflow should do, which agents/apps it touches (`list_agents` / `list_apps` with `include_read_only: true`, or `list_use_apps`, to discover ids), and the cadence. When an `app_call` needs endpoints or request/response shapes, load the `using-apps` skill.
+1. Ask what the workflow should do, which agents/apps it touches (`list_agents` / `list_apps` with `include_read_only: true` to discover ids), and the cadence. When an `app_call` needs endpoints or request/response shapes, load the `using-apps` skill.
 2. `create_workflow` (or `start_sandbox` for an existing one) — the builder panel opens so the user can see the graph.
 3. Draft the JSONC. Iterate with the sandbox file tools, `sandbox_validate` as you go, and `sandbox_push` at the end of every turn you edited in.
 4. Test with `run_workflow` (it runs what you last saved), then inspect with `get_workflow_run`.

@@ -66,7 +66,7 @@ On Slack there is no panel. Tell the user to open the agent in the web app to fi
 
 ## Picking connectors and applications
 
-- Use `mcp__plugin_major-build_major__execute_resource_tool` with `toolName: "mcp__resources__list_resources"` to list the org's connectors; `mcp__plugin_major-build_major__list_apps` lists attachable apps. **Use `list_apps`, not `list_use_apps`** — an agent can only be granted apps the user can edit.
+- Use `mcp__plugin_major-build_major__execute_resource_tool` with `toolName: "mcp__resources__list_resources"` to list the org's connectors; `mcp__plugin_major-build_major__list_apps` lists attachable apps. **Use `list_apps` without `include_read_only`** — an agent can only be granted apps the user can edit.
 - If no existing connector matches, call `mcp__plugin_major-build_major__request_resource_setup` to prompt the user to create one inline. `connectorId` is required — pass one you already know (e.g. `"postgresql"`, `"snowflake"`) or use `mcp__plugin_major-build_major__execute_resource_tool` with `toolName: "mcp__resources__search_connector_types"` to discover the connectors you can set up; ask if unsure. The tool blocks until the user finishes or declines; on success add the returned `resourceId` to `connectors` in `agent.jsonc`.
 - Slack is provisioned automatically when the user installs the Major Slack integration (Settings → Integrations) and is intentionally not a creatable connector — if it's missing from `list_resources`, tell them to install the integration.
 - If an existing connector needs more configuration to be usable (e.g. selecting a Google Sheets spreadsheet), call `mcp__plugin_major-build_major__request_resource_update` with the `resourceId` and what's missing.
