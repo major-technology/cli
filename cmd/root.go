@@ -13,6 +13,7 @@ import (
 	mjrToken "github.com/major-technology/cli/clients/token"
 	"github.com/major-technology/cli/cmd/agent"
 	"github.com/major-technology/cli/cmd/app"
+	"github.com/major-technology/cli/cmd/appclient"
 	cliconfig "github.com/major-technology/cli/cmd/config"
 	"github.com/major-technology/cli/cmd/demo"
 	"github.com/major-technology/cli/cmd/mcp"
@@ -152,6 +153,9 @@ func init() {
 
 	resource.Cmd.GroupID = "main"
 	rootCmd.AddCommand(resource.Cmd)
+
+	appclient.Cmd.GroupID = "main"
+	rootCmd.AddCommand(appclient.Cmd)
 
 	vars.Cmd.GroupID = "main"
 	rootCmd.AddCommand(vars.Cmd)
