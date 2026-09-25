@@ -148,17 +148,10 @@ func (c *Client) StopAgentRun(runID string) (*AgentRunStatusResponse, error) {
 	err := c.doRequest("POST", runPath(runID, "stop"), map[string]any{}, &resp)
 	return &resp, err
 }
-func (c *Client) GetAgentRunContent(runID string, limit int, nextToken string) (*AgentRunContentResponse, error) {
-	query := url.Values{}
-	if limit > 0 {
-		query.Set("limit", strconv.Itoa(limit))
-	}
-	if nextToken != "" {
-		query.Set("nextToken", nextToken)
-	}
+func (c *Client) GetAgentRunContent(runID, nextToken string) (*AgentRunContentResponse, error) {
 	path := runPath(runID, "content")
-	if len(query) > 0 {
-		path += "?" + query.Encode()
+	if nextToken != "" {
+		path += "?" + url.Values{"nextToken": {nextToken}}.Encode()
 	}
 	var resp AgentRunContentResponse
 	err := c.doRequest("GET", path, nil, &resp)

@@ -55,7 +55,7 @@ func (r runContentResult) String() string {
 		lines = append(lines, string(compactJSON(message)))
 	}
 	if r.NextToken != nil && *r.NextToken != "" {
-		lines = append(lines, fmt.Sprintf("Older messages: pass --next-token %s.", *r.NextToken))
+		lines = append(lines, fmt.Sprintf("Older messages: pass --next-token '%s'.", strings.ReplaceAll(*r.NextToken, "'", `'\''`)))
 	}
 	return strings.Join(lines, "\n")
 }
@@ -144,16 +144,14 @@ func newRunStopCmd() *cobra.Command {
 }
 
 func newRunContentCmd() *cobra.Command {
-	var limit int
 	var nextToken string
 	cmd := &cobra.Command{Use: "content <runId>", Short: "Read a run's messages", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
-		result, err := singletons.GetAPIClient().GetAgentRunContent(args[0], limit, nextToken)
+		result, err := singletons.GetAPIClient().GetAgentRunContent(args[0], nextToken)
 		if err != nil {
 			return err
 		}
 		return target.Output(cmd, runContentResult{result})
 	}}
-	cmd.Flags().IntVar(&limit, "limit", 0, "Maximum messages to return")
 	cmd.Flags().StringVar(&nextToken, "next-token", "", "Token from a previous page, for older messages")
 	return cmd
 }

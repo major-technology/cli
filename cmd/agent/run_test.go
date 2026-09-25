@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/major-technology/cli/clients/api"
 	"github.com/major-technology/cli/clients/workspace"
 	"github.com/spf13/cobra"
 )
@@ -81,5 +82,13 @@ func TestRunListRejectsAnUnknownSource(t *testing.T) {
 	err := executeNonInteractive(newRunCmd(), "list", "--id", testAgentID, "--source", "bogus")
 	if err == nil || !strings.Contains(err.Error(), "workflow") || !strings.Contains(err.Error(), "external_channel") {
 		t.Fatalf("err=%v", err)
+	}
+}
+
+func TestRunContentHintQuotesTheToken(t *testing.T) {
+	token := `{"pk":"thread#1","sk":"msg#2"}`
+	text := runContentResult{&api.AgentRunContentResponse{NextToken: &token}}.String()
+	if !strings.Contains(text, `--next-token '{"pk":"thread#1","sk":"msg#2"}'.`) {
+		t.Fatalf("hint: %q", text)
 	}
 }

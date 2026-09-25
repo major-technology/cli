@@ -192,24 +192,24 @@ func TestStopAgentRun(t *testing.T) {
 
 func TestGetAgentRunContent(t *testing.T) {
 	client, req := agentRunServer(t, map[string]any{"messages": []any{map[string]any{"id": "m1"}}, "nextToken": "t2"})
-	resp, err := client.GetAgentRunContent(testRunID, 10, "t1")
+	resp, err := client.GetAgentRunContent(testRunID, "t1")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if req.method != "GET" || req.path != "/cli/agents/runs/"+testRunID+"/content" {
 		t.Fatalf("request: %s %s", req.method, req.path)
 	}
-	if req.query["limit"][0] != "10" || req.query["nextToken"][0] != "t1" {
+	if len(req.query) != 1 || req.query["nextToken"][0] != "t1" {
 		t.Fatalf("query %v", req.query)
 	}
 	if len(resp.Messages) != 1 || resp.NextToken == nil || *resp.NextToken != "t2" {
 		t.Fatalf("response: %+v", resp)
 	}
-	if _, err := client.GetAgentRunContent(testRunID, 0, ""); err != nil {
+	if _, err := client.GetAgentRunContent(testRunID, ""); err != nil {
 		t.Fatal(err)
 	}
 	if len(req.query) != 0 {
-		t.Fatalf("zero params sent: %v", req.query)
+		t.Fatalf("empty token sent: %v", req.query)
 	}
 }
 
