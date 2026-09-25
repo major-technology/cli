@@ -1,5 +1,5 @@
 {
-  "name": "major-build",
+  "name": "major",
   "description": "Skills for building on Major — apps, agents, skills, workflows — and for using its connectors. Shared by Claude Code and the Major orchestrator.",
   "version": "1.0.0",
   "author": {

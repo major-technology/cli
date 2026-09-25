@@ -7,7 +7,7 @@
 **Three ways to interact with Stripe:**
 
 1. **MCP tools** (direct, no code needed): Tools follow the pattern `mcp__resources__<resourcetype>_<toolname>`. Use `mcp__resources__list_resources` to discover available resources and their IDs.
-2. **Generated TypeScript clients** (for app code): Call `mcp__plugin_major-build_major__sandbox_add-resource-client` with the app's `slug` and a `resourceId` to generate a typed client. Clients are created in `/clients/` (Next.js) or `/src/clients/` (Vite).
+2. **Generated TypeScript clients** (for app code): Call `mcp__plugin_major_major__sandbox_add-resource-client` with the app's `slug` and a `resourceId` to generate a typed client. Clients are created in `/clients/` (Next.js) or `/src/clients/` (Vite).
 3. **Official Stripe SDK via the HTTP proxy** (Next.js apps): Pass `createProxyFetch` into `Stripe.createFetchHttpClient(...)`. See the **Stripe SDK via the HTTP proxy** section below — preferred when you want full Stripe SDK ergonomics (typed methods, autocomplete, automatic pagination).
 
 **CRITICAL: Do NOT guess client method names or signatures.** The TypeScript clients in `@major-tech/resource-client` have strongly typed inputs and outputs. ALWAYS read the actual client source code in the generated `/clients/` directory (or the package itself) to verify available methods and their exact signatures before writing any client code.

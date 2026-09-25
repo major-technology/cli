@@ -1,6 +1,6 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
-  "name": "major-build",
+  "name": "major",
   "version": "1.0.0",
   "description": "Build and manage Major apps, agents, skills, workflows, and connected resources.",
   "author": {
@@ -11,7 +11,7 @@
   "extensions": {
     "com.openai": {
       "interface": {
-        "displayName": "Major Build",
+        "displayName": "Major",
         "shortDescription": "Build apps and agents on Major",
         "longDescription": "Create and manage Major apps, agents, skills, workflows, and connected resources from ChatGPT.",
         "developerName": "Major Technology",

@@ -1,5 +1,5 @@
 {
-  "name": "major-tools",
+  "name": "major",
   "owner": {
     "name": "Major Technology",
     "email": "support@major.build"
@@ -10,7 +10,7 @@
   },
   "plugins": [
     {
-      "name": "major-build",
+      "name": "major",
       "source": "./plugins/major-build",
       "description": "Skills for building on Major (apps, agents, skills, workflows) and using its connectors — shared by Claude Code and the Major orchestrator",
       "version": "1.0.0"

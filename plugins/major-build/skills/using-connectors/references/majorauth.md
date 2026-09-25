@@ -5,7 +5,7 @@
 **Two ways to interact with resources:**
 
 1. **MCP tools** (direct, no code needed): Tools follow the pattern `mcp__resources__<resourcetype>_<toolname>`. Use `mcp__resources__list_resources` to discover available resources and their IDs.
-2. **Generated TypeScript clients** (for app code): Call `mcp__plugin_major-build_major__sandbox_add-resource-client` with the app's `slug` and a `resourceId` to generate a typed client. Clients are created in `/clients/` (Next.js) or `/src/clients/` (Vite).
+2. **Generated TypeScript clients** (for app code): Call `mcp__plugin_major_major__sandbox_add-resource-client` with the app's `slug` and a `resourceId` to generate a typed client. Clients are created in `/clients/` (Next.js) or `/src/clients/` (Vite).
 
 **CRITICAL: Do NOT guess client method names or signatures.** The TypeScript clients in `@major-tech/resource-client` have strongly typed inputs and outputs. ALWAYS read the actual client source code in the generated `/clients/` directory (or the package itself) to verify available methods and their exact signatures before writing any client code.
 
@@ -22,7 +22,7 @@
 The Major Auth Connector is a **managed resource** that exists by default in every organization. To use it:
 
 1. Call `mcp__resources__list_resources` to discover available resources — look for the one with subtype `majorauth` (named "Major Auth Connector").
-2. Call `mcp__plugin_major-build_major__sandbox_add-resource-client` with the app's `slug` and that `resourceId` to generate a typed `MajorAuthResourceClient`.
+2. Call `mcp__plugin_major_major__sandbox_add-resource-client` with the app's `slug` and that `resourceId` to generate a typed `MajorAuthResourceClient`.
 3. Use the generated client in your app code to share or revoke access.
 
 ## MCP Tools

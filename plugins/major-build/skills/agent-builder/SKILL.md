@@ -15,7 +15,7 @@ prompt.md     the system prompt — the file IS the prompt, no wrapper
 
 If you don't have enough information to write a good system prompt or pick connectors, ask the user — it is better to ask than to guess.
 
-Finding, creating, and opening agents is on `mcp__plugin_major-build_major__*` (`list` and `create` with `target_type: "agent"`, `start_sandbox`); the orchestrator tool is `mcp__orchestrator-platform__publish`. File editing and sync go through the sandbox tools `mcp__plugin_major-build_major__sandbox_*` (`sandbox_read_file`, `sandbox_edit_file`, `sandbox_write_file`, `sandbox_pull`, `sandbox_push`, `sandbox_validate`), each called with `agent: "<agentId>"` as the target. `publish` takes the same `agent` argument.
+Finding, creating, and opening agents is on `mcp__plugin_major_major__*` (`list` and `create` with `target_type: "agent"`, `start_sandbox`); the orchestrator tool is `mcp__orchestrator-platform__publish`. File editing and sync go through the sandbox tools `mcp__plugin_major_major__sandbox_*` (`sandbox_read_file`, `sandbox_edit_file`, `sandbox_write_file`, `sandbox_pull`, `sandbox_push`, `sandbox_validate`), each called with `agent: "<agentId>"` as the target. `publish` takes the same `agent` argument.
 
 ## The working files, saving, and publishing
 
@@ -64,17 +64,17 @@ On Slack there is no panel. Tell the user to open the agent in the web app to fi
 
 ## Picking connectors and applications
 
-- Use `mcp__plugin_major-build_major__execute_resource_tool` with `toolName: "mcp__resources__list_resources"` to list the org's connectors; `mcp__plugin_major-build_major__list` with `target_type: "app"` lists attachable apps. **Call it without `include_read_only`** — an agent can only be granted apps the user can edit.
-- If no existing connector matches, call `mcp__plugin_major-build_major__request_resource_setup` to prompt the user to create one inline. `connectorId` is required — pass one you already know (e.g. `"postgresql"`, `"snowflake"`) or use `mcp__plugin_major-build_major__execute_resource_tool` with `toolName: "mcp__resources__search_connector_types"` to discover the connectors you can set up; ask if unsure. The tool blocks until the user finishes or declines; on success add the returned `resourceId` to `connectors` in `agent.jsonc`.
+- Use `mcp__plugin_major_major__execute_resource_tool` with `toolName: "mcp__resources__list_resources"` to list the org's connectors; `mcp__plugin_major_major__list` with `target_type: "app"` lists attachable apps. **Call it without `include_read_only`** — an agent can only be granted apps the user can edit.
+- If no existing connector matches, call `mcp__plugin_major_major__request_resource_setup` to prompt the user to create one inline. `connectorId` is required — pass one you already know (e.g. `"postgresql"`, `"snowflake"`) or use `mcp__plugin_major_major__execute_resource_tool` with `toolName: "mcp__resources__search_connector_types"` to discover the connectors you can set up; ask if unsure. The tool blocks until the user finishes or declines; on success add the returned `resourceId` to `connectors` in `agent.jsonc`.
 - Slack is provisioned automatically when the user installs the Major Slack integration (Settings → Integrations) and is intentionally not a creatable connector — if it's missing from `list_resources`, tell them to install the integration.
-- If an existing connector needs more configuration to be usable (e.g. selecting a Google Sheets spreadsheet), call `mcp__plugin_major-build_major__request_resource_update` with the `resourceId` and what's missing.
+- If an existing connector needs more configuration to be usable (e.g. selecting a Google Sheets spreadsheet), call `mcp__plugin_major_major__request_resource_update` with the `resourceId` and what's missing.
 - Don't add connectors or applications speculatively — every one expands the agent's permissions. Keep the set minimal.
 
 ## Research before writing the prompt
 
 A good system prompt names the actual tables, endpoints, and fields the agent will use — not "query the database". Probe what you attached before writing:
 
-- **Connectors:** pass the matching canonical `mcp__resources__*` tool name to `mcp__plugin_major-build_major__execute_resource_tool` — `information_schema` + a few sample rows for SQL databases, object/property lists for CRMs, bucket/key listings for S3, an introspection or health call for APIs. Canonical resource tools are execution targets, not directly callable tools. Stop once you can write a confident prompt — you're not building a data dictionary.
+- **Connectors:** pass the matching canonical `mcp__resources__*` tool name to `mcp__plugin_major_major__execute_resource_tool` — `information_schema` + a few sample rows for SQL databases, object/property lists for CRMs, bucket/key listings for S3, an introspection or health call for APIs. Canonical resource tools are execution targets, not directly callable tools. Stop once you can write a confident prompt — you're not building a data dictionary.
 - **Applications:** call `get_app_skill({applicationId})` first (it returns the endpoints and request/response shapes — usually enough). Probe live endpoints with `do_get_request` only if something is still unclear, and never issue writes via `do_requests` just to learn a shape — ask the user first.
 
 Then cite what you found in `prompt.md`: "query `analytics.daily_sessions` filtered by `user_id`", not "ask the database about sessions". A good prompt is 5–20 lines — if the user gives you a one-liner, draft a proper prompt yourself, after the research, not before.

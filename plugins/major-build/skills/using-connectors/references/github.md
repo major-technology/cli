@@ -4,7 +4,7 @@
 
 GitHub uses a GitHub App installation. When the user asks to connect GitHub:
 
-1. Call `mcp__plugin_major-build_major__request_resource_setup` with `connectorId: "github"`.
+1. Call `mcp__plugin_major_major__request_resource_setup` with `connectorId: "github"`.
 2. Ask the user to finish the GitHub installation flow and select the repositories the app may access.
 3. After setup completes, call `mcp__resources__list_resources` and use the connected GitHub resource's `resourceId` and mounted MCP slug.
 
@@ -20,7 +20,7 @@ GitHub uses a GitHub App installation. When the user asks to connect GitHub:
 
 1. **Mounted GitHub MCP tools** (direct, preferred): The connected GitHub MCP server exposes tools as `mcp__<slug>__<toolName>`. Use `mcp__resources__list_resources` to discover the resource and its slug. The hosted tool catalog covers repositories, files, issues, pull requests, branches, commits, and releases.
 2. **Git token tool** (git CLI only): Call `mcp__resources__github_get_git_token` with the GitHub `resourceId`. Optionally downscope it to repository names and permissions.
-3. **Generated TypeScript client** (app code): Call `mcp__plugin_major-build_major__sandbox_add-resource-client` with the app's `slug` and the `resourceId`. The generated client is created in `/clients/` (Next.js) or `/src/clients/` (Vite).
+3. **Generated TypeScript client** (app code): Call `mcp__plugin_major_major__sandbox_add-resource-client` with the app's `slug` and the `resourceId`. The generated client is created in `/clients/` (Next.js) or `/src/clients/` (Vite).
 4. **HTTP proxy** (Next.js app code or direct MCP calls): Use `createProxyFetch` from `@major-tech/resource-client/next`, or `mcp__resources__http_proxy_get` / `mcp__resources__http_proxy_invoke`, for GitHub REST or GraphQL endpoints not covered by a mounted MCP tool. See [using-http-proxy](http-proxy.md).
 
 **Do not guess tool names or argument shapes.** Mounted tools come from GitHub's hosted MCP server and may change. Inspect the tools available under the connector's actual slug before calling them. After generating a TypeScript client, read its source to verify exact methods and signatures.

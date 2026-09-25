@@ -7,7 +7,7 @@ description: Create and manage Major workflows — JSONC graphs of agent calls, 
 
 A _workflow_ is a graph of steps executed by Major's workflow engine: agents run with prompts, deployed apps get called over HTTP, routers branch on state, loops fan over collections, humans approve over Slack, and schedules, connector events, or authenticated webhooks start the graph. You author the definition as a JSONC file (JSON with comments) on the workflow's sandbox and edit it through the sandbox tools (the "Working with sandboxes" section of your system prompt covers addressing, provisioning, and sharing).
 
-Finding, creating, opening, and running workflows is on `mcp__plugin_major-build_major__*` (`list` and `create` with `target_type: "workflow"`, `start_sandbox`, `run_workflow`). Orchestrator tools are `mcp__orchestrator-platform__*` (`publish`, `list_workflow_runs`, `get_workflow_run`, `list_connector_event_types`). File editing and sync go through the sandbox tools `mcp__plugin_major-build_major__sandbox_*` (`sandbox_read_file`, `sandbox_edit_file`, `sandbox_write_file`, `sandbox_pull`, `sandbox_push`, `sandbox_validate`), each called with `workflow: "<workflowId>"` as the target. `publish` takes the same `workflow` argument.
+Finding, creating, opening, and running workflows is on `mcp__plugin_major_major__*` (`list` and `create` with `target_type: "workflow"`, `start_sandbox`, `run_workflow`). Orchestrator tools are `mcp__orchestrator-platform__*` (`publish`, `list_workflow_runs`, `get_workflow_run`, `list_connector_event_types`). File editing and sync go through the sandbox tools `mcp__plugin_major_major__sandbox_*` (`sandbox_read_file`, `sandbox_edit_file`, `sandbox_write_file`, `sandbox_pull`, `sandbox_push`, `sandbox_validate`), each called with `workflow: "<workflowId>"` as the target. `publish` takes the same `workflow` argument.
 
 ## The working file, saving, and publishing
 
@@ -100,7 +100,7 @@ To pause a live workflow, remove or comment out its trigger, save, and publish.
 
 ## Approvals (Slack-only)
 
-Two distinct approval surfaces, both needing a connected Slack resource. Check first: `mcp__plugin_major-build_major__execute_resource_tool` with `toolName: "mcp__resources__list_resources"` — if no Slack resource exists, Slack isn't connected; say so (it's provisioned by installing the Major Slack integration under Settings → Integrations) instead of asking them to pick a channel. To find a channel id, execute the Slack resource's `mcp__resources__slack_list_channels` the same way.
+Two distinct approval surfaces, both needing a connected Slack resource. Check first: `mcp__plugin_major_major__execute_resource_tool` with `toolName: "mcp__resources__list_resources"` — if no Slack resource exists, Slack isn't connected; say so (it's provisioned by installing the Major Slack integration under Settings → Integrations) instead of asking them to pick a channel. To find a channel id, execute the Slack resource's `mcp__resources__slack_list_channels` the same way.
 
 - A **`human_approval` node** is a first-class step: it posts `config.message` to `config.channel` (`{"type": "slack", "channel_id": ...}`) with `options` as buttons and the run waits for the click (or `on_timeout`). Use it whenever the user wants a person to sign off mid-flow.
 - An `agent_call`'s `approval_channel` (`{"type": "slack", "channel_id": ..., "channel_name": ...}`) routes that agent session's tool-approval requests to Slack; omitted/null keeps approvals in the app. Don't pitch Slack routing unprompted.

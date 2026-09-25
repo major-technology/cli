@@ -10,7 +10,7 @@ Customers see a flat key namespace (e.g. `user/avatar.png`); the underlying buck
 
 ## Setting It Up
 
-Managed file storage is **not** offered through `mcp__plugin_major-build_major__request_resource_setup` — that tool only covers connectors set up via the standard Add-Connector dialog, and file storage is provisioned differently. Do not try to set it up that way; it will not appear. Use the dedicated tools instead:
+Managed file storage is **not** offered through `mcp__plugin_major_major__request_resource_setup` — that tool only covers connectors set up via the standard Add-Connector dialog, and file storage is provisioned differently. Do not try to set it up that way; it will not appear. Use the dedicated tools instead:
 
 - `mcp__resources__list_managed_file_stores` — list existing file stores in the org. **Always call this first** — reuse an existing store if one fits the use case.
 - `mcp__resources__provision_managed_file_store` — create a new org-level file store. Synchronous; returns `{ resourceId, name }` immediately. Args: `name`. The caller is auto-granted `Resource:Admin`; the All Builders group gets `Resource:Builder`, so any builder in the org can use it.
@@ -26,7 +26,7 @@ Once you have a `resourceId`, use it directly with the tools and client below.
    - `mcp__resources__blob_del` — delete an object. Args: `resourceId`, `key`
 
 2. **Generated TypeScript client** (for app code):
-   - Call `mcp__plugin_major-build_major__sandbox_add-resource-client` with the app's `slug` and the `resourceId` to generate a typed client into `/clients/` (Next.js) or `/src/clients/` (Vite).
+   - Call `mcp__plugin_major_major__sandbox_add-resource-client` with the app's `slug` and the `resourceId` to generate a typed client into `/clients/` (Next.js) or `/src/clients/` (Vite).
    - **The `resourceType` you pass MUST be `"blob"`** — that is the underlying resource subtype. It is NOT `"managed_file_store"` / `"managed-file-storage"`; those are only the product name and will fail with `Invalid type`. The generated client class is `BlobResourceClient`.
 
 **CRITICAL: Do NOT guess client method names or signatures.** ALWAYS read the actual generated client source (or the `@major-tech/resource-client` package) before writing client code.
