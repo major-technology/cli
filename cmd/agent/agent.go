@@ -1,7 +1,9 @@
 package agent
 
 import (
+	"errors"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/charmbracelet/huh"
@@ -37,8 +39,28 @@ var agentFiles = target.FileSet{
 
 func init() {
 	Cmd.PersistentFlags().Bool("json", false, "Print one JSON result")
-	Cmd.AddCommand(newListCmd(), newCreateCmd(), newCloneCmd())
+	Cmd.AddCommand(newListCmd(), newCreateCmd(), newCloneCmd(), newInfoCmd(), newRunCmd(), newSlackCmd())
 	target.Register("agent", bundle)
+}
+
+// resolveAgentID returns --id, else the agent of the .major/config.json workspace this
+// command runs in.
+func resolveAgentID(id string) (string, error) {
+	if id != "" {
+		return id, nil
+	}
+	cwd, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+	_, cfg, err := workspace.Locate(cwd)
+	if err != nil && !errors.Is(err, workspace.ErrNotFound) {
+		return "", err
+	}
+	if err != nil || cfg.Target.Kind != "agent" {
+		return "", fmt.Errorf("pass --id <agentId>, or run this command inside an agent folder (one with .major/config.json for an agent)")
+	}
+	return cfg.Target.AgentID, nil
 }
 
 type listResult struct{ *api.AgentListResponse }

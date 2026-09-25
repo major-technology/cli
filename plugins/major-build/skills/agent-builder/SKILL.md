@@ -89,4 +89,17 @@ An agent has **no schedule of its own** — running an agent on a cadence is a p
 
 ## Connecting the agent to Slack
 
-An agent can get its own Slack bot so people @mention it in their workspace: `connect_agent_to_slack({agentId})` provisions a dedicated Slack app and returns the install URL for the user to open. `pause_agent_channel` / `resume_agent_channel` silence and re-enable it. `delete_agent_channel` is permanent — reconnecting later creates a brand-new bot identity that won't reattach to existing threads, so only on the user's explicit ask.
+An agent can get its own Slack bot so people @mention it in their workspace. Manage it with the `major` CLI, run through `sandbox_bash` in the agent sandbox's `/workspace/agent` (the folder names the agent, so no `--id` is needed there):
+
+- `major agent slack connect` provisions a dedicated Slack app and prints the install URL. Give it to the user to open.
+- `major agent slack pause` / `major agent slack resume` silence and re-enable it.
+- `major agent slack delete --yes` is permanent — reconnecting later creates a brand-new bot identity that won't reattach to existing threads, so only on the user's explicit ask.
+
+## Running the agent
+
+Runs use the agent's **published** version, so publish first. Start a run with the Major MCP `run_agent({agentId, prompt})` tool; the user approves it, and it returns a `runId`. (`major agent run` is refused in a sandbox, because only the MCP tool asks the user.) Then, in `/workspace/agent`:
+
+- `major agent run list --mine` lists your runs, newest first (`--live`, `--source <source>`, `--limit`, `--offset` narrow it).
+- `major agent run content <runId>` reads the run's messages.
+- `major agent run send <runId> -m <text>` sends a follow-up (a finished run resumes).
+- `major agent run stop <runId>` stops it.
