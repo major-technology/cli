@@ -35,18 +35,18 @@ The app's preview is always served at `http://localhost:3000`. There is no other
 
 Always check app errors and app logs before opening Playwright. `major app errors list` and `major app logs` explain almost every server, route handler, and runtime failure without needing the browser. Run these CLI commands through `mcp__plugin_major-build_major__sandbox_bash` in the mounted app workspace; load `app-builder` if you need to mount it first. Only open the browser when the bug is purely visual, layout-related, or only observable from the rendered page.
 
-When you do use Playwright, you are limited to **looking at the page**, not driving it:
+When you do use the browser, you are limited to **looking at the page**, not driving it. Run these `major app browser` commands through `mcp__plugin_major-build_major__sandbox_bash` in the mounted app workspace:
 
-- ✅ `mcp__plugin_major-build_major__sandbox_browser_navigate` — open a URL on `http://localhost:3000`.
-- ✅ `mcp__plugin_major-build_major__sandbox_browser_take_screenshot` — capture the rendered page. Always save under `/workspace/.session-files/`; never use `/workspace/app`, repo paths, or relative paths.
-- ✅ `mcp__plugin_major-build_major__sandbox_browser_snapshot` — accessibility snapshot for reading text/structure.
-- ✅ `mcp__plugin_major-build_major__sandbox_browser_wait_for` — wait briefly for a pending/loading state to settle before re-screenshotting.
-- ✅ `mcp__plugin_major-build_major__sandbox_browser_console_messages` — read the browser console when investigating client-side errors.
+- ✅ `major app browser navigate <path>` — open a page on `http://localhost:3000` (a relative path like `/dashboard` works).
+- ✅ `major app browser screenshot <name>.png` — capture the rendered page (add `--full-page` for the whole page). It saves under `.session-files/` and prints the path.
+- ✅ `major app browser snapshot` — accessibility snapshot for reading text/structure.
+- ✅ `major app browser wait-for --time 2` (or `--text "..."`) — wait briefly for a pending/loading state to settle before re-screenshotting.
+- ✅ `major app browser console --level warning` — read the browser console when investigating client-side errors.
 
 Do **not** click, type, drag, hover, resize, fill forms, press keys, evaluate JavaScript, or otherwise interact with or mutate the page. If the bug only reproduces through user interaction, describe the reproduction steps and ask the user to perform them — do not attempt to drive the page yourself.
 
 - Capture the page state before editing code when the problem is visual or route-specific.
-- If a screenshot path is produced, inspect it yourself before making conclusions.
+- If a screenshot path is produced, open it with `mcp__plugin_major-build_major__sandbox_read_file` and inspect it yourself before making conclusions.
 - For challenge-style prompts where the app intentionally contains a hidden bug, exercise the primary UI flow in the browser and look for mismatches between expected behavior and rendered behavior.
 
 When investigating a user-reported issue whose affected surface is broad — a shared component, layout, theme/CSS, or anything imported by many pages — discover the app's routes from `http://localhost:3000/__major_devtools_routes__.json` and check the affected ones in the browser rather than guessing from code alone. For a single-page complaint, navigate and screenshot that page.
