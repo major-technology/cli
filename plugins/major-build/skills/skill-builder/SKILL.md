@@ -7,7 +7,7 @@ description: Create and manage Major agent skills — versioned file bundles (SK
 
 A _skill_ is a versioned bundle — `SKILL.md` (required) + optional `references/*.md` + optional `scripts/*.{js,ts}` — that an attached agent loads on demand. Turn the user's intent into a focused bundle. Pure-instruction skills are fine; when a skill does real work it's a **script** that talks to a resource through the proxy or a generated client (never hand-written client/auth code). You author the bundle on the skill's sandbox and edit it through the sandbox tools (the "Working with sandboxes" section of your system prompt covers addressing, provisioning, and sharing).
 
-Finding, creating, and opening skills is on `mcp__plugin_major-build_major__*` (`list_skills`, `create_skill`, `start_sandbox`); the orchestrator tool is `mcp__orchestrator-platform__publish`. File editing and sync go through the sandbox tools `mcp__plugin_major-build_major__sandbox_*` (`sandbox_read_file`, `sandbox_edit_file`, `sandbox_write_file`, `sandbox_pull`, `sandbox_push`, `sandbox_validate`), each called with `skill: "<skillId>"` as the target. `publish` takes the same `skill` argument.
+Finding, creating, and opening skills is on `mcp__plugin_major-build_major__*` (`list` and `create` with `target_type: "skill"`, `start_sandbox`); the orchestrator tool is `mcp__orchestrator-platform__publish`. File editing and sync go through the sandbox tools `mcp__plugin_major-build_major__sandbox_*` (`sandbox_read_file`, `sandbox_edit_file`, `sandbox_write_file`, `sandbox_pull`, `sandbox_push`, `sandbox_validate`), each called with `skill: "<skillId>"` as the target. `publish` takes the same `skill` argument.
 
 ## The working files, saving, and publishing
 
@@ -18,7 +18,7 @@ Each skill's working copy lives on its own sandbox under the workspace root. Two
 
 So a saved-but-unpublished draft is inert to attached agents — the agent that has it attached is the one that loads `SKILL.md`, at the last **published** version. Scripts are different: run them on this sandbox before saving.
 
-Always use a `skillId` returned by `list_skills` or `create_skill` — never invent one. If this chat is pinned to a skill, the "Working with this skill" section of your system prompt carries the bound-chat rules (its id, recovery, discard) — those win.
+Always use a `skillId` returned by `list` or `create` (`target_type: "skill"`) — never invent one. If this chat is pinned to a skill, the "Working with this skill" section of your system prompt carries the bound-chat rules (its id, recovery, discard) — those win.
 
 ## Save discipline
 
@@ -28,8 +28,8 @@ Always use a `skillId` returned by `list_skills` or `create_skill` — never inv
 
 ## Lifecycle
 
-- **Edit existing**: `list_skills` to find it, then `start_sandbox({skill: "<skillId>"})` — it mounts (or joins) the skill's sandbox. Edit the files with the sandbox tools, saving as you finish each round.
-- **New**: `create_skill({})` — it creates an empty draft (server-minted `skillId`), mounts its sandbox seeded with a scaffold, and returns where the files live. Build the bundle in that folder.
+- **Edit existing**: `list({target_type: "skill"})` to find it, then `start_sandbox({skill: "<skillId>"})` — it mounts (or joins) the skill's sandbox. Edit the files with the sandbox tools, saving as you finish each round.
+- **New**: `create({target_type: "skill"})` — it creates an empty draft (server-minted `skillId`), mounts its sandbox seeded with a scaffold, and returns where the files live. Build the bundle in that folder.
 - **Check a draft**: `sandbox_validate` — validates the sandbox bundle against the platform's rules without saving. Saving also validates; on failure nothing is saved and the error list comes back — fix the files and save again.
 - **Test scripts**: `tsx` and `@major-tech/resource-client` are on the sandbox (same as the agent pod). From the workspace root, `tsx scripts/<task>.ts` via the `sandbox_bash` tool — env already has `MAJOR_GO_RESOURCE_URL` / `MAJOR_RESOURCES_API_TOKEN`. Extra `package.json` deps: `npm install` first (`node_modules` isn't saved). `sandbox_validate` only checks bundle shape (frontmatter, file rules), not script correctness.
 - **Save**: `sandbox_push({notes})` — every save writes a new immutable version.

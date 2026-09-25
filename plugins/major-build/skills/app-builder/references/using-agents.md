@@ -8,7 +8,7 @@ A **run is a chat thread.** The `chatThreadId` returned by `run()` is the `runId
 
 ## Generated clients — never hand-write them
 
-Always call `sandbox_add-agent-client` first (find the id with the `list_agents` tool). It generates a typed singleton into `clients/` and returns the import line — **use that import VERBATIM**. Do not `createAgentsClient()`, do not `getAgentId()`, do not bake a uuid. The generated client already binds the agent id.
+Always call `sandbox_add-agent-client` first (find the id with the `list` tool, `target_type: "agent"`). It generates a typed singleton into `clients/` and returns the import line — **use that import VERBATIM**. Do not `createAgentsClient()`, do not `getAgentId()`, do not bake a uuid. The generated client already binds the agent id.
 
 To stop triggering an agent, delete the code that references it and call `sandbox_remove-agent-client`.
 
