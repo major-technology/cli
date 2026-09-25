@@ -660,7 +660,7 @@ func (c *Client) ListSlowOperations(applicationID string, req ListSlowOperations
 		query.Set("minP95Ms", "0")
 	}
 
-	path := fmt.Sprintf("/applications/%s/slow-operations", applicationID)
+	path := fmt.Sprintf("/applications/%s/resource-invocation-aggregates", applicationID)
 	if encoded := query.Encode(); encoded != "" {
 		path = path + "?" + encoded
 	}

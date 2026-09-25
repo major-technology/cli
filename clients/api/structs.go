@@ -558,7 +558,7 @@ type AppError struct {
 	URL         *string `json:"url,omitempty"`
 }
 
-// ListSlowOperationsRequest filters GET /applications/:applicationId/slow-operations
+// ListSlowOperationsRequest filters GET /applications/:applicationId/resource-invocation-aggregates
 type ListSlowOperationsRequest struct {
 	ExecutionEnvironment string
 	WindowDays           int
@@ -591,7 +591,7 @@ type SlowOperation struct {
 	CallSite        *SlowOperationCallSite `json:"callSite"`
 }
 
-// ListSlowOperationsResponse represents GET /applications/:applicationId/slow-operations
+// ListSlowOperationsResponse represents GET /applications/:applicationId/resource-invocation-aggregates
 type ListSlowOperationsResponse struct {
 	Error      *AppErrorDetail `json:"error,omitempty"`
 	Operations []SlowOperation `json:"operations"`
