@@ -7,7 +7,7 @@ description: Create and manage Major workflows — JSONC graphs of agent calls, 
 
 A _workflow_ is a graph of steps executed by Major's workflow engine: agents run with prompts, deployed apps get called over HTTP, routers branch on state, loops fan over collections, humans approve over Slack, and schedules, connector events, or authenticated webhooks start the graph. You author the definition as a JSONC file (JSON with comments) on the workflow's sandbox and edit it through the sandbox tools (the "Working with sandboxes" section of your system prompt covers addressing, provisioning, and sharing).
 
-Finding, creating, and opening workflows is on `mcp__plugin_major-build_major__*` (`list_workflows`, `create_workflow`, `start_sandbox`). Orchestrator tools are `mcp__orchestrator-platform__*` (`publish`, `run_workflow`, `list_workflow_runs`, `get_workflow_run`, `delete_workflow`, `list_connector_event_types`). File editing and sync go through the sandbox tools `mcp__plugin_major-build_major__sandbox_*` (`sandbox_read_file`, `sandbox_edit_file`, `sandbox_write_file`, `sandbox_pull`, `sandbox_push`, `sandbox_validate`), each called with `workflow: "<workflowId>"` as the target. `publish` takes the same `workflow` argument.
+Finding, creating, and opening workflows is on `mcp__plugin_major-build_major__*` (`list_workflows`, `create_workflow`, `start_sandbox`). Orchestrator tools are `mcp__orchestrator-platform__*` (`publish`, `run_workflow`, `list_workflow_runs`, `get_workflow_run`, `list_connector_event_types`). File editing and sync go through the sandbox tools `mcp__plugin_major-build_major__sandbox_*` (`sandbox_read_file`, `sandbox_edit_file`, `sandbox_write_file`, `sandbox_pull`, `sandbox_push`, `sandbox_validate`), each called with `workflow: "<workflowId>"` as the target. `publish` takes the same `workflow` argument.
 
 ## The working file, saving, and publishing
 
@@ -96,7 +96,7 @@ Node outputs by type:
 5. Write the requested cron, connector event, or webhook into the file once its configuration is known. An unpublished trigger is inert, so it costs nothing to save. Never invent an automated trigger the user didn't ask for.
 6. Once the user confirms it's ready, publish it. For a newly added webhook, ask the user to open the workflow editor after publish and click **View credential** so the browser can show its one-time setup details. For other changes, `publish({workflow})` makes the saved version live.
 
-To pause a live workflow, remove or comment out its trigger, save, and publish. `delete_workflow` only on explicit user request.
+To pause a live workflow, remove or comment out its trigger, save, and publish.
 
 ## Approvals (Slack-only)
 
