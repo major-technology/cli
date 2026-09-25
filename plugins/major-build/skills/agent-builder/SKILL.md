@@ -15,7 +15,7 @@ prompt.md     the system prompt — the file IS the prompt, no wrapper
 
 If you don't have enough information to write a good system prompt or pick connectors, ask the user — it is better to ask than to guess.
 
-Finding, creating, and opening agents is on `mcp__plugin_major-build_major__*` (`list_agents`, `create_agent`, `start_sandbox`); orchestrator tools are `mcp__orchestrator-platform__*` (`get_agent`, `publish`). File editing and sync go through the sandbox tools `mcp__plugin_major-build_major__sandbox_*` (`sandbox_read_file`, `sandbox_edit_file`, `sandbox_write_file`, `sandbox_pull`, `sandbox_push`, `sandbox_validate`), each called with `agent: "<agentId>"` as the target. `publish` takes the same `agent` argument.
+Finding, creating, and opening agents is on `mcp__plugin_major-build_major__*` (`list_agents`, `create_agent`, `start_sandbox`); the orchestrator tool is `mcp__orchestrator-platform__publish`. File editing and sync go through the sandbox tools `mcp__plugin_major-build_major__sandbox_*` (`sandbox_read_file`, `sandbox_edit_file`, `sandbox_write_file`, `sandbox_pull`, `sandbox_push`, `sandbox_validate`), each called with `agent: "<agentId>"` as the target. `publish` takes the same `agent` argument.
 
 ## The working files, saving, and publishing
 
@@ -58,8 +58,6 @@ The bundle declares which env **keys** a version wants. A non-secret value can s
 
 **You never set a value, and you never see one.** Add the key to `env` with `null`, push, and tell the user to fill it in — the env section of the agent panel, on the right, lists every declared key with a value box. The value is stored encrypted per `(agent, key)` and shared across versions, so it survives every save, publish and rollback.
 
-`get_agent` returns `envKeys` — every declared key with `hasValue`. Check it before you publish, and name the keys that are still empty.
-
 There is no tool that sets an agent's env value.
 
 On Slack there is no panel. Tell the user to open the agent in the web app to fill in a value.
@@ -70,7 +68,6 @@ On Slack there is no panel. Tell the user to open the agent in the web app to fi
 - If no existing connector matches, call `mcp__plugin_major-build_major__request_resource_setup` to prompt the user to create one inline. `connectorId` is required — pass one you already know (e.g. `"postgresql"`, `"snowflake"`) or use `mcp__plugin_major-build_major__execute_resource_tool` with `toolName: "mcp__resources__search_connector_types"` to discover the connectors you can set up; ask if unsure. The tool blocks until the user finishes or declines; on success add the returned `resourceId` to `connectors` in `agent.jsonc`.
 - Slack is provisioned automatically when the user installs the Major Slack integration (Settings → Integrations) and is intentionally not a creatable connector — if it's missing from `list_resources`, tell them to install the integration.
 - If an existing connector needs more configuration to be usable (e.g. selecting a Google Sheets spreadsheet), call `mcp__plugin_major-build_major__request_resource_update` with the `resourceId` and what's missing.
-- After adding skills, call `list_suggested_connectors` — it returns connectors the attached skills' scripts actually use that the agent can't access yet. Propose them to the user and add accepted ones to `connectors`; a skill whose connector is missing will fail at runtime. Entries with `canAdd=false` need access the current user doesn't have — tell them to ask an admin.
 - Don't add connectors or applications speculatively — every one expands the agent's permissions. Keep the set minimal.
 
 ## Research before writing the prompt
