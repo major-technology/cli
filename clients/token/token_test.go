@@ -66,3 +66,18 @@ func TestHasInjectedToken(t *testing.T) {
 		t.Fatal("expected HasInjectedToken to be false when empty")
 	}
 }
+
+func TestGetDefaultOrgPrefersEnvironmentOverKeyring(t *testing.T) {
+	t.Setenv("MAJOR_ORG_ID", "env-org")
+	keyring.MockInit()
+	if err := StoreDefaultOrg("keychain-org", "Keychain Org"); err != nil {
+		t.Fatal(err)
+	}
+	id, name, err := GetDefaultOrg()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if id != "env-org" || name != "env-org" {
+		t.Fatalf("got %q %q", id, name)
+	}
+}
