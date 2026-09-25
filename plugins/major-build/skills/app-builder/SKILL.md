@@ -73,17 +73,11 @@ Two playbooks — use the relevant one before you start:
 
 ## Recurring work
 
-Apps no longer carry their own crons. `cron.json` is not read. For recurring work against an app's API, load the `workflow-builder` skill and build a workflow with a cron trigger and an `app_call` node.
+For recurring work, load the `workflow-builder` skill and build a workflow with a cron trigger and an `app_call` node.
 
-## Calling go-api from app code
+## Using connectors
 
-Do not construct `PostgresResourceClient`, `SlackResourceClient`, `createProxyFetch`, or any other resource client by hand. Import the generated client in `clients/`. It already copies the incoming `x-major-user-jwt`.
-
-A resource call to go-api without `x-major-user-jwt` will be rejected. A hand-rolled client that only sets `MAJOR_JWT_TOKEN` fails, including from a webhook or a workflow `app_call`.
-
-A webhook route and a workflow `app_call` are real requests. Ingress has already set `x-major-user-jwt`. `headers()` works there. Do not drop `getHeaders` so those routes can run.
-
-`MAJOR_JWT_TOKEN` alone is only for the runner and for code that is not inside a request. `current-build` and the error reporter keep using it.
+When calling connectors from an app, you must forward the `x-major-user-jwt` headers. Generated clients already pull it from header context. Without the `x-major-user-jwt` header, connector client calls will fail with insufficient permissions. When developing locally or in sandbox, we use the local `MAJOR_JWT_TOKEN` instead. This is sufficient only during development and will fail in production without `x-major-user-jwt`.
 
 ## LLM calls from app code
 

@@ -7,7 +7,7 @@ description: Use for ANY operation against a connected resource or connector —
 
 The organization's connectors are _resources_ — external services (databases, APIs, storage, etc.) the agent and its apps reach through Major's secure clients and MCP tools. Every connector is used the same way: find the resource, read its context docs, then follow that connector's reference in this skill.
 
-App code imports the generated client in `clients/`. Do not construct a client with only `majorJwtToken`. A resource call to go-api without `x-major-user-jwt` will be rejected. A webhook route and a workflow `app_call` already have that header.
+When calling connectors from an app, you must forward the `x-major-user-jwt` headers. Generated clients already pull it from header context. Without the `x-major-user-jwt` header, connector client calls will fail with insufficient permissions. When developing locally or in sandbox, we use the local `MAJOR_JWT_TOKEN` instead. This is sufficient only during development and will fail in production without `x-major-user-jwt`.
 
 ## Step 1: List available resources
 
