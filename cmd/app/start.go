@@ -7,7 +7,6 @@ import (
 
 	"github.com/major-technology/cli/clients/git"
 	"github.com/major-technology/cli/errors"
-	"github.com/major-technology/cli/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -37,14 +36,9 @@ func runStart(cobraCmd *cobra.Command) error {
 	}
 
 	// Generate .env file
-	_, envVars, err := generateEnvFile("")
+	_, _, err = generateEnvFile("")
 	if err != nil {
 		return errors.WrapError("failed to generate .env file", err)
-	}
-
-	// Generate .mcp.json for Claude Code
-	if _, err := utils.GenerateMcpConfig("", envVars); err != nil {
-		cobraCmd.Printf("Warning: Failed to generate .mcp.json: %v\n", err)
 	}
 
 	// Generate theme files (check for changes)

@@ -27,7 +27,7 @@ func TestPresignedTransferDoesNotForwardCredential(t *testing.T) {
 		_, _ = w.Write(data)
 	}))
 	defer server.Close()
-	if err := Upload(server.URL, data); err != nil {
+	if err := Upload(server.URL, "application/zip", data); err != nil {
 		t.Fatal(err)
 	}
 	got, err := Download(server.URL)

@@ -24,16 +24,18 @@ func Download(url string) ([]byte, error) {
 		return nil, err
 	}
 	if len(data) > maxArchiveBytes {
-		return nil, fmt.Errorf("agent archive exceeds 20 MiB")
+		return nil, fmt.Errorf("download exceeds 20 MiB")
 	}
 	return data, nil
 }
-func Upload(url string, data []byte) error {
+
+// Upload PUTs data with the content type the URL was presigned for.
+func Upload(url, contentType string, data []byte) error {
 	req, err := http.NewRequest(http.MethodPut, url, bytes.NewReader(data))
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Content-Type", "application/zip")
+	req.Header.Set("Content-Type", contentType)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return err

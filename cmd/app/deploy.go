@@ -12,6 +12,7 @@ import (
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
 	xt "github.com/charmbracelet/x/term"
+	"github.com/major-technology/cli/clients/api"
 	"github.com/major-technology/cli/clients/git"
 	"github.com/major-technology/cli/errors"
 	"github.com/major-technology/cli/singletons"
@@ -89,21 +90,18 @@ func runDeploy(cobraCmd *cobra.Command) error {
 		}
 	}
 
-	deploySlug := urlSlug
-	if deploySlug == "" {
-		if flagDeploySlug != "" {
-			if err := validateSlug(flagDeploySlug); err != nil {
-				return fmt.Errorf("invalid slug: %w", err)
-			}
-			deploySlug = flagDeploySlug
-		} else if err := utils.RequireInteractive(cobraCmd, "Pass --slug for the first deploy URL."); err != nil {
-			return err
-		} else {
-			deploySlug, err = promptForDeployURL(cobraCmd)
-			if err != nil {
-				return errors.WrapError("failed to collect deploy URL", err)
-			}
+	deploySlug, err := resolveDeploySlug(urlSlug, flagDeploySlug, func() (string, error) {
+		if err := utils.RequireInteractive(cobraCmd, "Pass --slug for the first deploy URL."); err != nil {
+			return "", err
 		}
+		slug, err := promptForDeployURL(cobraCmd)
+		if err != nil {
+			return "", errors.WrapError("failed to collect deploy URL", err)
+		}
+		return slug, nil
+	})
+	if err != nil {
+		return err
 	}
 
 	defaultBranch, err := git.RequireDefaultBranch()
@@ -136,21 +134,9 @@ func runDeploy(cobraCmd *cobra.Command) error {
 		return errors.WrapError("failed to read HEAD", err)
 	}
 
-	apiClient := singletons.GetAPIClient()
-	resp, err := apiClient.CreateApplicationVersion(applicationID, deploySlug)
+	resp, statusHint, err := createPushedVersion(applicationID, deploySlug, expectedHash)
 	if err != nil {
-		if isUnknownDeployOutcome(err) {
-			return fmt.Errorf("deployment result is unknown: %w. Inspect with: major app info --non-interactive --json", err)
-		}
 		return err
-	}
-	if resp == nil || resp.VersionID == "" {
-		return fmt.Errorf("deployment result is unknown. Inspect with: major app info --non-interactive --json")
-	}
-
-	statusHint := fmt.Sprintf("major app deploy-status --non-interactive --version-id %s", resp.VersionID)
-	if resp.VersionHash != expectedHash {
-		return fmt.Errorf("a different commit was selected for deployment (requested %s, returned %s). Inspect with: %s", expectedHash, resp.VersionHash, statusHint)
 	}
 
 	if flagDeployNoWait {
@@ -169,7 +155,8 @@ func runDeploy(cobraCmd *cobra.Command) error {
 
 	var finalStatus, deploymentError, appURL string
 	if flagDeployJSON || !xt.IsTerminal(os.Stdout.Fd()) {
-		finalStatus, deploymentError, appURL, err = pollDeploymentStatusSimple(cobraCmd, applicationID, organizationID, resp.VersionID)
+		logf := func(format string, args ...any) { deployLog(cobraCmd, format, args...) }
+		finalStatus, deploymentError, appURL, err = pollDeploymentStatusSimple(logf, applicationID, organizationID, resp.VersionID)
 	} else {
 		finalStatus, deploymentError, appURL, err = pollDeploymentStatus(applicationID, organizationID, resp.VersionID)
 	}
@@ -182,7 +169,7 @@ func runDeploy(cobraCmd *cobra.Command) error {
 			deployLog(cobraCmd, "\n❌ Deployment failed with status: %s\n", finalStatus)
 			deployLog(cobraCmd, "\n%s\n", formatDeploymentError(deploymentError))
 		}
-		return fmt.Errorf("deployment failed with status: %s", finalStatus)
+		return deploymentFailedError(finalStatus, deploymentError)
 	}
 
 	if flagDeployJSON {
@@ -200,6 +187,52 @@ func runDeploy(cobraCmd *cobra.Command) error {
 		deployLog(cobraCmd, "  %s\n", appURL)
 	}
 	return nil
+}
+
+// resolveDeploySlug picks the URL slug for a deploy. An app that already has a
+// slug keeps it and flagSlug is ignored; a first deploy uses flagSlug, or
+// missing() when none was passed.
+func resolveDeploySlug(urlSlug, flagSlug string, missing func() (string, error)) (string, error) {
+	if urlSlug != "" {
+		return urlSlug, nil
+	}
+	if flagSlug == "" {
+		return missing()
+	}
+	if err := validateSlug(flagSlug); err != nil {
+		return "", fmt.Errorf("invalid slug: %w", err)
+	}
+	return flagSlug, nil
+}
+
+// createPushedVersion deploys the pushed default branch and checks the server
+// picked expectedHash. The status hint names the version for follow-up.
+func createPushedVersion(applicationID, slug, expectedHash string) (*api.CreateApplicationVersionResponse, string, error) {
+	resp, err := singletons.GetAPIClient().CreateApplicationVersion(applicationID, slug)
+	if err != nil {
+		if isUnknownDeployOutcome(err) {
+			return nil, "", fmt.Errorf("deployment result is unknown: %w. Inspect with: major app info --non-interactive --json", err)
+		}
+		return nil, "", err
+	}
+	if resp == nil || resp.VersionID == "" {
+		return nil, "", fmt.Errorf("deployment result is unknown. Inspect with: major app info --non-interactive --json")
+	}
+
+	statusHint := fmt.Sprintf("major app deploy-status --non-interactive --version-id %s", resp.VersionID)
+	if resp.VersionHash != expectedHash {
+		return nil, "", fmt.Errorf("a different commit was selected for deployment (requested %s, returned %s). Inspect with: %s", expectedHash, resp.VersionHash, statusHint)
+	}
+	return resp, statusHint, nil
+}
+
+// deploymentFailedError carries the server's deploymentError in every output
+// mode, so a --json caller can see why the deploy failed.
+func deploymentFailedError(status, deploymentError string) error {
+	if deploymentError == "" {
+		return fmt.Errorf("deployment failed with status %s", status)
+	}
+	return fmt.Errorf("deployment failed with status %s: %s", status, deploymentError)
 }
 
 type deployResultJSON struct {
@@ -478,7 +511,7 @@ func validateSlug(s string) error {
 }
 
 // pollDeploymentStatusSimple polls deployment status using simple text output (for non-TTY environments).
-func pollDeploymentStatusSimple(cobraCmd *cobra.Command, applicationID, organizationID, versionID string) (string, string, string, error) {
+func pollDeploymentStatusSimple(logf func(format string, args ...any), applicationID, organizationID, versionID string) (string, string, string, error) {
 	apiClient := singletons.GetAPIClient()
 	lastStatus := ""
 
@@ -490,7 +523,7 @@ func pollDeploymentStatusSimple(cobraCmd *cobra.Command, applicationID, organiza
 
 		if resp.Status != lastStatus {
 			statusText, _ := getStatusDisplay(resp.Status)
-			deployLog(cobraCmd, "Status: %s\n", statusText)
+			logf("Status: %s\n", statusText)
 			lastStatus = resp.Status
 		}
 

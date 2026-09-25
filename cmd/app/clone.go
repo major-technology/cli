@@ -179,18 +179,11 @@ func runClone(cmd *cobra.Command) error {
 
 	// Generate env file
 	cmd.Println("\nGenerating .env file...")
-	envFilePath, envVars, err := generateEnvFile(finalDir)
+	envFilePath, _, err := generateEnvFile(finalDir)
 	if err != nil {
 		return errors.WrapError("failed to generate .env file", err)
 	}
 	cmd.Printf("Successfully generated .env file at: %s\n", envFilePath)
-
-	// Generate .mcp.json for Claude Code
-	if _, err := utils.GenerateMcpConfig(finalDir, envVars); err != nil {
-		cmd.Printf("Warning: Failed to generate .mcp.json: %v\n", err)
-	} else {
-		cmd.Println("✓ Generated .mcp.json for Claude Code")
-	}
 
 	cmd.Println("\n✓ Application clone complete!")
 

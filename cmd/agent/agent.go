@@ -1,16 +1,13 @@
 package agent
 
 import (
-	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/charmbracelet/huh"
 	"github.com/major-technology/cli/clients/api"
-	mjrToken "github.com/major-technology/cli/clients/token"
 	"github.com/major-technology/cli/clients/workspace"
+	"github.com/major-technology/cli/cmd/target"
 	"github.com/major-technology/cli/singletons"
 	"github.com/major-technology/cli/utils"
 	"github.com/spf13/cobra"
@@ -18,34 +15,30 @@ import (
 
 var Cmd = &cobra.Command{Use: "agent", Short: "Manage file-based agents"}
 
+// bundle is the agent kind: agent.jsonc (or legacy agent.json) and prompt.md.
+var bundle = target.BundleTarget{
+	Kind:    "agent",
+	APIPath: "agents",
+	Files:   func(string) target.FileSet { return agentFiles },
+	Pack:    target.PackZip,
+}
+
+var agentFiles = target.FileSet{
+	Owns: func(rel string) bool {
+		return rel == "agent.jsonc" || rel == "agent.json" || rel == "prompt.md"
+	},
+	Check: func(rels []string) error {
+		if len(rels) != 2 || rels[1] != "prompt.md" || (rels[0] != "agent.json" && rels[0] != "agent.jsonc") {
+			return fmt.Errorf("agent workspace requires prompt.md and exactly one of agent.jsonc or agent.json")
+		}
+		return nil
+	},
+}
+
 func init() {
 	Cmd.PersistentFlags().Bool("json", false, "Print one JSON result")
 	Cmd.AddCommand(newListCmd(), newCreateCmd(), newCloneCmd())
-}
-
-func organizationID() (string, error) {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return "", err
-	}
-	if _, cfg, err := workspace.Locate(cwd); err == nil {
-		return cfg.OrganizationID, nil
-	} else if !errors.Is(err, workspace.ErrNotFound) {
-		return "", err
-	}
-	id, _, err := mjrToken.GetDefaultOrg()
-	if err != nil {
-		return "", fmt.Errorf("select a default organization with major org select")
-	}
-	return id, nil
-}
-func output(cmd *cobra.Command, result any) error {
-	jsonOutput, _ := cmd.Flags().GetBool("json")
-	if jsonOutput {
-		return utils.WriteJSON(cmd, result)
-	}
-	cmd.Println(result)
-	return nil
+	target.Register("agent", bundle)
 }
 
 type listResult struct{ *api.AgentListResponse }
@@ -57,29 +50,18 @@ func (r listResult) String() string {
 	lines := make([]string, 0, len(r.Agents))
 	for _, item := range r.Agents {
 		status := "draft"
-		if item.IsPublished {
+		if item.CurrentVersionID != nil {
 			status = "published"
 		}
-		lines = append(lines, fmt.Sprintf("%s  %s  (%s)", item.AgentID, item.Name, status))
+		lines = append(lines, fmt.Sprintf("%s  %s  (%s)", item.ID, item.Name, status))
 	}
 	return strings.Join(lines, "\n")
-}
-
-type cloneResult struct {
-	AgentID string `json:"agentId"`
-	Path    string `json:"path"`
-	Version int    `json:"version"`
-	name    string
-}
-
-func (r cloneResult) String() string {
-	return fmt.Sprintf("Cloned %s (version %d) into %s.", r.name, r.Version, r.Path)
 }
 
 func newListCmd() *cobra.Command {
 	var readOnly bool
 	cmd := &cobra.Command{Use: "list", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
-		org, err := organizationID()
+		org, err := target.OrganizationID()
 		if err != nil {
 			return err
 		}
@@ -87,7 +69,7 @@ func newListCmd() *cobra.Command {
 		if err != nil {
 			return err
 		}
-		return output(cmd, listResult{result})
+		return target.Output(cmd, listResult{result})
 	}}
 	cmd.Flags().BoolVar(&readOnly, "include-read-only", false, "Include agents you can use but not edit")
 	return cmd
@@ -98,16 +80,11 @@ func newCreateCmd() *cobra.Command {
 		if name == "" {
 			return fmt.Errorf("--name is required")
 		}
-		dir, err := filepath.Abs(args[0])
+		dir, err := target.RequireNewDir(args[0])
 		if err != nil {
 			return err
 		}
-		if _, err := os.Lstat(dir); err == nil {
-			return fmt.Errorf("directory %s already exists", dir)
-		} else if !os.IsNotExist(err) {
-			return err
-		}
-		org, err := organizationID()
+		org, err := target.OrganizationID()
 		if err != nil {
 			return err
 		}
@@ -115,7 +92,7 @@ func newCreateCmd() *cobra.Command {
 		if err != nil {
 			return err
 		}
-		return cloneToDirectory(cmd, org, created.AgentID, dir)
+		return bundle.Clone(cmd, org, workspace.Target{Kind: "agent", AgentID: created.AgentID}, dir)
 	}}
 	cmd.Flags().StringVar(&name, "name", "", "Agent name")
 	cmd.Flags().StringVar(&description, "description", "", "Agent description")
@@ -124,7 +101,7 @@ func newCreateCmd() *cobra.Command {
 func newCloneCmd() *cobra.Command {
 	var id, dir string
 	cmd := &cobra.Command{Use: "clone", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
-		org, err := organizationID()
+		org, err := target.OrganizationID()
 		if err != nil {
 			return err
 		}
@@ -141,7 +118,7 @@ func newCloneCmd() *cobra.Command {
 			}
 			options := make([]huh.Option[string], 0, len(list.Agents))
 			for _, item := range list.Agents {
-				options = append(options, huh.NewOption(item.Name+" ("+item.AgentID+")", item.AgentID))
+				options = append(options, huh.NewOption(item.Name+" ("+item.ID+")", item.ID))
 			}
 			if err := huh.NewSelect[string]().Title("Choose an agent").Options(options...).Value(&id).Run(); err != nil {
 				return err
@@ -150,67 +127,13 @@ func newCloneCmd() *cobra.Command {
 		if dir == "" {
 			dir = id
 		}
-		abs, err := filepath.Abs(dir)
+		abs, err := target.RequireNewDir(dir)
 		if err != nil {
 			return err
 		}
-		if _, err := os.Lstat(abs); err == nil {
-			return fmt.Errorf("directory %s already exists", abs)
-		} else if !os.IsNotExist(err) {
-			return err
-		}
-		return cloneToDirectory(cmd, org, id, abs)
+		return bundle.Clone(cmd, org, workspace.Target{Kind: "agent", AgentID: id}, abs)
 	}}
 	cmd.Flags().StringVar(&id, "id", "", "Agent ID")
 	cmd.Flags().StringVar(&dir, "dir", "", "New directory (defaults to agent ID)")
 	return cmd
-}
-func cloneToDirectory(cmd *cobra.Command, org, id, dir string) error {
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return err
-	}
-	cfg := workspace.Config{OrganizationID: org, Target: workspace.Target{Kind: "agent", AgentID: id}}
-	if err := workspace.Write(dir, cfg); err != nil {
-		return err
-	}
-	result, err := (&bundleTarget{}).Pull(&TargetContext{Root: dir, Config: &cfg, API: singletons.GetAPIClient(), Command: cmd})
-	if err != nil {
-		return err
-	}
-	pull := result.(versionResult)
-	return output(cmd, cloneResult{AgentID: pull.AgentID, Path: dir, Version: pull.Version, name: pull.Name})
-}
-
-func TargetCommands() []*cobra.Command {
-	commands := make([]*cobra.Command, 0, 4)
-	for _, action := range []string{"pull", "push", "validate", "publish"} {
-		action := action
-		cmd := &cobra.Command{Use: action, Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
-			if action == "publish" {
-				yes, _ := cmd.Flags().GetBool("yes")
-				if !yes {
-					if utils.IsNonInteractive(cmd) {
-						return fmt.Errorf("major publish requires --yes in non-interactive mode")
-					}
-					var confirmed bool
-					if err := huh.NewConfirm().Title("Publish the latest saved agent version?").Value(&confirmed).Run(); err != nil {
-						return err
-					}
-					if !confirmed {
-						return fmt.Errorf("publish cancelled")
-					}
-				}
-			}
-			return runTargetAction(cmd, action)
-		}}
-		cmd.Flags().Bool("json", false, "Print one JSON result")
-		if action == "push" {
-			cmd.Flags().StringP("message", "m", "", "Version notes")
-		}
-		if action == "publish" {
-			cmd.Flags().Bool("yes", false, "Skip confirmation")
-		}
-		commands = append(commands, cmd)
-	}
-	return commands
 }
