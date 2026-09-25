@@ -15,7 +15,7 @@ The `setup_managed_database` MCP tool creates **app-scoped** databases only.
 
 ## Setting Up a Managed Database
 
-Call `mcp__resources__setup_managed_database` — no arguments needed. The tool automatically provisions a database for the current application.
+Call `mcp__plugin_major-build_major__setup_managed_database` with the app's `applicationId` (omit it in an app's edit chat to target that app). The tool provisions a database for that application.
 
 **Behavior:**
 
@@ -30,7 +30,7 @@ After setup completes and you have the resource ID:
 
 1. **MCP tools** (direct SQL, no code needed):
    - `mcp__resources__postgresql_psql` — Read-only SQL queries and psql commands (`\dt`, `\d`, etc.). Args: `resourceId`, `command`
-   - `mcp__orchestrator-platform__run_migration` — DDL/DML migrations (managed databases only). Args: `applicationId`, `migration`, `description`
+   - `mcp__plugin_major-build_major__run_migration` — DDL/DML migrations (managed databases only). Args: `applicationId`, `migration`, `description`
 
 2. **Generated TypeScript clients** (for app code):
    - Call `mcp__plugin_major-build_major__sandbox_add-resource-client` with the app's `slug` and the `resourceId` to generate a typed PostgreSQL client
