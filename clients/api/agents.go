@@ -4,12 +4,17 @@ import (
 	"net/url"
 )
 
+type ListPermissions struct {
+	CanEdit bool `json:"canEdit"`
+}
+
+// AgentItem is the web list's agent summary; the CLI decodes only what it prints.
 type AgentItem struct {
-	AgentID     string `json:"agentId"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	IsPublished bool   `json:"isPublished"`
-	CanEdit     bool   `json:"canEdit"`
+	ID               string          `json:"id"`
+	Name             string          `json:"name"`
+	Description      string          `json:"description"`
+	CurrentVersionID *string         `json:"currentVersionId"`
+	Permissions      ListPermissions `json:"permissions"`
 }
 type AgentListResponse struct {
 	Agents []AgentItem `json:"agents"`

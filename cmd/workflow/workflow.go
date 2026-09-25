@@ -56,7 +56,7 @@ func (r listResult) String() string {
 		if item.IsPublished {
 			status = "published"
 		}
-		lines = append(lines, fmt.Sprintf("%s  %s  (%s)", item.WorkflowID, item.Label, status))
+		lines = append(lines, fmt.Sprintf("%s  %s  (%s)", item.ID, item.Label, status))
 	}
 	return strings.Join(lines, "\n")
 }
@@ -116,7 +116,7 @@ func newCloneCmd() *cobra.Command {
 			}
 			options := make([]huh.Option[string], 0, len(list.Workflows))
 			for _, item := range list.Workflows {
-				options = append(options, huh.NewOption(item.Label+" ("+item.WorkflowID+")", item.WorkflowID))
+				options = append(options, huh.NewOption(item.Label+" ("+item.ID+")", item.ID))
 			}
 			if err := huh.NewSelect[string]().Title("Choose a workflow").Options(options...).Value(&id).Run(); err != nil {
 				return err

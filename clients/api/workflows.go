@@ -2,12 +2,13 @@ package api
 
 import "net/url"
 
+// WorkflowItem is the web list's workflow item; the CLI decodes only what it prints.
 type WorkflowItem struct {
-	WorkflowID  string  `json:"workflowId"`
-	Label       string  `json:"label"`
-	Description *string `json:"description"`
-	IsPublished bool    `json:"isPublished"`
-	CanEdit     bool    `json:"canEdit"`
+	ID          string          `json:"id"`
+	Label       string          `json:"label"`
+	Description *string         `json:"description"`
+	IsPublished bool            `json:"isPublished"`
+	Permissions ListPermissions `json:"permissions"`
 }
 type WorkflowListResponse struct {
 	Workflows []WorkflowItem `json:"workflows"`

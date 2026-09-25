@@ -161,7 +161,20 @@ func TargetCommands() []*cobra.Command {
 		}}
 		cmd.Flags().Bool("json", false, "Print one JSON result")
 		if action == "push" {
-			cmd.Flags().StringP("message", "m", "", "Version notes, or the commit message for an app's uncommitted changes")
+			cmd.Long = `Save the workspace as a new version of its target.
+
+For a skill, workflow, or agent, push uploads the workspace as a new unpublished
+version. -m sets the version notes.
+
+For an app, push sends local commits to the default branch:
+  - With uncommitted changes and -m, push stages every change in the repository
+    (git add -A), commits it with -m as the message, then pushes.
+  - With uncommitted changes and no -m, push fails and commits nothing.
+  - With a clean tree, push pushes HEAD and commits nothing.
+
+To push only some of your changes, stage and commit them with git, then run
+major push with a clean tree.`
+			cmd.Flags().StringP("message", "m", "", "Version notes, or for an app, the commit message for ALL uncommitted changes (git add -A)")
 		}
 		if action == "publish" {
 			cmd.Flags().Bool("yes", false, "Skip confirmation")

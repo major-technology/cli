@@ -2,12 +2,13 @@ package api
 
 import "net/url"
 
+// SkillItem is the web list's skill; the CLI decodes only what it prints.
 type SkillItem struct {
-	SkillID     string  `json:"skillId"`
-	Slug        *string `json:"slug"`
-	Description *string `json:"description"`
-	Status      string  `json:"status"`
-	CanEdit     bool    `json:"canEdit"`
+	ID          string          `json:"id"`
+	Slug        *string         `json:"slug"`
+	Description *string         `json:"description"`
+	Status      string          `json:"status"`
+	Permissions ListPermissions `json:"permissions"`
 }
 type SkillListResponse struct {
 	Skills []SkillItem `json:"skills"`

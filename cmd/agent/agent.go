@@ -50,10 +50,10 @@ func (r listResult) String() string {
 	lines := make([]string, 0, len(r.Agents))
 	for _, item := range r.Agents {
 		status := "draft"
-		if item.IsPublished {
+		if item.CurrentVersionID != nil {
 			status = "published"
 		}
-		lines = append(lines, fmt.Sprintf("%s  %s  (%s)", item.AgentID, item.Name, status))
+		lines = append(lines, fmt.Sprintf("%s  %s  (%s)", item.ID, item.Name, status))
 	}
 	return strings.Join(lines, "\n")
 }
@@ -118,7 +118,7 @@ func newCloneCmd() *cobra.Command {
 			}
 			options := make([]huh.Option[string], 0, len(list.Agents))
 			for _, item := range list.Agents {
-				options = append(options, huh.NewOption(item.Name+" ("+item.AgentID+")", item.AgentID))
+				options = append(options, huh.NewOption(item.Name+" ("+item.ID+")", item.ID))
 			}
 			if err := huh.NewSelect[string]().Title("Choose an agent").Options(options...).Value(&id).Run(); err != nil {
 				return err

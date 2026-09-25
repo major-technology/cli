@@ -65,7 +65,7 @@ func (r listResult) String() string {
 	}
 	lines := make([]string, 0, len(r.Skills))
 	for _, item := range r.Skills {
-		lines = append(lines, fmt.Sprintf("%s  %s  (%s)", item.SkillID, skillName(item), item.Status))
+		lines = append(lines, fmt.Sprintf("%s  %s  (%s)", item.ID, skillName(item), item.Status))
 	}
 	return strings.Join(lines, "\n")
 }
@@ -133,7 +133,7 @@ func newCloneCmd() *cobra.Command {
 			}
 			options := make([]huh.Option[string], 0, len(list.Skills))
 			for _, item := range list.Skills {
-				options = append(options, huh.NewOption(skillName(item)+" ("+item.SkillID+")", item.SkillID))
+				options = append(options, huh.NewOption(skillName(item)+" ("+item.ID+")", item.ID))
 			}
 			if err := huh.NewSelect[string]().Title("Choose a skill").Options(options...).Value(&id).Run(); err != nil {
 				return err

@@ -18,7 +18,9 @@ func TestAgentEndpointsNameAgentAndOrganization(t *testing.T) {
 			if r.Method != "GET" || r.URL.Query().Get("organizationId") != "org-1" || r.URL.Query().Get("includeReadOnly") != "true" {
 				t.Errorf("list request: %s", r.URL)
 			}
-			_ = json.NewEncoder(w).Encode(map[string]any{"agents": []any{}})
+			_ = json.NewEncoder(w).Encode(map[string]any{"agents": []any{map[string]any{
+				"id": agentID, "name": "Helper", "description": "", "currentVersionId": "v1", "permissions": map[string]any{"canEdit": true},
+			}}})
 		case "/cli/agents/" + agentID + "/pull":
 			if r.Method != "POST" {
 				t.Errorf("pull method: %s", r.Method)
@@ -34,8 +36,12 @@ func TestAgentEndpointsNameAgentAndOrganization(t *testing.T) {
 	testTokenOverride = "test-token"
 	defer func() { testTokenOverride = previousToken }()
 	client := NewClient(server.URL + "/cli")
-	if _, err := client.ListAgents("org-1", true); err != nil {
+	list, err := client.ListAgents("org-1", true)
+	if err != nil {
 		t.Fatal(err)
+	}
+	if len(list.Agents) != 1 || list.Agents[0].ID != agentID || list.Agents[0].CurrentVersionID == nil || !list.Agents[0].Permissions.CanEdit {
+		t.Fatalf("list: %+v", list)
 	}
 	if resp, err := client.PullTarget("agents", agentID); err != nil || resp.Version != 2 {
 		t.Fatalf("pull: %+v, %v", resp, err)
