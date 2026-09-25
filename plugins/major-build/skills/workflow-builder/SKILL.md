@@ -7,7 +7,7 @@ description: Create and manage Major workflows — JSONC graphs of agent calls, 
 
 A _workflow_ is a graph of steps executed by Major's workflow engine: agents run with prompts, deployed apps get called over HTTP, routers branch on state, loops fan over collections, humans approve over Slack, and schedules, connector events, or authenticated webhooks start the graph. You author the definition as a JSONC file (JSON with comments) on the workflow's sandbox and edit it through the sandbox tools (the "Working with sandboxes" section of your system prompt covers addressing, provisioning, and sharing).
 
-Finding, creating, opening, and running workflows is on `mcp__plugin_major-build_major__*` (`list_workflows`, `create_workflow`, `start_sandbox`, `run_workflow`). Orchestrator tools are `mcp__orchestrator-platform__*` (`publish`, `list_workflow_runs`, `get_workflow_run`, `list_connector_event_types`). File editing and sync go through the sandbox tools `mcp__plugin_major-build_major__sandbox_*` (`sandbox_read_file`, `sandbox_edit_file`, `sandbox_write_file`, `sandbox_pull`, `sandbox_push`, `sandbox_validate`), each called with `workflow: "<workflowId>"` as the target. `publish` takes the same `workflow` argument.
+Finding, creating, opening, and running workflows is on `mcp__plugin_major-build_major__*` (`list` and `create` with `target_type: "workflow"`, `start_sandbox`, `run_workflow`). Orchestrator tools are `mcp__orchestrator-platform__*` (`publish`, `list_workflow_runs`, `get_workflow_run`, `list_connector_event_types`). File editing and sync go through the sandbox tools `mcp__plugin_major-build_major__sandbox_*` (`sandbox_read_file`, `sandbox_edit_file`, `sandbox_write_file`, `sandbox_pull`, `sandbox_push`, `sandbox_validate`), each called with `workflow: "<workflowId>"` as the target. `publish` takes the same `workflow` argument.
 
 ## The working file, saving, and publishing
 
@@ -18,7 +18,7 @@ Each workflow's working copy lives on its own sandbox at `<workflowId>.jsonc` (w
 
 So triggers sitting in a saved-but-unpublished draft are inert, and `run_workflow` runs the last **saved** version — you never have to publish to test.
 
-Always use a `workflowId` returned by `list_workflows` or `create_workflow` — never invent one. If this chat is pinned to a workflow, the "Working with this workflow" section of your system prompt carries the bound-chat rules (its id, recovery, discard) — those win.
+Always use a `workflowId` returned by `list` or `create` (`target_type: "workflow"`) — never invent one. If this chat is pinned to a workflow, the "Working with this workflow" section of your system prompt carries the bound-chat rules (its id, recovery, discard) — those win.
 
 ## Save discipline
 
@@ -28,8 +28,8 @@ Always use a `workflowId` returned by `list_workflows` or `create_workflow` — 
 
 ## Lifecycle
 
-- **Edit existing**: `list_workflows` to find it, then `mount({workflow: "<workflowId>"})` — it mounts (or joins) the workflow's sandbox and returns the file name. Edit the file with the sandbox tools, saving as you finish each round.
-- **New**: `create_workflow({})` — it creates a skeleton workflow (server-minted `workflowId`), mounts its sandbox, and returns the file name. Build the definition in that file; there is no push-a-loose-draft path.
+- **Edit existing**: `list({target_type: "workflow"})` to find it, then `start_sandbox({workflow: "<workflowId>"})` — it mounts (or joins) the workflow's sandbox and returns the file name. Edit the file with the sandbox tools, saving as you finish each round.
+- **New**: `create({target_type: "workflow"})` — it creates a skeleton workflow (server-minted `workflowId`), mounts its sandbox, and returns the file name. Build the definition in that file; there is no push-a-loose-draft path.
 - **Check a draft**: `sandbox_validate` — validates the sandbox file against the server's rules without saving. Saving also validates; on failure nothing is saved and the error list comes back — fix the file and save again.
 - **Save**: `sandbox_push` — every save writes a new immutable version; comments are preserved verbatim.
 - **Test**: `run_workflow` (save first — it runs the last saved version), then `get_workflow_run` — it returns the per-node trace (status, resolved input, output, errors). App calls use deployed apps by default. Pass `appTarget: "sandbox"` to test `app_call` nodes against the acting user's live app sandboxes (spun up on demand) before deploying; a sandbox held by another user fails that node with the holder's name.
@@ -89,8 +89,8 @@ Node outputs by type:
 
 ## Workflow
 
-1. Ask what the workflow should do, which agents/apps it touches (`list_agents` / `list_apps` with `include_read_only: true` to discover ids), and the cadence. When an `app_call` needs endpoints or request/response shapes, load the `using-apps` skill.
-2. `create_workflow` (or `start_sandbox` for an existing one) — the builder panel opens so the user can see the graph.
+1. Ask what the workflow should do, which agents/apps it touches (`list` with `target_type: "agent"` / `"app"` and `include_read_only: true` to discover ids), and the cadence. When an `app_call` needs endpoints or request/response shapes, load the `using-apps` skill.
+2. `create({target_type: "workflow"})` (or `start_sandbox` for an existing one) — the builder panel opens so the user can see the graph.
 3. Draft the JSONC. Iterate with the sandbox file tools, `sandbox_validate` as you go, and `sandbox_push` at the end of every turn you edited in.
 4. Test with `run_workflow` (it runs what you last saved), then inspect with `get_workflow_run`.
 5. Write the requested cron, connector event, or webhook into the file once its configuration is known. An unpublished trigger is inert, so it costs nothing to save. Never invent an automated trigger the user didn't ask for.

@@ -15,7 +15,7 @@ prompt.md     the system prompt — the file IS the prompt, no wrapper
 
 If you don't have enough information to write a good system prompt or pick connectors, ask the user — it is better to ask than to guess.
 
-Finding, creating, and opening agents is on `mcp__plugin_major-build_major__*` (`list_agents`, `create_agent`, `start_sandbox`); the orchestrator tool is `mcp__orchestrator-platform__publish`. File editing and sync go through the sandbox tools `mcp__plugin_major-build_major__sandbox_*` (`sandbox_read_file`, `sandbox_edit_file`, `sandbox_write_file`, `sandbox_pull`, `sandbox_push`, `sandbox_validate`), each called with `agent: "<agentId>"` as the target. `publish` takes the same `agent` argument.
+Finding, creating, and opening agents is on `mcp__plugin_major-build_major__*` (`list` and `create` with `target_type: "agent"`, `start_sandbox`); the orchestrator tool is `mcp__orchestrator-platform__publish`. File editing and sync go through the sandbox tools `mcp__plugin_major-build_major__sandbox_*` (`sandbox_read_file`, `sandbox_edit_file`, `sandbox_write_file`, `sandbox_pull`, `sandbox_push`, `sandbox_validate`), each called with `agent: "<agentId>"` as the target. `publish` takes the same `agent` argument.
 
 ## The working files, saving, and publishing
 
@@ -26,7 +26,7 @@ The working copy lives on the agent's sandbox under the workspace root. Two sepa
 
 An agent with no published version can't be run deployed at all — starting a session against it fails with "no published version yet". So a brand-new agent needs one `publish` before anyone can use it.
 
-Always use an `agentId` returned by `list_agents` or `create_agent` — never invent one. If this chat is pinned to an agent, the "Working with this agent" section of your system prompt carries the bound-chat rules (omit ids to target it).
+Always use an `agentId` returned by `list` or `create` (`target_type: "agent"`) — never invent one. If this chat is pinned to an agent, the "Working with this agent" section of your system prompt carries the bound-chat rules (omit ids to target it).
 
 ## Save discipline
 
@@ -36,8 +36,8 @@ Always use an `agentId` returned by `list_agents` or `create_agent` — never in
 
 ## Lifecycle
 
-- **Edit existing**: `list_agents` to find it, then `start_sandbox({agent: "<agentId>"})` — it mounts (or joins) the agent's sandbox. Edit the two files with the sandbox tools, saving as you finish each round.
-- **New**: `create_agent({name, description})` — creates the agent (server-minted `agentId`), mounts its sandbox seeded with a scaffold bundle, and returns where the files live.
+- **Edit existing**: `list({target_type: "agent"})` to find it, then `start_sandbox({agent: "<agentId>"})` — it mounts (or joins) the agent's sandbox. Edit the two files with the sandbox tools, saving as you finish each round.
+- **New**: `create({target_type: "agent", name, description})` — creates the agent (server-minted `agentId`), mounts its sandbox seeded with a scaffold bundle, and returns where the files live.
 - **Check a draft**: `sandbox_validate` — parses `agent.jsonc` against the schema without saving. Saving validates too (and additionally checks that every referenced skill/connector/app exists in the org); on failure nothing is saved and the error list comes back.
 - **Save**: `sandbox_push({notes})` — every save writes a new immutable version.
 - **Publish**: `publish({agent})` — makes the latest saved version live. Name the target the same way the sandbox tools do: pass the `agentId` you passed to `sandbox_push`. Only on the user's explicit go-ahead. Add `versionId` to roll back to an earlier version.
@@ -64,7 +64,7 @@ On Slack there is no panel. Tell the user to open the agent in the web app to fi
 
 ## Picking connectors and applications
 
-- Use `mcp__plugin_major-build_major__execute_resource_tool` with `toolName: "mcp__resources__list_resources"` to list the org's connectors; `mcp__plugin_major-build_major__list_apps` lists attachable apps. **Use `list_apps` without `include_read_only`** — an agent can only be granted apps the user can edit.
+- Use `mcp__plugin_major-build_major__execute_resource_tool` with `toolName: "mcp__resources__list_resources"` to list the org's connectors; `mcp__plugin_major-build_major__list` with `target_type: "app"` lists attachable apps. **Call it without `include_read_only`** — an agent can only be granted apps the user can edit.
 - If no existing connector matches, call `mcp__plugin_major-build_major__request_resource_setup` to prompt the user to create one inline. `connectorId` is required — pass one you already know (e.g. `"postgresql"`, `"snowflake"`) or use `mcp__plugin_major-build_major__execute_resource_tool` with `toolName: "mcp__resources__search_connector_types"` to discover the connectors you can set up; ask if unsure. The tool blocks until the user finishes or declines; on success add the returned `resourceId` to `connectors` in `agent.jsonc`.
 - Slack is provisioned automatically when the user installs the Major Slack integration (Settings → Integrations) and is intentionally not a creatable connector — if it's missing from `list_resources`, tell them to install the integration.
 - If an existing connector needs more configuration to be usable (e.g. selecting a Google Sheets spreadsheet), call `mcp__plugin_major-build_major__request_resource_update` with the `resourceId` and what's missing.
