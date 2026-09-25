@@ -68,8 +68,12 @@ func StoreDefaultOrg(orgID string, orgName string) error {
 	return nil
 }
 
-// GetDefaultOrg retrieves the default organization ID from the system keyring
+// GetDefaultOrg retrieves the default organization from MAJOR_ORG_ID, if set, otherwise the
+// system keyring. MAJOR_ORG_ID has no name, so the ID is returned as the name too.
 func GetDefaultOrg() (string, string, error) {
+	if value := os.Getenv("MAJOR_ORG_ID"); value != "" {
+		return value, value, nil
+	}
 	orgID, err := keyring.Get(keyringService, keyringOrgUser)
 	if err != nil {
 		return "", "", clierrors.WrapError("failed to get default org from keyring", err)
