@@ -586,3 +586,69 @@ func PushBranch(branch string) error {
 	}
 	return cmd.Run()
 }
+
+// AddAll stages every change in the repository, whatever the working directory.
+func AddAll() error {
+	cmd := exec.Command("git", "add", "-A")
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("git add failed: %s", strings.TrimSpace(string(output)))
+	}
+	return nil
+}
+
+// PushHead pushes HEAD to origin/<branch> without force. A rejected push
+// returns git's own output.
+func PushHead(branch string) error {
+	cmd := exec.Command("git", "push", "origin", "HEAD:"+branch)
+	if err := applyNonInteractiveGit(cmd); err != nil {
+		return err
+	}
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("git push failed:\n%s", strings.TrimSpace(string(output)))
+	}
+	return nil
+}
+
+// RemoteHeadState compares HEAD with origin/<branch> after a fetch: "same",
+// "behind" (origin has commits HEAD lacks, HEAD is on origin), or "unpushed"
+// (HEAD is not on origin).
+func RemoteHeadState(branch string) (string, error) {
+	fetch := exec.Command("git", "fetch", "--quiet", "origin", branch)
+	if err := applyNonInteractiveGit(fetch); err != nil {
+		return "", err
+	}
+	if output, err := fetch.CombinedOutput(); err != nil {
+		return "", fmt.Errorf("git fetch failed: %s", strings.TrimSpace(string(output)))
+	}
+	head, err := HeadSHA()
+	if err != nil {
+		return "", err
+	}
+	remote, err := exec.Command("git", "rev-parse", "origin/"+branch).Output()
+	if err != nil {
+		return "", fmt.Errorf("could not read origin/%s", branch)
+	}
+	if strings.TrimSpace(string(remote)) == head {
+		return "same", nil
+	}
+	if err := exec.Command("git", "merge-base", "--is-ancestor", "HEAD", "origin/"+branch).Run(); err == nil {
+		return "behind", nil
+	}
+	return "unpushed", nil
+}
+
+// PullMerge runs `git pull --no-rebase` in repoDir, so diverged branches merge
+// (leaving conflict markers on a conflict) whatever the user's pull config.
+// A failure returns git's output.
+func PullMerge(repoDir string) error {
+	cmd := exec.Command("git", "pull", "--no-rebase")
+	cmd.Dir = repoDir
+	if err := applyNonInteractiveGit(cmd); err != nil {
+		return err
+	}
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return clierrors.WrapError("git pull failed: "+string(output), err)
+	}
+	return nil
+}

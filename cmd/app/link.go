@@ -81,18 +81,11 @@ func runLink(cmd *cobra.Command, applicationID string) error {
 
 	// Step 4: Generate .env file
 	cmd.Println("Generating .env file...")
-	envFilePath, envVars, err := generateEnvFile(workingDir)
+	envFilePath, _, err := generateEnvFile(workingDir)
 	if err != nil {
 		return errors.WrapError("failed to generate .env file", err)
 	}
 	cmd.Printf("✓ Generated .env file at: %s\n", envFilePath)
-
-	// Generate .mcp.json for Claude Code
-	if _, err := utils.GenerateMcpConfig(workingDir, envVars); err != nil {
-		cmd.Printf("Warning: Failed to generate .mcp.json: %v\n", err)
-	} else {
-		cmd.Println("✓ Generated .mcp.json for Claude Code")
-	}
 
 	// Step 5: Print success and run start
 	printLinkSuccessMessage(cmd, workingDir, appInfo.Name)

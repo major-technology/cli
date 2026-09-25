@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -18,8 +19,11 @@ import (
 	"github.com/major-technology/cli/cmd/org"
 	"github.com/major-technology/cli/cmd/project"
 	"github.com/major-technology/cli/cmd/resource"
+	"github.com/major-technology/cli/cmd/skill"
+	"github.com/major-technology/cli/cmd/target"
 	"github.com/major-technology/cli/cmd/user"
 	"github.com/major-technology/cli/cmd/vars"
+	"github.com/major-technology/cli/cmd/workflow"
 	clierrors "github.com/major-technology/cli/errors"
 	"github.com/major-technology/cli/middleware"
 	"github.com/major-technology/cli/singletons"
@@ -98,6 +102,10 @@ func rejectInjectedAuthManagement(cmd *cobra.Command, args []string) error {
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
 		clierrors.PrintError(rootCmd, err)
+		var exitErr *clierrors.ExitCodeError
+		if errors.As(err, &exitErr) && exitErr.Code > 0 {
+			os.Exit(exitErr.Code)
+		}
 		os.Exit(1)
 	}
 }
@@ -128,7 +136,14 @@ func init() {
 
 	agent.Cmd.GroupID = "main"
 	rootCmd.AddCommand(agent.Cmd)
-	for _, command := range agent.TargetCommands() {
+
+	skill.Cmd.GroupID = "main"
+	rootCmd.AddCommand(skill.Cmd)
+
+	workflow.Cmd.GroupID = "main"
+	rootCmd.AddCommand(workflow.Cmd)
+
+	for _, command := range target.TargetCommands() {
 		command.GroupID = "main"
 		rootCmd.AddCommand(command)
 	}

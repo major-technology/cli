@@ -30,6 +30,21 @@ func (e *CLIError) Unwrap() error {
 	return e.Err
 }
 
+// ExitCodeError makes the CLI exit with Code instead of 1, e.g. to pass a
+// child process's exit code through.
+type ExitCodeError struct {
+	Code int
+	Err  error
+}
+
+func (e *ExitCodeError) Error() string {
+	return e.Err.Error()
+}
+
+func (e *ExitCodeError) Unwrap() error {
+	return e.Err
+}
+
 // WrapError wraps an existing error with additional context using Standard Lib
 func WrapError(msg string, ogerr error) *CLIError {
 	var cliError *CLIError

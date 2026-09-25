@@ -343,6 +343,24 @@ func TestDeployWaitFailedJSONExitsNonzero(t *testing.T) {
 	}
 }
 
+func TestDeployWaitFailedJSONCarriesDeploymentError(t *testing.T) {
+	work, remote := cloneFixture(t)
+	probe := newDeployProbe(t, remote, "prototype", "", http.StatusOK)
+	probe.waitStatus = "BUILD_FAILED"
+	probe.deploymentError = "query extraction timed out"
+	t.Chdir(work)
+	setDeployCommandFlags(t, "", "", false, true)
+
+	cmd, stdout, _ := deployCaptureCmd(t)
+	err := runWithDeadline(t, 8*time.Second, func() error { return runDeploy(cmd) })
+	if err == nil || err.Error() != "deployment failed with status BUILD_FAILED: query extraction timed out" {
+		t.Fatalf("--json failure must carry deploymentError, got %v", err)
+	}
+	if strings.TrimSpace(stdout.String()) != "" {
+		t.Fatalf("failed wait must not emit success JSON, stdout=%q", stdout.String())
+	}
+}
+
 func TestPromptForDeployURLJSONWritesBannersToStderr(t *testing.T) {
 	flagDeployJSON = true
 	t.Cleanup(func() { flagDeployJSON = false })
@@ -556,15 +574,17 @@ func deployCaptureCmd(t *testing.T) (*cobra.Command, *bytes.Buffer, *bytes.Buffe
 }
 
 type deployProbe struct {
-	t          *testing.T
-	remote     string
-	posts      atomic.Int32
-	sha        atomic.Value
-	hash       string
-	status     int
-	infoSlug   string
-	waitStatus string
-	dropStatus bool
+	t               *testing.T
+	remote          string
+	posts           atomic.Int32
+	sha             atomic.Value
+	hash            string
+	status          int
+	infoSlug        string
+	waitStatus      string
+	deploymentError string
+	postedSlug      atomic.Value
+	dropStatus      bool
 }
 
 func newDeployProbe(t *testing.T, remote, infoSlug, versionHash string, status int) *deployProbe {
@@ -587,6 +607,11 @@ func (p *deployProbe) serve(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, `{"applicationId":%q,"organizationId":%q,"urlSlug":%s,"name":"Prototype","deployStatus":"not_deployed","appUrl":null}`, niAppID, niOrgID, slug)
 	case r.URL.Path == "/applications/versions":
 		p.posts.Add(1)
+		var body struct {
+			AppURL string `json:"appURL"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		p.postedSlug.Store(body.AppURL)
 		sha := gitSHA(p.remote)
 		p.sha.Store(sha)
 		hash := p.hash
@@ -623,7 +648,7 @@ func (p *deployProbe) serve(w http.ResponseWriter, r *http.Request) {
 		if waitStatus == "DEPLOYED" {
 			appURL = "https://prototype.example.test"
 		}
-		fmt.Fprintf(w, `{"status":%q,"deploymentError":"","app_url":%q}`, waitStatus, appURL)
+		fmt.Fprintf(w, `{"status":%q,"deploymentError":%q,"app_url":%q}`, waitStatus, p.deploymentError, appURL)
 	default:
 		p.t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
 		w.WriteHeader(http.StatusInternalServerError)

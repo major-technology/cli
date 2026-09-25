@@ -37,7 +37,7 @@ func TestAgentEndpointsNameAgentAndOrganization(t *testing.T) {
 	if _, err := client.ListAgents("org-1", true); err != nil {
 		t.Fatal(err)
 	}
-	if resp, err := client.PullAgent(agentID); err != nil || resp.Version != 2 {
+	if resp, err := client.PullTarget("agents", agentID); err != nil || resp.Version != 2 {
 		t.Fatalf("pull: %+v, %v", resp, err)
 	}
 }
