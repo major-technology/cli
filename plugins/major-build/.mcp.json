@@ -1,10 +1,7 @@
 {
   "major": {
     "type": "http",
-    "url": "${MAJOR_MCP_URL:-https://mcp.major.build/mcp}",
-    "headers": {
-      "x-major-jwt": "${MAJOR_RESOURCES_API_TOKEN:-}"
-    },
+    "url": "https://mcp.major.build/mcp",
     "alwaysLoad": true
   }
 }
