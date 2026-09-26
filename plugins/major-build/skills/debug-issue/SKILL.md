@@ -61,6 +61,10 @@ For blank pages, error overlays, server crashes, failed route handlers, or deplo
 - After fixing and committing a confirmed app error, use `major app errors resolve <errorId>` only when the issue is actually addressed.
 - If app errors are unavailable and the task is specifically about runtime error monitoring, add the reporter scaffolding before running `major app errors enable`.
 
+## Slow operations
+
+When the complaint is slowness rather than failure, run `major resource invocations --slow` first. It ranks the app's resource operations by total time with p95 latency and the call site (`callSite.filePath:line`). The `--slow` flag includes only operations over 500 ms p95; omit it to see everything, and use `--environment coding-session` for preview traffic. Open the call site, and for SQL run EXPLAIN through the connector's tools before editing.
+
 ## App logs
 
 Use logs when behavior depends on server startup, route handlers, background work, request handling, or errors that are not captured by app errors.

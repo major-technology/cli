@@ -330,7 +330,6 @@ func (c *Client) SaveApplicationResources(organizationID, applicationID string, 
 	return &resp, nil
 }
 
-
 // --- Version Check endpoints ---
 
 // CheckVersion checks if the CLI version is up to date
@@ -642,6 +641,31 @@ func (c *Client) ListAppErrors(applicationID string, req ListAppErrorsRequest) (
 	}
 
 	var resp ListAppErrorsResponse
+	if err := c.doRequest("GET", path, nil, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+// ListSlowOperations lists an app's resource operations ranked by total time spent
+func (c *Client) ListSlowOperations(applicationID string, req ListSlowOperationsRequest) (*ListSlowOperationsResponse, error) {
+	query := url.Values{}
+	if req.ExecutionEnvironment != "" {
+		query.Set("executionEnvironment", req.ExecutionEnvironment)
+	}
+	if req.WindowDays > 0 {
+		query.Set("windowDays", fmt.Sprintf("%d", req.WindowDays))
+	}
+	if req.IncludeAll {
+		query.Set("minP95Ms", "0")
+	}
+
+	path := fmt.Sprintf("/applications/%s/resource-invocation-aggregates", applicationID)
+	if encoded := query.Encode(); encoded != "" {
+		path = path + "?" + encoded
+	}
+
+	var resp ListSlowOperationsResponse
 	if err := c.doRequest("GET", path, nil, &resp); err != nil {
 		return nil, err
 	}
