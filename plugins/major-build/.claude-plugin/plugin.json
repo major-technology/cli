@@ -7,6 +7,8 @@
   },
   "repository": "https://github.com/major-technology/cli",
   "license": "MIT",
+  "icon": "./.claude-plugin/icon.png",
+  "privacyPolicyUrl": "https://app.major.build/privacy-policy",
   "skills": "./skills/",
   "mcpServers": "./.mcp.json"
 }
