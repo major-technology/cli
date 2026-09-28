@@ -4,7 +4,7 @@ A Major app can trigger **agents** at runtime and interact with their runs. The 
 
 The platform injects the same credentials while building and after deployment, so you can test the full trigger -> run -> read loop before deploying. Runs started while building route the agent's callbacks back to the app version you are working on.
 
-A **run is a chat thread.** The `chatThreadId` returned by `run()` is the `runId` you pass to every run-op (`sendMessage` / `stopAgent` / `getAgentContent`). Runs are asynchronous (the agent executes in the background), so `run()` returns immediately — poll `getAgentContent` / `getRunningInstancesOfAgent` for progress.
+A **run** is one execution of the agent. The `runId` returned by `run()` is what you pass to every run-op (`sendMessage` / `stopAgent` / `getAgentContent`). Runs are asynchronous (the agent executes in the background), so `run()` returns immediately — poll `getAgentContent` / `getRunningInstancesOfAgent` for progress.
 
 ## Generated clients — never hand-write them
 
@@ -33,25 +33,30 @@ Read the package's types before calling — these are the exact signatures. `run
 import { supportBotClient } from "./clients"; // use the import add-agent-client returned, verbatim
 
 // Start a run. Returns as soon as the run is accepted; the agent runs async.
-const { chatThreadId } = await supportBotClient.run({
+const { runId } = await supportBotClient.run({
 	prompt: "Summarize today's unread email and flag what needs a reply.",
 	name: "Daily email summary", // optional, shown in the Major UI
 });
-// chatThreadId is the runId for every run-op below.
 
-// Send a follow-up message to a run this app started.
-await supportBotClient.sendMessage(chatThreadId, "Now draft replies for the urgent ones.");
+// Send a follow-up message to a run this app started. A finished run resumes:
+// the message starts it again on the same run, so there is no need to start a new one.
+await supportBotClient.sendMessage(runId, "Now draft replies for the urgent ones.");
 
 // Stop a run. Idempotent — stopping an already-finished run still succeeds.
-await supportBotClient.stopAgent(chatThreadId);
+await supportBotClient.stopAgent(runId);
 
 // List the runs this app started that are still executing for this agent.
 const running = await supportBotClient.getRunningInstancesOfAgent();
 // → AgentRun[]: { runId, agentId, status: "running", startedAt }
 
-// Read the most recent messages of a run's thread (n caps how many).
-const messages = await supportBotClient.getAgentContent(chatThreadId, 20);
-// → AgentMessage[]: { role, type, content, timestamp }
+// Read a page of the run's messages: the newest `limit` (1-100), oldest first within the page.
+const page = await supportBotClient.getAgentContent(runId, { limit: 20 });
+// → { messages: AgentMessage[], nextToken?: string }, AgentMessage = { role, type, content, timestamp }
+
+// Pass nextToken back to read the page before it.
+if (page.nextToken) {
+	const older = await supportBotClient.getAgentContent(runId, { limit: 20, nextToken: page.nextToken });
+}
 ```
 
 ## Approving tool calls a run is paused on
@@ -61,11 +66,11 @@ A run can pause mid-execution when the agent wants to call a **permission-gated 
 ```typescript
 // List the tool calls this run is currently paused on. Empty array when none.
 // Poll it (on thread open, or from a cron) while the run is live.
-const pending = await supportBotClient.listPendingApprovals(chatThreadId);
+const pending = await supportBotClient.listPendingApprovals(runId);
 // → PendingApproval[]: { approvalId, toolName, toolArgs, description?, expiresAt? }
 
 // Approve (or deny) one, unblocking the run.
-await supportBotClient.respondToApproval(chatThreadId, pending[0].approvalId, {
+await supportBotClient.respondToApproval(runId, pending[0].approvalId, {
 	approved: true,
 	feedback: "Looks right.", // optional; especially useful on a denial
 	remember: false, // true => stop prompting for this tool on future runs
@@ -81,20 +86,19 @@ await supportBotClient.respondToApproval(chatThreadId, pending[0].approvalId, {
 
 The package throws typed errors — branch on them rather than parsing messages:
 
-- **`AgentRunNotActiveError`** (from `sendMessage` on a finished run): the run has completed and the pod is gone. Start a fresh run with `run()` rather than retrying the message.
+- **`AgentRunNotStartedError`**: the run could not start or accept the message — the org is out of credits, (from `sendMessage`) the org's safety rules rejected the message, or (from `run`) the Major API was unreachable. Show the error; don't retry in a loop.
 - **`AgentNotFoundError`**: unknown run/agent id — also thrown by `respondToApproval` when the approval is no longer pending (already answered, or it expired and auto-denied). Re-fetch with `listPendingApprovals` and re-render.
 - **`AgentsAuthError`**: the runner lacks `agent:use`, or the generated client is missing / stale. Re-run `sandbox_add-agent-client`.
 - **`AgentsValidationError`**: bad input (missing `prompt` / `message`).
 
 ```typescript
-import { AgentRunNotActiveError } from "@major-tech/agents-client";
+import { AgentRunNotStartedError } from "@major-tech/agents-client";
 
 try {
 	await supportBotClient.sendMessage(runId, text);
 } catch (err) {
-	if (err instanceof AgentRunNotActiveError) {
-		const { chatThreadId } = await supportBotClient.run({ prompt: text });
-		return chatThreadId;
+	if (err instanceof AgentRunNotStartedError) {
+		return { error: err.message };
 	}
 	throw err;
 }
@@ -102,8 +106,8 @@ try {
 
 ## Tips
 
-- **`runId` === `chatThreadId`** — the value `run()` returns is what every run-op takes. Don't invent a separate id.
+- **Use the `runId` that `run()` returns** for every run-op. Don't invent a separate id.
 - **Runs are async.** Don't expect output from `run()`. Render a pending state, then poll `getAgentContent` (or open the agent side-by-side) for results.
-- **`getAgentContent` / `getRunningInstancesOfAgent` are always safe** to call regardless of run state. `sendMessage` / `stopAgent` only make sense on your own runs — a run-op against another app's run is rejected.
+- **`getAgentContent` / `getRunningInstancesOfAgent` are always safe** to call regardless of run state. Page through `getAgentContent` with `nextToken`; don't raise `limit` past 100. `sendMessage` / `stopAgent` only make sense on your own runs — a run-op against another app's run is rejected.
 - **`AgentMessage.content` shape varies by `type`** (`message`, `thinking`, `tool_use`, `tool_result`, `result`, system types). Render defensively.
 - **Don't loop-spawn runs.** Each run costs credits and spins up a real agent session, so kick off only the few runs the page actually needs and let them finish. For a command center, that's the handful of agents you're summarizing — never start runs in a render loop or recursively.
