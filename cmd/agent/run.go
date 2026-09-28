@@ -1,7 +1,6 @@
 package agent
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"slices"
@@ -32,7 +31,7 @@ func (r runListResult) String() string {
 	}
 	lines := make([]string, 0, len(r.Runs)+1)
 	for _, run := range r.Runs {
-		lines = append(lines, fmt.Sprintf("%s  %s  %s  %s  %s", run.ThreadID, run.Status, run.Source, run.CreatedAt, run.Title))
+		lines = append(lines, fmt.Sprintf("%s  %s  %s  %s  %s", run.RunID, run.Status, run.Source, run.CreatedAt, run.Title))
 	}
 	if r.HasMore {
 		lines = append(lines, fmt.Sprintf("More runs: pass --offset %d.", r.nextOffset))
@@ -47,12 +46,12 @@ type runStatusResult struct {
 
 func (r runStatusResult) String() string { return r.text }
 
-type runContentResult struct{ *api.AgentRunContentResponse }
+type runContentResult struct{ *api.AgentRunMessagesResponse }
 
 func (r runContentResult) String() string {
 	lines := make([]string, 0, len(r.Messages)+1)
 	for _, message := range r.Messages {
-		lines = append(lines, string(compactJSON(message)))
+		lines = append(lines, fmt.Sprintf("%s  %s  %s  %s", message.Timestamp, message.Role, message.Type, compactJSON(message.Content)))
 	}
 	if r.NextToken != nil && *r.NextToken != "" {
 		lines = append(lines, fmt.Sprintf("Older messages: pass --next-token '%s'.", strings.ReplaceAll(*r.NextToken, "'", `'\''`)))
@@ -60,12 +59,12 @@ func (r runContentResult) String() string {
 	return strings.Join(lines, "\n")
 }
 
-func compactJSON(raw json.RawMessage) []byte {
-	var buf bytes.Buffer
-	if err := json.Compact(&buf, raw); err != nil {
-		return raw
+func compactJSON(content any) string {
+	data, err := json.Marshal(content)
+	if err != nil {
+		return fmt.Sprint(content)
 	}
-	return buf.Bytes()
+	return string(data)
 }
 
 func newRunCmd() *cobra.Command {
@@ -146,7 +145,7 @@ func newRunStopCmd() *cobra.Command {
 func newRunContentCmd() *cobra.Command {
 	var nextToken string
 	cmd := &cobra.Command{Use: "content <runId>", Short: "Read a run's messages", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
-		result, err := singletons.GetAPIClient().GetAgentRunContent(args[0], nextToken)
+		result, err := singletons.GetAPIClient().GetAgentRunMessages(args[0], nextToken)
 		if err != nil {
 			return err
 		}

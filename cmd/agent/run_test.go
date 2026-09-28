@@ -87,7 +87,7 @@ func TestRunListRejectsAnUnknownSource(t *testing.T) {
 
 func TestRunContentHintQuotesTheToken(t *testing.T) {
 	token := `{"pk":"thread#1","sk":"msg#2"}`
-	text := runContentResult{&api.AgentRunContentResponse{NextToken: &token}}.String()
+	text := runContentResult{&api.AgentRunMessagesResponse{NextToken: &token}}.String()
 	if !strings.Contains(text, `--next-token '{"pk":"thread#1","sk":"msg#2"}'.`) {
 		t.Fatalf("hint: %q", text)
 	}

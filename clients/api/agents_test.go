@@ -82,9 +82,8 @@ const (
 
 func TestGetAgentInfo(t *testing.T) {
 	client, req := agentRunServer(t, map[string]any{
-		"id": testAgentID, "name": "Helper", "description": "", "publishedVersionId": nil,
-		"latestVersion": map[string]any{"id": "v1", "version": 3, "notes": "n"},
-		"envKeys":       []any{map[string]any{"key": "API_KEY", "hasValue": true}},
+		"id": testAgentID, "name": "Helper", "description": "", "currentVersionId": nil,
+		"latestVersion": map[string]any{"id": "v1", "agentId": testAgentID, "version": 3, "createdBy": "u1", "createdAt": "c", "notes": "n"},
 	})
 	resp, err := client.GetAgentInfo(testAgentID)
 	if err != nil {
@@ -93,7 +92,7 @@ func TestGetAgentInfo(t *testing.T) {
 	if req.method != "GET" || req.path != "/cli/agents/"+testAgentID {
 		t.Fatalf("request: %s %s", req.method, req.path)
 	}
-	if resp.Name != "Helper" || resp.PublishedVersionID != nil || resp.LatestVersion.Version != 3 || !resp.EnvKeys[0].HasValue {
+	if resp.Name != "Helper" || resp.CurrentVersionID != nil || resp.LatestVersion.Version != 3 {
 		t.Fatalf("response: %+v", resp)
 	}
 }
@@ -124,7 +123,7 @@ func TestStartAgentRun(t *testing.T) {
 func TestListAgentRunsWithEveryFilter(t *testing.T) {
 	client, req := agentRunServer(t, map[string]any{
 		"runs": []any{map[string]any{
-			"threadId": testRunID, "title": "Run 1", "user": nil, "source": "workflow", "channel": nil,
+			"runId": testRunID, "title": "Run 1", "user": nil, "source": "workflow", "channel": nil,
 			"application": nil, "status": "idle", "pendingInputCount": 0, "createdAt": "c", "updatedAt": "u",
 		}},
 		"hasMore": true,
@@ -190,22 +189,25 @@ func TestStopAgentRun(t *testing.T) {
 	}
 }
 
-func TestGetAgentRunContent(t *testing.T) {
-	client, req := agentRunServer(t, map[string]any{"messages": []any{map[string]any{"id": "m1"}}, "nextToken": "t2"})
-	resp, err := client.GetAgentRunContent(testRunID, "t1")
+func TestGetAgentRunMessages(t *testing.T) {
+	client, req := agentRunServer(t, map[string]any{
+		"messages":  []any{map[string]any{"role": "assistant", "type": "text", "content": "hi", "timestamp": "t"}},
+		"nextToken": "t2",
+	})
+	resp, err := client.GetAgentRunMessages(testRunID, "t1")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if req.method != "GET" || req.path != "/cli/agents/runs/"+testRunID+"/content" {
+	if req.method != "GET" || req.path != "/cli/agents/runs/"+testRunID+"/messages" {
 		t.Fatalf("request: %s %s", req.method, req.path)
 	}
 	if len(req.query) != 1 || req.query["nextToken"][0] != "t1" {
 		t.Fatalf("query %v", req.query)
 	}
-	if len(resp.Messages) != 1 || resp.NextToken == nil || *resp.NextToken != "t2" {
+	if len(resp.Messages) != 1 || resp.Messages[0].Role != "assistant" || resp.NextToken == nil || *resp.NextToken != "t2" {
 		t.Fatalf("response: %+v", resp)
 	}
-	if _, err := client.GetAgentRunContent(testRunID, ""); err != nil {
+	if _, err := client.GetAgentRunMessages(testRunID, ""); err != nil {
 		t.Fatal(err)
 	}
 	if len(req.query) != 0 {

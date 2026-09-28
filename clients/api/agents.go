@@ -1,7 +1,6 @@
 package api
 
 import (
-	"encoding/json"
 	"net/url"
 	"strconv"
 )
@@ -25,21 +24,19 @@ type AgentCreateResponse struct {
 	AgentID string `json:"agentId"`
 }
 type AgentInfoResponse struct {
-	ID                 string              `json:"id"`
-	Name               string              `json:"name"`
-	Description        string              `json:"description"`
-	PublishedVersionID *string             `json:"publishedVersionId"`
-	LatestVersion      *AgentLatestVersion `json:"latestVersion"`
-	EnvKeys            []AgentEnvKey       `json:"envKeys"`
+	ID               string              `json:"id"`
+	Name             string              `json:"name"`
+	Description      string              `json:"description"`
+	CurrentVersionID *string             `json:"currentVersionId"`
+	LatestVersion    *AgentLatestVersion `json:"latestVersion"`
 }
 type AgentLatestVersion struct {
-	ID      string  `json:"id"`
-	Version int     `json:"version"`
-	Notes   *string `json:"notes"`
-}
-type AgentEnvKey struct {
-	Key      string `json:"key"`
-	HasValue bool   `json:"hasValue"`
+	ID        string  `json:"id"`
+	AgentID   string  `json:"agentId"`
+	Version   int     `json:"version"`
+	CreatedBy string  `json:"createdBy"`
+	CreatedAt string  `json:"createdAt"`
+	Notes     *string `json:"notes"`
 }
 type AgentRunStartResponse struct {
 	RunID  string `json:"runId"`
@@ -49,7 +46,7 @@ type AgentRunStatusResponse struct {
 	Status string `json:"status"`
 }
 type AgentRunSummary struct {
-	ThreadID          string           `json:"threadId"`
+	RunID             string           `json:"runId"`
 	Title             string           `json:"title"`
 	User              *AgentRunUser    `json:"user"`
 	Source            string           `json:"source"`
@@ -79,8 +76,14 @@ type AgentRunListFilters struct {
 	Limit  int
 	Offset int
 }
-type AgentRunContentResponse struct {
-	Messages  []json.RawMessage `json:"messages"`
+type AgentRunMessage struct {
+	Role      string `json:"role"`
+	Type      string `json:"type"`
+	Content   any    `json:"content"`
+	Timestamp string `json:"timestamp"`
+}
+type AgentRunMessagesResponse struct {
+	Messages  []AgentRunMessage `json:"messages"`
 	NextToken *string           `json:"nextToken,omitempty"`
 }
 type AgentSlackConnectResponse struct {
@@ -148,12 +151,12 @@ func (c *Client) StopAgentRun(runID string) (*AgentRunStatusResponse, error) {
 	err := c.doRequest("POST", runPath(runID, "stop"), map[string]any{}, &resp)
 	return &resp, err
 }
-func (c *Client) GetAgentRunContent(runID, nextToken string) (*AgentRunContentResponse, error) {
-	path := runPath(runID, "content")
+func (c *Client) GetAgentRunMessages(runID, nextToken string) (*AgentRunMessagesResponse, error) {
+	path := runPath(runID, "messages")
 	if nextToken != "" {
 		path += "?" + url.Values{"nextToken": {nextToken}}.Encode()
 	}
-	var resp AgentRunContentResponse
+	var resp AgentRunMessagesResponse
 	err := c.doRequest("GET", path, nil, &resp)
 	return &resp, err
 }

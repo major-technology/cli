@@ -38,6 +38,8 @@ type Target struct {
 	SkillID       string `json:"skillId,omitempty"`
 	AgentID       string `json:"agentId,omitempty"`
 	WorkflowID    string `json:"workflowId,omitempty"`
+	// Version is the bundle version last pulled or pushed into this workspace.
+	Version int `json:"version,omitempty"`
 }
 
 type Config struct {
