@@ -119,6 +119,9 @@ func (t BundleTarget) Pull(ctx *TargetContext) (any, error) {
 		return nil, err
 	}
 	resp.DownloadURL = ""
+	if err := recordVersion(ctx, resp.Version); err != nil {
+		return nil, err
+	}
 	return versionResult{TargetVersion: *resp, action: "Pulled"}, nil
 }
 
@@ -141,7 +144,18 @@ func (t BundleTarget) Push(ctx *TargetContext) (any, error) {
 		return nil, err
 	}
 	pushed.DownloadURL = ""
+	if err := recordVersion(ctx, pushed.Version); err != nil {
+		return nil, err
+	}
 	return versionResult{TargetVersion: *pushed, action: "Saved"}, nil
+}
+
+// recordVersion persists the bundle version this pull or push landed, so a
+// later `major agent info` (or the equivalent for other kinds) can tell
+// whether the workspace is behind the latest saved version.
+func recordVersion(ctx *TargetContext, version int) error {
+	ctx.Config.Target.Version = version
+	return workspace.Write(ctx.Root, *ctx.Config)
 }
 
 func (t BundleTarget) Validate(ctx *TargetContext) (any, error) {
