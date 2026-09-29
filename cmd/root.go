@@ -151,6 +151,9 @@ func init() {
 
 	rootCmd.AddCommand(demo.Cmd)
 
+	relatedArtifactsCmd.GroupID = "main"
+	rootCmd.AddCommand(relatedArtifactsCmd)
+
 	resource.Cmd.GroupID = "main"
 	rootCmd.AddCommand(resource.Cmd)
 
