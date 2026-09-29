@@ -9,10 +9,20 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var flagDatabaseStatusJSON bool
+var flagDBStatusJSON bool
 
-var databaseStatusCmd = &cobra.Command{
-	Use:   "database-status",
+var dbCmd = &cobra.Command{
+	Use:   "db",
+	Short: "Inspect the app's managed database",
+	Args:  utils.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cmd.Help()
+		return nil
+	},
+}
+
+var dbStatusCmd = &cobra.Command{
+	Use:   "status",
 	Short: "Show the managed database status of the current application",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -24,19 +34,20 @@ var databaseStatusCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		if flagDatabaseStatusJSON {
+		if flagDBStatusJSON {
 			return utils.WriteJSON(cmd, resp)
 		}
-		cmd.Println(databaseStatusText(resp))
+		cmd.Println(dbStatusText(resp))
 		return nil
 	},
 }
 
 func init() {
-	databaseStatusCmd.Flags().BoolVar(&flagDatabaseStatusJSON, "json", false, "Output in JSON format")
+	dbStatusCmd.Flags().BoolVar(&flagDBStatusJSON, "json", false, "Output in JSON format")
+	dbCmd.AddCommand(dbStatusCmd)
 }
 
-func databaseStatusText(r *api.ManagedDatabaseStatusResponse) string {
+func dbStatusText(r *api.ManagedDatabaseStatusResponse) string {
 	lines := []string{"Status: " + r.Status}
 	if r.ResourceID != nil && *r.ResourceID != "" {
 		lines = append(lines, "Resource ID: "+*r.ResourceID)

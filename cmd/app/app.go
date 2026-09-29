@@ -30,7 +30,7 @@ func init() {
 	Cmd.AddCommand(cloneCmd)
 	Cmd.AddCommand(configureCmd)
 	Cmd.AddCommand(createCmd)
-	Cmd.AddCommand(databaseStatusCmd)
+	Cmd.AddCommand(dbCmd)
 	Cmd.AddCommand(deployCmd)
 	Cmd.AddCommand(deployStatusCmd)
 	Cmd.AddCommand(errorsCmd)
