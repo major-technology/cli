@@ -20,9 +20,9 @@ Call `mcp__plugin_major_major__setup_managed_database` with the app's `applicati
 **Behavior:**
 
 - **First call** (no database exists): Starts provisioning. Takes around 1 minute.
-- **While provisioning**: Returns status. Wait ~1 minute and call again.
-- **Once active**: Returns the resource ID. The database is ready to use.
-- **If failed**: Returns failure status. Deprovision and try again.
+- **While provisioning**: Wait ~1 minute, then check with `major app db status` — in the app's folder, or through `mcp__plugin_major_major__sandbox_bash` in `/workspace/app` on its sandbox. It reports `none`, `provisioning`, `active`, or `failed`, and never starts provisioning.
+- **Once active**: `major app db status` returns the resource ID. The database is ready to use.
+- **If failed**: Deprovision and try again.
 
 ## Using the Database Once Active
 
