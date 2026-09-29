@@ -180,3 +180,29 @@ func (c *Client) DeleteAgentSlack(id string) (*AgentSuccessResponse, error) {
 	err := c.doRequest("DELETE", agentPath(id, "slack"), nil, &resp)
 	return &resp, err
 }
+
+type AgentPermissionMatcher struct {
+	Method string `json:"method"`
+	Path   string `json:"path"`
+}
+type AgentPermission struct {
+	ResourceID      string                  `json:"resourceId,omitempty"`
+	ApplicationID   string                  `json:"applicationId,omitempty"`
+	ResourceSubtype string                  `json:"resourceSubtype,omitempty"`
+	PipedreamApp    string                  `json:"pipedreamApp,omitempty"`
+	ToolName        string                  `json:"toolName"`
+	Matcher         *AgentPermissionMatcher `json:"matcher,omitempty"`
+	IsUpstream      bool                    `json:"isUpstream"`
+	Decision        string                  `json:"decision"`
+}
+
+func (c *Client) ListAgentResourcePermissions(id, resourceID string) ([]AgentPermission, error) {
+	resp := []AgentPermission{}
+	err := c.doRequest("GET", agentPath(id, "resources/"+url.PathEscape(resourceID)+"/permissions"), nil, &resp)
+	return resp, err
+}
+func (c *Client) ListAgentApplicationPermissions(id, applicationID string) ([]AgentPermission, error) {
+	resp := []AgentPermission{}
+	err := c.doRequest("GET", agentPath(id, "applications/"+url.PathEscape(applicationID)+"/permissions"), nil, &resp)
+	return resp, err
+}
