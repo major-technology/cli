@@ -50,7 +50,7 @@ The definition shape — fields, the allowed model ids, permission decisions —
 
 **Sensible defaults are already applied — usually don't touch this.** Read-only tools and `GET` endpoints default to `always_allow`; writes and every non-`GET` method default to `ask`. Only list a tool or endpoint explicitly when the user wants to deviate (e.g. "never let it delete anything").
 
-To see the current picture: `list_resource_permissions({resourceId})` / `list_app_permissions({applicationId})` return every tool/endpoint with its decision **as of the published version**. To change one, edit that connector's `tools` (or that app's `endpoints`) array in `agent.jsonc`, then push and publish — there is no live permission-editing tool.
+To see the current picture: `major agent permissions --resource <resourceId>` / `major agent permissions --app <applicationId>` (run through `sandbox_bash` in `/workspace/agent`) list every tool/endpoint with its decision **as of the published version**. To change one, edit that connector's `tools` (or that app's `endpoints`) array in `agent.jsonc`, then push and publish — there is no live permission-editing tool.
 
 ## Env variables
 

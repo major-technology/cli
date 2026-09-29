@@ -39,7 +39,7 @@ var agentFiles = target.FileSet{
 
 func init() {
 	Cmd.PersistentFlags().Bool("json", false, "Print one JSON result")
-	Cmd.AddCommand(newListCmd(), newCreateCmd(), newCloneCmd(), newInfoCmd(), newRunCmd(), newSlackCmd())
+	Cmd.AddCommand(newListCmd(), newCreateCmd(), newCloneCmd(), newInfoCmd(), newRunCmd(), newPermissionsCmd(), newSlackCmd())
 	target.Register("agent", bundle)
 }
 

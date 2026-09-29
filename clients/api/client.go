@@ -425,6 +425,25 @@ func (c *Client) GetApplicationInfo(applicationID string) (*GetApplicationInfoRe
 	return &resp, nil
 }
 
+// ManagedDatabaseStatusResponse is the app's managed database state from GET /applications/:applicationId/managed-database
+type ManagedDatabaseStatusResponse struct {
+	Status     string  `json:"status"`
+	ResourceID *string `json:"resourceId"`
+	Message    string  `json:"message"`
+	DatabaseID *string `json:"databaseId"`
+}
+
+// GetManagedDatabaseStatus retrieves the managed database status of an application
+func (c *Client) GetManagedDatabaseStatus(applicationID string) (*ManagedDatabaseStatusResponse, error) {
+	var resp ManagedDatabaseStatusResponse
+	path := fmt.Sprintf("/applications/%s/managed-database", applicationID)
+	err := c.doRequest("GET", path, nil, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
 // GetApplicationForLink retrieves application info needed for the link command
 func (c *Client) GetApplicationForLink(applicationID string) (*GetApplicationForLinkResponse, error) {
 	var resp GetApplicationForLinkResponse

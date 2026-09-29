@@ -1,7 +1,9 @@
 package workflow
 
 import (
+	"errors"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/charmbracelet/huh"
@@ -40,8 +42,28 @@ func workflowFiles(id string) target.FileSet {
 
 func init() {
 	Cmd.PersistentFlags().Bool("json", false, "Print one JSON result")
-	Cmd.AddCommand(newListCmd(), newCreateCmd(), newCloneCmd())
+	Cmd.AddCommand(newListCmd(), newCreateCmd(), newCloneCmd(), newRunCmd(), newEventsCmd())
 	target.Register("workflow", bundle)
+}
+
+// resolveWorkflowID returns --id, else the workflow of the .major/config.json workspace this
+// command runs in.
+func resolveWorkflowID(id string) (string, error) {
+	if id != "" {
+		return id, nil
+	}
+	cwd, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+	_, cfg, err := workspace.Locate(cwd)
+	if err != nil && !errors.Is(err, workspace.ErrNotFound) {
+		return "", err
+	}
+	if err != nil || cfg.Target.Kind != "workflow" {
+		return "", fmt.Errorf("pass --id <workflowId>, or run this command inside a workflow folder (one with .major/config.json for a workflow)")
+	}
+	return cfg.Target.WorkflowID, nil
 }
 
 type listResult struct{ *api.WorkflowListResponse }
