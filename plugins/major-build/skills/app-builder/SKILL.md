@@ -20,7 +20,7 @@ If this chat is already pinned to an app (the "Working with this app" section of
 - **Edit existing**: `list({target_type: "app"})` to find it, then `start_sandbox({slug: "<slug>"})`. This wakes the app's sandbox, attaches it to this chat, and starts a live preview. A `locked` result means another user holds the app — tell the user who; do not retry in a loop.
 - **New**: `create({target_type: "app", name, description})` with a short name and a one-sentence description. It returns the new `applicationId` and automatically mounts the sandbox — you do **not** need to call `start_sandbox`. For a brand-new app's first iteration, load the `new-project` skill and follow it before writing code.
 - **Save**: commit and push on `main` using the sandbox shell tool. Stage only the files you changed (`git add <paths>`) — never `git add -A` or `git add .`: other chat sessions may be editing the same workspace. Never run `git stash` (or `git stash push` / `git stash pop` / `git stash apply`). Never create feature branches.
-- **Deploy**: a separate, explicit step — do **not** call `deploy_app` unless the user asked to deploy/publish/ship in this conversation. Finishing an edit means committing and pushing on `main`, then telling the user the change is ready to deploy. When they do ask, batch all finished changes into a single deploy. A deploy builds for ~2 minutes — tell the user it is building and end your turn; never poll `major app info` in a loop.
+- **Deploy**: a separate, explicit step — do **not** run `major publish --yes` unless the user asked to deploy/publish/ship in this conversation. Finishing an edit means committing and pushing on `main`, then telling the user the change is ready to deploy. When they do ask, batch all finished changes into a single deploy: run `major publish --yes` in `/workspace/app` (an app's first deploy needs `--slug <slug>` to choose its URL). A deploy builds for ~2 minutes — tell the user it is building and end your turn; never poll `major app info` in a loop.
 
 If a request is ambiguous (you can't tell which existing app it maps to, or you lack the detail to mount it), ask one or two clarifying questions first.
 
@@ -104,6 +104,6 @@ Use each command's `--help` for filters and pagination.
 
 ## User setup
 
-For app secrets, use the available MCP setup tool: `set-app-env-variables` in app chats, or `set_env_variables` on the build server. The user supplies values through the frontend; never ask them to paste secrets into chat. If the tool returns a setup URL, share it in one short sentence and wait for the user's confirmation. Use `major vars set KEY=VALUE` only for known values the user explicitly wants you to configure.
+For app secrets, use `mcp__plugin_major_major__set_app_env_variables`. The user supplies values through the frontend; never ask them to paste secrets into chat. If you get a setup URL, share it in one short sentence and wait for the user's confirmation. Use `major vars set KEY=VALUE` only for known values the user explicitly wants you to configure.
 
 New connector setup still uses `mcp__plugin_major_major__request_resource_setup`; load `using-connectors` for that flow. An existing connector can be added to app code separately.
