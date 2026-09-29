@@ -48,6 +48,7 @@ func TestSupportedCommandsExposeJSONFlags(t *testing.T) {
 		{"resource", "list"},
 		{"resource", "add"},
 		{"resource", "remove"},
+		{"related-artifacts"},
 	}
 	for _, path := range paths {
 		cmd, _, err := rootCmd.Find(path)
