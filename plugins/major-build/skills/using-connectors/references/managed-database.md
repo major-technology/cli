@@ -38,10 +38,9 @@ After setup completes and you have the resource ID:
 
 ## pgvector
 
-New and upgraded managed databases include pgvector in the `extensions` schema, which
-is on environment users' search path. Use `extensions.vector(1536)` in migrations;
-match the dimensions to your embedding model. Older databases may need a platform
-upgrade—if the type is unavailable, request one rather than installing extensions yourself.
+Managed databases include pgvector in the `extensions` schema, which is on environment
+users' search path. Use `extensions.vector(1536)` in migrations, matching the dimensions
+to your embedding model. The platform manages extension installation.
 
 ## Identifying Managed Databases
 
