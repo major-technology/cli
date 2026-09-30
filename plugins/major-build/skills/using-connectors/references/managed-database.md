@@ -36,39 +36,12 @@ After setup completes and you have the resource ID:
    - Call `mcp__plugin_major_major__sandbox_add-resource-client` with the app's `slug` and the `resourceId` to generate a typed PostgreSQL client
    - Use the client for read/write operations in your application code
 
-## Managed Extensions and pgvector
+## pgvector
 
-The platform installs supported extensions in a shared `extensions` schema. New and
-upgraded managed databases include pgvector; older databases may still need a platform
-upgrade. Before using vector features, check the selected database through `postgresql_psql`:
-
-```sql
-SELECT e.extname, e.extversion, n.nspname AS extension_schema
-FROM pg_extension e
-JOIN pg_namespace n ON n.oid = e.extnamespace
-WHERE e.extname = 'vector';
-```
-
-Expect a row with `extension_schema = 'extensions'`. If it is absent or installed in
-another schema, report the result and ask for platform support to enable or reconcile
-pgvector. Extension installation and upgrades are platform-managed; do not add
-`CREATE EXTENSION`, relocation, or extension removal to application migrations.
-
-Each environment keeps its application tables in its own schema. On upgraded databases,
-environment users have `USAGE` on `extensions`, without permission to create objects
-there, and their default `search_path` is their environment schema followed by `extensions`.
-Unqualified `vector` works on those connections, but migration tooling can override the
-search path. Use the qualified type in migrations:
-
-```sql
-ALTER TABLE documents ADD COLUMN embedding extensions.vector(1536);
-```
-
-Replace `documents` with the intended application table and choose dimensions that match
-the embedding model's output. Submit this SQL through `run_migration`; leave the application
-table unqualified so the migration tool applies it to each environment's schema. Do not
-create application tables in `extensions` or change role/search-path settings to work around
-a type-resolution error.
+New and upgraded managed databases include pgvector in the `extensions` schema, which
+is on environment users' search path. Use `extensions.vector(1536)` in migrations;
+match the dimensions to your embedding model. Older databases may need a platform
+upgrade—if the type is unavailable, request one rather than installing extensions yourself.
 
 ## Identifying Managed Databases
 
