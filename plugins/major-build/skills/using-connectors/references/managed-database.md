@@ -36,6 +36,12 @@ After setup completes and you have the resource ID:
    - Call `mcp__plugin_major_major__sandbox_add-resource-client` with the app's `slug` and the `resourceId` to generate a typed PostgreSQL client
    - Use the client for read/write operations in your application code
 
+## pgvector
+
+Managed databases include pgvector in the `extensions` schema, which is on environment
+users' search path. Use `extensions.vector(1536)` in migrations, matching the dimensions
+to your embedding model. The platform manages extension installation.
+
 ## Identifying Managed Databases
 
 In `mcp__resources__list_resources`, managed databases have `isManaged: true` and a `managedScope` field:
