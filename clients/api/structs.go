@@ -558,6 +558,45 @@ type AppError struct {
 	URL         *string `json:"url,omitempty"`
 }
 
+// ListSlowOperationsRequest filters GET /applications/:applicationId/resource-invocation-aggregates
+type ListSlowOperationsRequest struct {
+	ExecutionEnvironment string
+	WindowDays           int
+	// IncludeAll disables the server's 500 ms p95 floor.
+	IncludeAll bool
+}
+
+// SlowOperationCallSite is where the operation lives in the app's source, when the
+// query extractor matched the operation key to a call site.
+type SlowOperationCallSite struct {
+	FilePath   string  `json:"filePath"`
+	Line       *int    `json:"line"`
+	SourceText *string `json:"sourceText"`
+}
+
+// SlowOperation is one aggregated resource operation over the window
+type SlowOperation struct {
+	ResourceID      string                 `json:"resourceId"`
+	ResourceName    string                 `json:"resourceName"`
+	ResourceSubtype string                 `json:"resourceSubtype"`
+	EnvironmentID   *string                `json:"environmentId"`
+	EnvironmentName *string                `json:"environmentName"`
+	OperationKey    string                 `json:"operationKey"`
+	Calls           int                    `json:"calls"`
+	P50Ms           float64                `json:"p50Ms"`
+	P95Ms           float64                `json:"p95Ms"`
+	TotalMs         float64                `json:"totalMs"`
+	ErrorRate       float64                `json:"errorRate"`
+	LastSeenAt      string                 `json:"lastSeenAt"`
+	CallSite        *SlowOperationCallSite `json:"callSite"`
+}
+
+// ListSlowOperationsResponse represents GET /applications/:applicationId/resource-invocation-aggregates
+type ListSlowOperationsResponse struct {
+	Error      *AppErrorDetail `json:"error,omitempty"`
+	Operations []SlowOperation `json:"operations"`
+}
+
 // ListAppErrorsRequest are the filters for GET /applications/:applicationId/errors
 type ListAppErrorsRequest struct {
 	Environment string

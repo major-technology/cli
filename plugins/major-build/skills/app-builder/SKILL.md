@@ -98,6 +98,7 @@ Run these commands in the mounted app workspace through `mcp__plugin_major_major
 - `major app logs` — deployed app logs
 - `major app errors list` / `major app errors get <errorId>` — inspect runtime errors
 - `major app errors resolve <errorId>` — after committing a fix for a confirmed runtime error
+- `major resource invocations --slow [--environment coding-session] [--days 30]` — resource operations over 500 ms p95, ranked by total time, with call site; omit `--slow` to include faster ones
 - `major app errors enable` — after adding the Major error-reporter scaffolding to the repo
 
 Use each command's `--help` for filters and pagination.
