@@ -69,6 +69,7 @@ Before frontend work, run `major app theme get` in the app workspace. It returns
 
 - **Debugging** — load the `debug-issue` skill before investigating any failure, regression, or broken/blank/errored behavior (covers preview, app errors, logs, browser inspection).
 - **Triggering agents** — before wiring app runtime code to Major agents (run / sendMessage / stop / approvals), read [references/using-agents.md](references/using-agents.md). `sandbox_add-agent-client` generates the typed client (same pattern as resource clients).
+- **Calling other apps** — to call another app in the org, run `major app xserver add --id <appId>` (ids from `major app list`; `major app xserver list` shows each callable app's URL), deploy, then from server code `fetch("<target app url><path>", { headers: { "x-major-jwt": <the incoming request's x-major-user-jwt header> }, redirect: "manual" })`; `redirect: "manual"` keeps the token from following a redirect to another host.
 - **Recurring work** — apps no longer carry crons; `cron.json` is not read. Load the `workflow-builder` skill and build a workflow with a cron trigger and an `app_call` node.
 
 ## Calling go-api from app code

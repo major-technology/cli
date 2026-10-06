@@ -27,6 +27,7 @@ func init() {
 	// Add app subcommands
 	Cmd.AddCommand(aiProxyCmd)
 	Cmd.AddCommand(browserCmd)
+	Cmd.AddCommand(xserverCmd)
 	Cmd.AddCommand(cloneCmd)
 	Cmd.AddCommand(configureCmd)
 	Cmd.AddCommand(createCmd)
