@@ -429,9 +429,22 @@ type CallableAppsResponse struct {
 	ApplicationIDs []string `json:"applicationIds"`
 }
 
-// GetCallableApps retrieves the ids of the apps an application may call
-func (c *Client) GetCallableApps(applicationID string) (*CallableAppsResponse, error) {
-	var resp CallableAppsResponse
+// CallableApp is one app an application may call
+type CallableApp struct {
+	ID     string  `json:"id"`
+	Name   string  `json:"name"`
+	AppURL *string `json:"appUrl"`
+}
+
+// ListCallableAppsResponse is the callable-apps list with each app's name and URL
+type ListCallableAppsResponse struct {
+	ApplicationIDs []string      `json:"applicationIds"`
+	Applications   []CallableApp `json:"applications"`
+}
+
+// GetCallableApps retrieves the apps an application may call
+func (c *Client) GetCallableApps(applicationID string) (*ListCallableAppsResponse, error) {
+	var resp ListCallableAppsResponse
 	path := fmt.Sprintf("/applications/%s/callable-apps", applicationID)
 	err := c.doRequest("GET", path, nil, &resp)
 	if err != nil {
