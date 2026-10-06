@@ -44,21 +44,7 @@ var xserverListCmd = &cobra.Command{
 			return errors.WrapError("failed to list callable apps", err)
 		}
 
-		type callableApp struct {
-			ID     string  `json:"id"`
-			Name   string  `json:"name"`
-			AppURL *string `json:"appUrl"`
-		}
-
-		items := make([]callableApp, 0, len(resp.ApplicationIDs))
-		for _, id := range resp.ApplicationIDs {
-			item := callableApp{ID: id}
-			if target, err := singletons.GetAPIClient().GetApplicationInfo(id); err == nil {
-				item.Name = target.Name
-				item.AppURL = target.AppURL
-			}
-			items = append(items, item)
-		}
+		items := resp.Applications
 
 		if flagXserverListJSON {
 			return utils.WriteJSON(cmd, items)
@@ -98,15 +84,8 @@ var xserverAddCmd = &cobra.Command{
 
 		apiClient := singletons.GetAPIClient()
 
-		target, err := apiClient.GetApplicationInfo(flagXserverAddID)
-		if err != nil {
-			return errors.WrapError(fmt.Sprintf("application with ID %q not found or not visible", flagXserverAddID), err)
-		}
-
-		if target.OrganizationID != appInfo.OrganizationID {
-			return fmt.Errorf("application with ID %q is not in this organization", flagXserverAddID)
-		}
-
+		// The server rejects an app from another org. The target is not read here,
+		// because a sandbox token may view only its own app.
 		current, err := apiClient.GetCallableApps(appInfo.ApplicationID)
 		if err != nil {
 			return errors.WrapError("failed to list callable apps", err)
@@ -121,10 +100,10 @@ var xserverAddCmd = &cobra.Command{
 		}
 
 		if flagXserverAddJSON {
-			return utils.WriteJSON(cmd, map[string]any{"appId": flagXserverAddID, "name": target.Name, "added": true})
+			return utils.WriteJSON(cmd, map[string]any{"appId": flagXserverAddID, "added": true})
 		}
 
-		cmd.Printf("This app may now call %s (%s). The change applies on the next deploy.\n", target.Name, flagXserverAddID)
+		cmd.Printf("This app may now call %s. The change applies on the next deploy.\n", flagXserverAddID)
 		return nil
 	},
 }

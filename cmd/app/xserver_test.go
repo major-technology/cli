@@ -15,13 +15,16 @@ import (
 const (
 	xserverTargetID  = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
 	xserverOutsideID = "cccccccc-cccc-4ccc-8ccc-cccccccccccc"
-	xserverOtherOrg  = "33333333-3333-4333-8333-333333333333"
+	xserverSecondID  = "dddddddd-dddd-4ddd-8ddd-dddddddddddd"
 )
 
-// xserverServer serves app info and a callable-apps list seeded with initial; puts records the PUT bodies.
+// xserverServer serves the current app's info and a callable-apps list seeded with initial; puts records
+// the accepted PUT bodies. It serves no other app's info, as for a sandbox token, and it rejects a PUT
+// naming an app from another org, as the server does.
 func xserverServer(t *testing.T, initial []string) (puts *[]string) {
 	t.Helper()
 	puts = &[]string{}
+	names := map[string]string{xserverTargetID: "orders", xserverSecondID: "billing"}
 	ids := initial
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -33,14 +36,19 @@ func xserverServer(t *testing.T, initial []string) (puts *[]string) {
 		switch {
 		case r.URL.Path == "/applications/"+niAppID+"/info":
 			info(niAppID, niOrgID, "self")
-		case r.URL.Path == "/applications/"+xserverTargetID+"/info":
-			info(xserverTargetID, niOrgID, "orders")
-		case r.URL.Path == "/applications/"+xserverOutsideID+"/info":
-			info(xserverOutsideID, xserverOtherOrg, "outsider")
 		case r.URL.Path == "/applications/"+niAppID+"/callable-apps" && r.Method == http.MethodGet:
-			json.NewEncoder(w).Encode(map[string]any{"applicationIds": ids})
+			apps := []map[string]any{}
+			for _, id := range ids {
+				apps = append(apps, map[string]any{"id": id, "name": names[id], "appUrl": "https://" + names[id] + ".example.com"})
+			}
+			json.NewEncoder(w).Encode(map[string]any{"applicationIds": ids, "applications": apps})
 		case r.URL.Path == "/applications/"+niAppID+"/callable-apps" && r.Method == http.MethodPut:
 			body, _ := io.ReadAll(r.Body)
+			if strings.Contains(string(body), xserverOutsideID) {
+				w.WriteHeader(http.StatusBadRequest)
+				fmt.Fprintf(w, `{"error":"Application %s not found in this organization"}`, xserverOutsideID)
+				return
+			}
 			*puts = append(*puts, string(body))
 			w.Write(body)
 		default:
@@ -93,8 +101,8 @@ func TestCallsAddOtherOrgErrors(t *testing.T) {
 	puts := xserverServer(t, nil)
 	flagXserverAddID = xserverOutsideID
 
-	if err := xserverAddCmd.RunE(xserverAddCmd, nil); err == nil || !strings.Contains(err.Error(), "not in this organization") {
-		t.Fatalf("err = %v, want org error", err)
+	if err := xserverAddCmd.RunE(xserverAddCmd, nil); err == nil {
+		t.Fatal("expected the server's org error")
 	}
 
 	if len(*puts) != 0 {
@@ -129,14 +137,14 @@ func TestCallsRemoveAbsentErrors(t *testing.T) {
 }
 
 func TestCallsRemovePresentPutsWithoutID(t *testing.T) {
-	puts := xserverServer(t, []string{xserverTargetID, xserverOutsideID})
+	puts := xserverServer(t, []string{xserverTargetID, xserverSecondID})
 	flagXserverRemoveID = xserverTargetID
 
 	if err := xserverRemoveCmd.RunE(xserverRemoveCmd, nil); err != nil {
 		t.Fatalf("remove failed: %v", err)
 	}
 
-	if len(*puts) != 1 || strings.Contains((*puts)[0], xserverTargetID) || !strings.Contains((*puts)[0], xserverOutsideID) {
+	if len(*puts) != 1 || strings.Contains((*puts)[0], xserverTargetID) || !strings.Contains((*puts)[0], xserverSecondID) {
 		t.Fatalf("PUT bodies = %v, want the other id only", *puts)
 	}
 }
@@ -154,7 +162,7 @@ func TestCallsListPrintsIDsAndNames(t *testing.T) {
 		t.Fatalf("list failed: %v", err)
 	}
 
-	if !strings.Contains(out.String(), xserverTargetID) || !strings.Contains(out.String(), "orders") {
+	if !strings.Contains(out.String(), xserverTargetID) || !strings.Contains(out.String(), "orders") || !strings.Contains(out.String(), "https://orders.example.com") {
 		t.Fatalf("output = %q", out.String())
 	}
 }
