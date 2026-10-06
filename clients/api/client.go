@@ -424,6 +424,33 @@ func (c *Client) GetApplicationInfo(applicationID string) (*GetApplicationInfoRe
 	return &resp, nil
 }
 
+// CallableAppsResponse is the app's callable-apps list from /applications/:applicationId/callable-apps
+type CallableAppsResponse struct {
+	ApplicationIDs []string `json:"applicationIds"`
+}
+
+// GetCallableApps retrieves the ids of the apps an application may call
+func (c *Client) GetCallableApps(applicationID string) (*CallableAppsResponse, error) {
+	var resp CallableAppsResponse
+	path := fmt.Sprintf("/applications/%s/callable-apps", applicationID)
+	err := c.doRequest("GET", path, nil, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+// SetCallableApps replaces the ids of the apps an application may call
+func (c *Client) SetCallableApps(applicationID string, applicationIDs []string) (*CallableAppsResponse, error) {
+	var resp CallableAppsResponse
+	path := fmt.Sprintf("/applications/%s/callable-apps", applicationID)
+	err := c.doRequest("PUT", path, CallableAppsResponse{ApplicationIDs: applicationIDs}, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
 // ManagedDatabaseStatusResponse is the app's managed database state from GET /applications/:applicationId/managed-database
 type ManagedDatabaseStatusResponse struct {
 	Status     string  `json:"status"`
