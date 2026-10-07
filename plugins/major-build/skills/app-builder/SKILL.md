@@ -95,5 +95,5 @@ Run in the mounted app workspace via `sandbox_bash`; use each command's `--help`
 
 ## User setup
 
-- **App secrets**: `mcp__plugin_major_major__set_app_env_variables`. The user supplies values through the frontend — never ask them to paste secrets into chat. If you get a setup URL, share it in one short sentence and wait for the user's confirmation. Use `major vars set KEY=VALUE` only for known values the user explicitly wants you to configure.
+- **App secrets**: `mcp__plugin_major_major__request_app_environment_variables`. The user supplies values through the frontend — never ask them to paste secrets into chat. If you get a setup URL, share it in one short sentence and wait for the user's confirmation. Use `major vars set KEY=VALUE` only for known values the user explicitly wants you to configure.
 - **New connector**: `mcp__plugin_major_major__request_resource_setup`; load `using-connectors` for that flow. An existing connector can be added to app code separately.
