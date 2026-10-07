@@ -13,6 +13,21 @@ Major apps are protected by an authentication gateway by default. Enabling **Web
 
 ---
 
+## Two Options
+
+- **Webhook token (preferred):** for any sender that can set a URL or a header. This includes Zapier, internal services, scripts, and signing senders such as Stripe and GitHub, where the token adds a second layer. The sender sends the token as `x-major-jwt: <token>` or as `?major_token=<token>`. The token works only on the app it was created for, on both the deployed app and the preview.
+- **Unauthenticated toggle:** for senders that cannot carry a token. The app must verify the provider signature, as described below.
+
+### Where tokens are created
+
+Major dashboard > open the app > Settings tab > Webhook Access > Webhook tokens > Create. Only app admins can create tokens. The agent never creates or sees a token. Tell the user to create one and to paste the URL (`https://<app-host>/api/webhook/<your-route>?major_token=<token>`) into the sender.
+
+### App code with tokens
+
+The request arrives as the token's creator in `x-major-user-id`. The app must not log full request URLs, because the query can contain `major_token`.
+
+---
+
 ## Checking & Enabling Webhooks
 
 Run `major app info --json` from the app workspace to check the current app status, including `webhooksEnabled`. In a hosted sandbox, run it through `mcp__plugin_major_major__sandbox_bash`.
