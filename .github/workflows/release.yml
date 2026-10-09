@@ -6,6 +6,7 @@ on:
 
 permissions:
   contents: write
+  id-token: write # npm trusted publishing (OIDC)
 
 jobs:
   goreleaser:
@@ -50,3 +51,11 @@ jobs:
 
           # Upload install script
           aws s3 cp install.sh s3://major-cli-releases/install.sh --acl public-read --content-type "text/plain"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+      # Trusted publishing needs npm >= 11.5.1; no token is used.
+      - run: npm install -g npm@latest
+      - name: Publish to npm
+        run: npm/publish.sh "${GITHUB_REF_NAME}"
