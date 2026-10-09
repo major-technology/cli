@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 
@@ -16,7 +17,7 @@ import (
 var updateCmd = &cobra.Command{
 	Use:   "update",
 	Short: "Update the major CLI to the latest version",
-	Long:  `Automatically detects your installation method (brew or direct install) and updates to the latest version.`,
+	Long:  `Automatically detects your installation method (brew, npm, or direct install) and updates to the latest version.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return runUpdate(cmd)
 	},
@@ -49,6 +50,12 @@ func runUpdate(cmd *cobra.Command) error {
 	switch installMethod {
 	case "brew":
 		return updateViaBrew(cmd, stepStyle, successStyle)
+	case "npm":
+		return updateViaNpm(cmd, stepStyle, successStyle)
+	case "npx":
+		cmd.Println()
+		cmd.Println("npx runs the latest published version automatically. To force a refresh, run: npx major@latest")
+		return nil
 	case "direct":
 		return updateViaDirect(cmd, stepStyle, successStyle)
 	default:
@@ -57,6 +64,12 @@ func runUpdate(cmd *cobra.Command) error {
 }
 
 func detectInstallMethod() string {
+	if exe, err := os.Executable(); err == nil {
+		if method := npmInstallMethod(exe); method != "" {
+			return method
+		}
+	}
+
 	// Check if installed via brew
 	if runtime.GOOS == "darwin" || runtime.GOOS == "linux" {
 		// Check if brew is available
@@ -71,6 +84,34 @@ func detectInstallMethod() string {
 
 	// Otherwise assume direct install
 	return "direct"
+}
+
+// npmInstallMethod reports "npx" or "npm" when exe lives in a node_modules
+// tree (the npm package ships the binary as a dependency), else "".
+func npmInstallMethod(exe string) string {
+	exe = filepath.ToSlash(exe)
+	if !strings.Contains(exe, "/node_modules/") {
+		return ""
+	}
+	if strings.Contains(exe, "/_npx/") {
+		return "npx"
+	}
+	return "npm"
+}
+
+func updateViaNpm(cmd *cobra.Command, stepStyle, successStyle lipgloss.Style) error {
+	cmd.Println(stepStyle.Render("▸ Updating via npm..."))
+
+	npmCmd := exec.Command("npm", "install", "-g", "major@latest")
+	npmCmd.Stdout = os.Stdout
+	npmCmd.Stderr = os.Stderr
+	if err := npmCmd.Run(); err != nil {
+		return errors.WrapError("failed to update major via npm", err)
+	}
+
+	cmd.Println()
+	cmd.Println(successStyle.Render("✓ Successfully updated Major CLI!"))
+	return nil
 }
 
 func updateViaBrew(cmd *cobra.Command, stepStyle, successStyle lipgloss.Style) error {

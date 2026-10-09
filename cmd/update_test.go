@@ -47,3 +47,18 @@ func TestUpdateDirectNonInteractiveRefusesPrivilegeEscalation(t *testing.T) {
 		t.Fatalf("direct install started = %d stdin=%v, want 0 (must not attach os.Stdin)", started, stdinAttached)
 	}
 }
+
+func TestNpmInstallMethod(t *testing.T) {
+	cases := map[string]string{
+		"/Users/a/.npm/_npx/1a2b/node_modules/@major-tech/major-darwin-arm64/bin/major":             "npx",
+		"/usr/local/lib/node_modules/major/node_modules/@major-tech/major-linux-x64/bin/major":      "npm",
+		"/Users/a/.nvm/versions/node/v22/lib/node_modules/@major-tech/major-darwin-arm64/bin/major": "npm",
+		"/Users/a/.major/bin/major": "",
+		"/opt/homebrew/bin/major":   "",
+	}
+	for exe, want := range cases {
+		if got := npmInstallMethod(exe); got != want {
+			t.Errorf("npmInstallMethod(%q) = %q, want %q", exe, got, want)
+		}
+	}
+}
