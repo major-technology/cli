@@ -38,6 +38,7 @@ Find the connector's row below and read its reference file (in this skill's `ref
 | ClickHouse | `clickhouse` | [clickhouse.md](references/clickhouse.md) | Implements ClickHouse database connections, SQL queries, and data operations using generated clients and MCP tools. |
 | Azure CosmosDB | `cosmosdb` | [cosmosdb.md](references/cosmosdb.md) | Implements Azure CosmosDB container queries, CRUD, and patch operations using generated clients and MCP tools. |
 | Custom REST API | `custom` | [custom-api.md](references/custom-api.md) | Implements custom REST API HTTP requests with automatic auth header injection using generated clients and MCP tools. |
+| Customer.io | `customerio` | [customerio.md](references/customerio.md) | Implements Customer.io App API (people, segments, campaigns, transactional messages) and Track API (people, events) requests with automatic region-aware auth using generated clients and MCP tools. |
 | DynamoDB | `dynamodb` | [dynamodb.md](references/dynamodb.md) | Implements DynamoDB queries, scans, and CRUD operations using generated clients and MCP tools. |
 | Fireflies | `fireflies` | [fireflies.md](references/fireflies.md) | Implements Fireflies AI meeting transcription API access for transcripts, users, summaries, and audio upload using generated clients and MCP tools. |
 | GitHub | `github` | [github.md](references/github.md) | Implements GitHub repository, issue, pull request, release, content, branch, and authenticated git operations using the GitHub connector, mounted MCP tools, generated clients, and HTTP proxy. |
