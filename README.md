@@ -17,6 +17,13 @@ For comprehensive guides, command references, and API documentation, visit our *
 curl -fsSL https://install.major.build | bash
 ```
 
+### npm
+
+```bash
+npx major --help        # run without installing
+npm install -g major    # or install globally
+```
+
 ### Homebrew
 
 ```bash
