@@ -57,6 +57,7 @@ Find the connector's row below and read its reference file (in this skill's `ref
 | Microsoft SQL Server | `mssql` | [mssql.md](references/mssql.md) | Implements Microsoft SQL Server connections, queries, and schema exploration using generated clients and MCP tools. |
 | MySQL | `mysql` | [mysql.md](references/mysql.md) | Implements MySQL database connections, SQL queries, and data operations using generated clients and MCP tools. |
 | Neo4j | `neo4j` | [neo4j.md](references/neo4j.md) | Implements Neo4j Cypher queries, graph traversal, and node/relationship operations using generated clients and MCP tools. |
+| Nooks | `nooks` | [nooks.md](references/nooks.md) | Implements Nooks API requests (users, calls, sequences) with automatic Bearer API-key auth using generated clients and MCP tools. |
 | Notion | `notion` | [notion.md](references/notion.md) | Implements Notion API interactions for pages, databases, blocks, users, and search using generated clients and MCP tools. |
 | Outreach | `outreach` | [outreach.md](references/outreach.md) | Implements Outreach prospect and sequence management using generated clients and MCP tools. |
 | PostgreSQL | `postgresql` | [postgresql.md](references/postgresql.md) | Implements PostgreSQL connections, SQL queries, and migration patterns using generated clients and MCP tools. |
