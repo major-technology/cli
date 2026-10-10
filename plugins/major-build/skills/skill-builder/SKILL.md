@@ -7,7 +7,7 @@ description: Create and manage Major agent skills — versioned file bundles (SK
 
 A _skill_ is a versioned bundle — `SKILL.md` (required) + optional `references/*.md` + optional `scripts/*.{js,ts}` — that an attached agent loads on demand. Turn the user's intent into a focused bundle. Pure-instruction skills are fine; when a skill does real work it's a **script** that talks to a resource through the proxy or a generated client (never hand-written client/auth code). You author the bundle on the skill's sandbox and edit it through the sandbox tools (the "Working with sandboxes" section of your system prompt covers addressing, provisioning, and sharing).
 
-Finding, creating, and opening skills is on `mcp__plugin_major_major__*` (`list` and `create` with `target_type: "skill"`, `start_sandbox`). File editing goes through the sandbox tools `mcp__plugin_major_major__sandbox_*` (`sandbox_read_file`, `sandbox_edit_file`, `sandbox_write_file`, `sandbox_bash`), each called with `skill: "<skillId>"` as the target. Sync and publishing are the `major` CLI, run through `sandbox_bash` in `/workspace/skill`: `major pull`, `major push -m "<notes>"`, `major validate`, `major publish --yes`.
+Finding, creating, and opening skills is on `mcp__plugin_major_major__*` (`list` and `create` with `target_type: "skill"`, `start_sandbox`). File editing goes through the sandbox tools `mcp__plugin_major_major__sandbox_*` (`sandbox_read_file`, `sandbox_edit_file`, `sandbox_write_file`, `sandbox_bash`), each called with `target_type: "skill"` and `target_id: "<skillId>"` as the target. Sync and publishing are the `major` CLI, run through `sandbox_bash` in `/workspace/skill`: `major pull`, `major push -m "<notes>"`, `major validate`, `major publish --yes`.
 
 ## The working files, saving, and publishing
 
@@ -28,7 +28,7 @@ Always use a `skillId` returned by `list` or `create` (`target_type: "skill"`) �
 
 ## Lifecycle
 
-- **Edit existing**: `list({target_type: "skill"})` to find it, then `start_sandbox({skill: "<skillId>"})` — it mounts (or joins) the skill's sandbox. Edit the files with the sandbox tools, saving as you finish each round.
+- **Edit existing**: `list({target_type: "skill"})` to find it, then `start_sandbox({target_type: "skill", target_id: "<skillId>"})` — it mounts (or joins) the skill's sandbox. Edit the files with the sandbox tools, saving as you finish each round.
 - **New**: `create({target_type: "skill"})` — it creates an empty draft (server-minted `skillId`), mounts its sandbox seeded with a scaffold, and returns where the files live. Build the bundle in that folder.
 - **Check a draft**: `major validate` — validates the sandbox bundle against the platform's rules without saving. Saving also validates; on failure nothing is saved and the error list comes back — fix the files and save again.
 - **Test scripts**: `tsx` and `@major-tech/resource-client` are on the sandbox (same as the agent pod). From the workspace root, `tsx scripts/<task>.ts` via the `sandbox_bash` tool — env already has `MAJOR_GO_RESOURCE_URL` / `MAJOR_RESOURCES_API_TOKEN`. Extra `package.json` deps: `npm install` first (`node_modules` isn't saved). `major validate` only checks bundle shape (frontmatter, file rules), not script correctness.
@@ -67,7 +67,7 @@ process.stdout.write(
 
 Read `references/http-proxy.md` in the `using-connectors` skill for the full proxy reference.
 
-**Non-proxyable resources** (databases, non-HTTP connectors) — generate a typed client; don't hand-write it. The `sandbox_add-resource-client({resourceId, resourceName, resourceType, resourceDescription, skill: "<skillId>"})` writes a `.ts` client into `clients/` and returns the import line — use it VERBATIM (it may end in `.ts`; never rewrite to `.js`). `sandbox_remove-resource-client` (same target) deletes one.
+**Non-proxyable resources** (databases, non-HTTP connectors) — generate a typed client; don't hand-write it. The `sandbox_add-resource-client({resourceId, resourceName, resourceType, resourceDescription, target_type: "skill", target_id: "<skillId>"})` writes a `.ts` client into `clients/` and returns the import line — use it VERBATIM (it may end in `.ts`; never rewrite to `.js`). `sandbox_remove-resource-client` (same target) deletes one.
 
 ```ts
 import { ordersDbClient } from "../clients/ordersDb.ts"; // use the import the tool returned, verbatim

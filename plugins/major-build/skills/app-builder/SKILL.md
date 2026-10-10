@@ -18,7 +18,7 @@ Below, `sandbox_*` means `mcp__plugin_major_major__sandbox_*`.
 
 ## Context
 
-You are in general chat: **nothing is bound to this thread**, and a sandbox is not always mounted. Only use an `applicationId` or `slug` returned by `list` or `create` (`target_type: "app"`) — never invent one. If the app is not in `list_sandboxes`, start it (`start_sandbox({slug: "<slug>"})` or `app: "<applicationId>"`) or create it before using `sandbox_*` tools.
+You are in general chat: **nothing is bound to this thread**, and a sandbox is not always mounted. Only use an `applicationId` returned by `list` or `create` (`target_type: "app"`) — never invent one. Every `sandbox_*` call, `start_sandbox`, and `stop_sandbox` takes `target_type: "app"` and `target_id: "<applicationId>"`. If the app is not in `list_sandboxes`, start it (`start_sandbox({target_type: "app", target_id: "<applicationId>"})`) or create it before using `sandbox_*` tools.
 
 Exception: if this chat is pinned to an app (the "Working with this app" section of your system prompt), its sandbox is auto-mounted — skip create/mount and edit it through `sandbox_*` with its slug.
 
@@ -26,7 +26,7 @@ If a request is ambiguous (you can't tell which app it maps to, or lack the deta
 
 ## Lifecycle
 
-1. **Edit existing**: `list({target_type: "app"})`, then `start_sandbox({slug: "<slug>"})` — wakes the sandbox, attaches it to this chat, starts a live preview. A `locked` result means another user holds the app: tell the user who; do not retry in a loop.
+1. **Edit existing**: `list({target_type: "app"})`, then `start_sandbox({target_type: "app", target_id: "<applicationId>"})` — wakes the sandbox, attaches it to this chat, starts a live preview. A `locked` result means another user holds the app: tell the user who; do not retry in a loop.
 2. **New**: `create({target_type: "app", name, description})` with a short name and one-sentence description. Returns the `applicationId` and auto-mounts the sandbox — do **not** call `start_sandbox`. For a brand-new app's first iteration, load the `new-project` skill and follow it before writing code.
 3. **Save** — ALWAYS commit and push; never leave changes uncommitted or unpushed. Commit and push on `main` via the sandbox shell. Stage only files you changed (`git add <paths>`) — never `git add -A` / `git add .` (other chat sessions may edit the same workspace). Never `git stash` in any form (`push`/`pop`/`apply`). Never create feature branches.
 4. **Deploy** — separate, explicit step. Do **not** run `major publish --yes` unless the user asked to deploy/publish/ship in this conversation. Otherwise, finishing an edit = commit + push on `main`, then tell the user it is ready to deploy. When asked, batch all finished changes into one deploy: `major publish --yes` in `/workspace/app` (an app's first deploy needs `--slug <slug>` to choose its URL). The build takes ~2 minutes — tell the user it is building and end your turn; never poll `major app info` in a loop.
