@@ -15,7 +15,7 @@ prompt.md     the system prompt — the file IS the prompt, no wrapper
 
 If you don't have enough information to write a good system prompt or pick connectors, ask the user — it is better to ask than to guess.
 
-Finding, creating, and opening agents is on `mcp__plugin_major_major__*` (`list` and `create` with `target_type: "agent"`, `start_sandbox`). File editing goes through the sandbox tools `mcp__plugin_major_major__sandbox_*` (`sandbox_read_file`, `sandbox_edit_file`, `sandbox_write_file`, `sandbox_bash`), each called with `agent: "<agentId>"` as the target. Sync and publishing are the `major` CLI, run through `sandbox_bash` in `/workspace/agent`: `major pull`, `major push -m "<notes>"`, `major validate`, `major publish --yes`.
+Finding, creating, and opening agents is on `mcp__plugin_major_major__*` (`list` and `create` with `target_type: "agent"`, `start_sandbox`). File editing goes through the sandbox tools `mcp__plugin_major_major__sandbox_*` (`sandbox_read_file`, `sandbox_edit_file`, `sandbox_write_file`, `sandbox_bash`), each called with `target_type: "agent"` and `target_id: "<agentId>"` as the target. Sync and publishing are the `major` CLI, run through `sandbox_bash` in `/workspace/agent`: `major pull`, `major push -m "<notes>"`, `major validate`, `major publish --yes`.
 
 ## The working files, saving, and publishing
 
@@ -26,7 +26,7 @@ The working copy lives on the agent's sandbox under the workspace root. Two sepa
 
 An agent with no published version can't be run deployed at all — starting a session against it fails with "no published version yet". So a brand-new agent needs one `major publish --yes` before anyone can use it.
 
-Always use an `agentId` returned by `list` or `create` (`target_type: "agent"`) — never invent one. If this chat is pinned to an agent, the "Working with this agent" section of your system prompt carries the bound-chat rules (omit ids to target it).
+Always use an `agentId` returned by `list` or `create` (`target_type: "agent"`) — never invent one. If this chat is pinned to an agent, the "Working with this agent" section of your system prompt carries the bound-chat rules (its id, recovery, discard) — those win.
 
 ## Save discipline
 
@@ -36,7 +36,7 @@ Always use an `agentId` returned by `list` or `create` (`target_type: "agent"`) 
 
 ## Lifecycle
 
-- **Edit existing**: `list({target_type: "agent"})` to find it, then `start_sandbox({agent: "<agentId>"})` — it mounts (or joins) the agent's sandbox. Edit the two files with the sandbox tools, saving as you finish each round.
+- **Edit existing**: `list({target_type: "agent"})` to find it, then `start_sandbox({target_type: "agent", target_id: "<agentId>"})` — it mounts (or joins) the agent's sandbox. Edit the two files with the sandbox tools, saving as you finish each round.
 - **New**: `create({target_type: "agent", name, description})` — creates the agent (server-minted `agentId`), mounts its sandbox seeded with a scaffold bundle, and returns where the files live.
 - **Check a draft**: `major validate` — parses `agent.jsonc` against the schema without saving. Saving validates too (and additionally checks that every referenced skill/connector/app exists in the org); on failure nothing is saved and the error list comes back.
 - **Save**: `major push -m "<notes>"` — every save writes a new immutable version.

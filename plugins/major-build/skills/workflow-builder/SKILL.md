@@ -7,7 +7,7 @@ description: Create and manage Major workflows — JSONC graphs of agent calls, 
 
 A _workflow_ is a graph of steps executed by Major's workflow engine: agents run with prompts, deployed apps get called over HTTP, routers branch on state, loops fan over collections, humans approve over Slack, and schedules, connector events, or authenticated webhooks start the graph. You author the definition as a JSONC file (JSON with comments) on the workflow's sandbox and edit it through the sandbox tools (the "Working with sandboxes" section of your system prompt covers addressing, provisioning, and sharing).
 
-Finding, creating, opening, and running workflows is on `mcp__plugin_major_major__*` (`list` and `create` with `target_type: "workflow"`, `start_sandbox`, `run_workflow`). File editing goes through the sandbox tools `mcp__plugin_major_major__sandbox_*` (`sandbox_read_file`, `sandbox_edit_file`, `sandbox_write_file`, `sandbox_bash`), each called with `workflow: "<workflowId>"` as the target. Sync and publishing are the `major` CLI, run through `sandbox_bash` in `/workspace/workflow`: `major pull`, `major push -m "<notes>"`, `major validate`, `major publish --yes`.
+Finding, creating, opening, and running workflows is on `mcp__plugin_major_major__*` (`list` and `create` with `target_type: "workflow"`, `start_sandbox`, `run_workflow`). File editing goes through the sandbox tools `mcp__plugin_major_major__sandbox_*` (`sandbox_read_file`, `sandbox_edit_file`, `sandbox_write_file`, `sandbox_bash`), each called with `target_type: "workflow"` and `target_id: "<workflowId>"` as the target. Sync and publishing are the `major` CLI, run through `sandbox_bash` in `/workspace/workflow`: `major pull`, `major push -m "<notes>"`, `major validate`, `major publish --yes`.
 
 Inspect runs and connector events with the CLI, through `sandbox_bash` in `/workspace/workflow`: `major workflow run list`, `major workflow run get <runId>` (per-node trace), and `major workflow events <connectorType> [--event <type>]` (connector event types and payload schemas).
 
@@ -30,7 +30,7 @@ Always use a `workflowId` returned by `list` or `create` (`target_type: "workflo
 
 ## Lifecycle
 
-- **Edit existing**: `list({target_type: "workflow"})` to find it, then `start_sandbox({workflow: "<workflowId>"})` — it mounts (or joins) the workflow's sandbox and returns the file name. Edit the file with the sandbox tools, saving as you finish each round.
+- **Edit existing**: `list({target_type: "workflow"})` to find it, then `start_sandbox({target_type: "workflow", target_id: "<workflowId>"})` — it mounts (or joins) the workflow's sandbox and returns the file name. Edit the file with the sandbox tools, saving as you finish each round.
 - **New**: `create({target_type: "workflow"})` — it creates a skeleton workflow (server-minted `workflowId`), mounts its sandbox, and returns the file name. Build the definition in that file; there is no push-a-loose-draft path.
 - **Check a draft**: `major validate` — validates the sandbox file against the server's rules without saving. Saving also validates; on failure nothing is saved and the error list comes back — fix the file and save again.
 - **Save**: `major push -m "<notes>"` — every save writes a new immutable version; comments are preserved verbatim.
