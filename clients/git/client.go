@@ -568,7 +568,7 @@ func RequireDefaultBranch() (string, error) {
 		return "", fmt.Errorf("%s. Checkout the remote default branch %s before deploying", err.Error(), defaultBranch)
 	}
 	if current != defaultBranch {
-		return "", fmt.Errorf("deploy requires the remote default branch %s; current branch is %s. Checkout the default branch; the CLI will not switch branches or force-push", defaultBranch, current)
+		return "", fmt.Errorf("deploy requires the remote default branch %s; current branch is %s. Merge %s into %s, then deploy from %s; the CLI will not switch branches or force-push", defaultBranch, current, current, defaultBranch, defaultBranch)
 	}
 	return defaultBranch, nil
 }

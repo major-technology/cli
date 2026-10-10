@@ -11,8 +11,8 @@ An _app_ is a full-stack Next.js app (frontend + backend API routes) deployed an
 
 Below, `sandbox_*` means `mcp__plugin_major_major__sandbox_*`.
 
-- **App lifecycle** — `mcp__plugin_major_major__*`: `list` / `create` (with `target_type: "app"`), `list_sandboxes` (what is mounted), `start_sandbox`, `stop_sandbox`.
-- **Files and shell** — `sandbox_*`; an app's target argument is `slug`. The "Working with sandboxes" section of your system prompt covers the tools, argument conventions, provisioning, shared-sandbox etiquette, and local-file uploads.
+- **App lifecycle** — `mcp__plugin_major_major__*`: `list` / `create` (with `target_type: "app"`), `list_sandboxes` (what is mounted), `start_sandbox`, `stop_sandbox`, and the branch tools `list_branches`, `create_branch`, `merge_branch`, `delete_branch`.
+- **Files and shell** — `sandbox_*`; an app's target argument is `slug`, plus `branch` for a branch sandbox (omit it for `main`). The "Working with sandboxes" section of your system prompt covers the tools, argument conventions, provisioning, shared-sandbox etiquette, and local-file uploads.
 - **`major` CLI** — run through `sandbox_bash` inside the mounted app workspace; it infers the app from the working directory. Never pass an app ID or run it in the agent's local filesystem.
 - Deployment and app-to-agent wiring still use major-app MCP tools.
 
@@ -28,8 +28,21 @@ If a request is ambiguous (you can't tell which app it maps to, or lack the deta
 
 1. **Edit existing**: `list({target_type: "app"})`, then `start_sandbox({target_type: "app", target_id: "<applicationId>"})` — wakes the sandbox, attaches it to this chat, starts a live preview. A `locked` result means another user holds the app: tell the user who; do not retry in a loop.
 2. **New**: `create({target_type: "app", name, description})` with a short name and one-sentence description. Returns the `applicationId` and auto-mounts the sandbox — do **not** call `start_sandbox`. For a brand-new app's first iteration, load the `new-project` skill and follow it before writing code.
-3. **Save** — ALWAYS commit and push; never leave changes uncommitted or unpushed. Commit and push on `main` via the sandbox shell. Stage only files you changed (`git add <paths>`) — never `git add -A` / `git add .` (other chat sessions may edit the same workspace). Never `git stash` in any form (`push`/`pop`/`apply`). Never create feature branches.
-4. **Deploy** — separate, explicit step. Do **not** run `major publish --yes` unless the user asked to deploy/publish/ship in this conversation. Otherwise, finishing an edit = commit + push on `main`, then tell the user it is ready to deploy. When asked, batch all finished changes into one deploy: `major publish --yes` in `/workspace/app` (an app's first deploy needs `--slug <slug>` to choose its URL). The build takes ~2 minutes — tell the user it is building and end your turn; never poll `major app info` in a loop.
+3. **Save** — ALWAYS commit and push; never leave changes uncommitted or unpushed. Commit and push on the sandbox's own branch (`main`, or the branch of a branch sandbox) via the sandbox shell. Stage only files you changed (`git add <paths>`) — never `git add -A` / `git add .` (other chat sessions may edit the same workspace). Never `git stash` in any form (`push`/`pop`/`apply`). Never create, switch, or check out git branches yourself — use `create_branch` and a branch sandbox (see below).
+4. **Deploy** — separate, explicit step. Do **not** run `major publish --yes` unless the user asked to deploy/publish/ship in this conversation. Otherwise, finishing an edit = commit + push, then tell the user it is ready to deploy. Publish only ships `main`: run it in the `main` sandbox, never in a branch sandbox (merge the branch first). When asked, batch all finished changes into one deploy: `major publish --yes` in `/workspace/app` (an app's first deploy needs `--slug <slug>` to choose its URL). The build takes ~2 minutes — tell the user it is building and end your turn; never poll `major app info` in a loop.
+
+## Parallel work with branches
+
+Use branches when independent changes should be built in parallel, or the user asks for one. An app has `main` plus branches; each branch gets its own sandbox, preview, and workspace. All branches share the app's database and env vars.
+
+1. `create_branch({slug, name})` per piece of work — lowercase letters, digits, `-`, `/`. It branches from the current `main`; it does not start a sandbox.
+2. `start_sandbox({slug, branch})`, then edit with `sandbox_*({slug, branch, ...})`. Give each subagent exactly one `(slug, branch)` pair. Commit and push in each branch sandbox as usual.
+3. When a branch is done, `merge_branch({slug, branch})`. It saves the branch sandbox, merges into `main`, and deletes the branch and its sandbox.
+4. A conflict result changes nothing. In that branch sandbox: `git fetch origin main && git merge origin/main`, fix the conflicts, commit, `major push`, then call `merge_branch` again.
+5. `delete_branch({slug, branch})` discards a branch and its work — only when the user asks.
+6. Ship with `major publish --yes` in the `main` sandbox after merging.
+
+`list_branches({slug})` shows the open branches and who holds each sandbox. A `locked` result means another user holds that branch.
 
 ## Build rules
 
