@@ -15,7 +15,7 @@ The `setup_managed_database` MCP tool creates **app-scoped** databases only.
 
 ## Setting Up a Managed Database
 
-Call `mcp__plugin_major_major__setup_managed_database` with the app's `applicationId` (omit it in an app's edit chat to target that app). The tool provisions a database for that application.
+Call `mcp__plugin_major_major__setup_managed_database` with the app's `applicationId`. The tool provisions a database for that application.
 
 **Behavior:**
 
