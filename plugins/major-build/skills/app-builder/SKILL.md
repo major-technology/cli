@@ -12,7 +12,7 @@ An _app_ is a full-stack Next.js app (frontend + backend API routes) deployed an
 Below, `sandbox_*` means `mcp__plugin_major_major__sandbox_*`.
 
 - **App lifecycle** — `mcp__plugin_major_major__*`: `list` / `create` (with `target_type: "app"`), `list_sandboxes` (what is mounted), `start_sandbox`, `stop_sandbox`, and the branch tools `list_branches`, `create_branch`, `merge_branch`, `delete_branch`.
-- **Files and shell** — `sandbox_*`; an app's target argument is `slug`, plus `branch` for a branch sandbox (omit it for `main`). The "Working with sandboxes" section of your system prompt covers the tools, argument conventions, provisioning, shared-sandbox etiquette, and local-file uploads.
+- **Files and shell** — `sandbox_*`; an app's target arguments are `target_type: "app"` and `target_id: "<applicationId>"`, plus `branch` for a branch sandbox (omit it for `main`). The "Working with sandboxes" section of your system prompt covers the tools, argument conventions, provisioning, shared-sandbox etiquette, and local-file uploads.
 - **`major` CLI** — run through `sandbox_bash` inside the mounted app workspace; it infers the app from the working directory. Never pass an app ID or run it in the agent's local filesystem.
 - Deployment and app-to-agent wiring still use major-app MCP tools.
 
@@ -35,18 +35,18 @@ If a request is ambiguous (you can't tell which app it maps to, or lack the deta
 
 Use branches when independent changes should be built in parallel, or the user asks for one. An app has `main` plus zero or more branches; each branch is a git branch with its own sandbox, preview, and workspace. All branches share the app's database and env vars.
 
-- Tools: `list_branches(slug)`, `create_branch(slug, name)`, `merge_branch(slug, branch)`, `delete_branch(slug, branch)`. `start_sandbox`, `stop_sandbox`, and every `sandbox_*` tool take an optional `branch` argument; omit it for `main`.
+- Tools: `list_branches(applicationId)`, `create_branch(applicationId, name)`, `merge_branch(applicationId, branch)`, `delete_branch(applicationId, branch)`. `start_sandbox`, `stop_sandbox`, and every `sandbox_*` tool take `target_type: "app"`, `target_id` and an optional `branch` argument; omit `branch` for `main`.
 - Branch names: lowercase letters, digits, `-` and `/`, max 60 chars. `main` is reserved.
 - Save: `major push` in a branch sandbox pushes that branch and does not touch `main`.
 - Publish: `major publish` deploys `main` only. In a branch sandbox it is refused with "Merge <branch> into main". To ship a branch, call `merge_branch`, then publish from the `main` sandbox.
 
-1. `create_branch({slug, name})` per piece of work. It branches from the current `main`; it does not start a sandbox.
-2. `start_sandbox({slug, branch})`, then edit with `sandbox_*({slug, branch, ...})`. Give each subagent exactly one `(slug, branch)` pair. Commit and push in each branch sandbox as usual.
-3. When a branch is done, `merge_branch({slug, branch})`. It saves the live branch sandbox and merges into `main` with plain git rules. On success it deletes the branch and stops its sandbox.
+1. `create_branch({applicationId, name})` per piece of work. It branches from the current `main`; it does not start a sandbox.
+2. `start_sandbox({target_type: "app", target_id, branch})`, then edit with `sandbox_*({target_type: "app", target_id, branch, ...})`. Give each subagent exactly one `(applicationId, branch)` pair. Commit and push in each branch sandbox as usual.
+3. When a branch is done, `merge_branch({applicationId, branch})`. It saves the live branch sandbox and merges into `main` with plain git rules. On success it deletes the branch and stops its sandbox.
 4. On a conflict `merge_branch` changes nothing and returns steps. In that branch sandbox: `git fetch origin main && git merge origin/main`, fix the conflicts, commit, `major push`, then call `merge_branch` again.
-5. `delete_branch({slug, branch})` discards the branch and loses its unsaved work - only when the user asks.
+5. `delete_branch({applicationId, branch})` discards the branch and loses its unsaved work - only when the user asks.
 
-`list_branches({slug})` shows the open branches and who holds each sandbox. If another user holds the branch sandbox, `merge_branch`, `delete_branch`, and `start_sandbox` return `locked`: tell the user who, do not retry in a loop.
+`list_branches({applicationId})` shows the open branches and who holds each sandbox. If another user holds the branch sandbox, `merge_branch`, `delete_branch`, and `start_sandbox` return `locked`: tell the user who, do not retry in a loop.
 
 Never `git checkout main` in a branch sandbox.
 
