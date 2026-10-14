@@ -33,16 +33,22 @@ If a request is ambiguous (you can't tell which app it maps to, or lack the deta
 
 ## Parallel work with branches
 
-Use branches when independent changes should be built in parallel, or the user asks for one. An app has `main` plus branches; each branch gets its own sandbox, preview, and workspace. All branches share the app's database and env vars.
+Use branches when independent changes should be built in parallel, or the user asks for one. An app has `main` plus zero or more branches; each branch is a git branch with its own sandbox, preview, and workspace. All branches share the app's database and env vars.
 
-1. `create_branch({slug, name})` per piece of work — lowercase letters, digits, `-`, `/`. It branches from the current `main`; it does not start a sandbox.
+- Tools: `list_branches(slug)`, `create_branch(slug, name)`, `merge_branch(slug, branch)`, `delete_branch(slug, branch)`. `start_sandbox`, `stop_sandbox`, and every `sandbox_*` tool take an optional `branch` argument; omit it for `main`.
+- Branch names: lowercase letters, digits, `-` and `/`, max 60 chars. `main` is reserved.
+- Save: `major push` in a branch sandbox pushes that branch and does not touch `main`.
+- Publish: `major publish` deploys `main` only. In a branch sandbox it is refused with "Merge <branch> into main". To ship a branch, call `merge_branch`, then publish from the `main` sandbox.
+
+1. `create_branch({slug, name})` per piece of work. It branches from the current `main`; it does not start a sandbox.
 2. `start_sandbox({slug, branch})`, then edit with `sandbox_*({slug, branch, ...})`. Give each subagent exactly one `(slug, branch)` pair. Commit and push in each branch sandbox as usual.
-3. When a branch is done, `merge_branch({slug, branch})`. It saves the branch sandbox, merges into `main`, and deletes the branch and its sandbox.
-4. A conflict result changes nothing. In that branch sandbox: `git fetch origin main && git merge origin/main`, fix the conflicts, commit, `major push`, then call `merge_branch` again.
-5. `delete_branch({slug, branch})` discards a branch and its work — only when the user asks.
-6. Ship with `major publish --yes` in the `main` sandbox after merging.
+3. When a branch is done, `merge_branch({slug, branch})`. It saves the live branch sandbox and merges into `main` with plain git rules. On success it deletes the branch and stops its sandbox.
+4. On a conflict `merge_branch` changes nothing and returns steps. In that branch sandbox: `git fetch origin main && git merge origin/main`, fix the conflicts, commit, `major push`, then call `merge_branch` again.
+5. `delete_branch({slug, branch})` discards the branch and loses its unsaved work - only when the user asks.
 
-`list_branches({slug})` shows the open branches and who holds each sandbox. A `locked` result means another user holds that branch.
+`list_branches({slug})` shows the open branches and who holds each sandbox. If another user holds the branch sandbox, `merge_branch`, `delete_branch`, and `start_sandbox` return `locked`: tell the user who, do not retry in a loop.
+
+Never `git checkout main` in a branch sandbox.
 
 ## Build rules
 
