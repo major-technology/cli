@@ -82,10 +82,10 @@ func (appTarget) Pull(ctx *target.TargetContext) (any, error) {
 	return appGitResult{ApplicationID: ctx.Config.Target.ApplicationID, Commit: head, action: "Pulled"}, nil
 }
 
-// Push commits a dirty tree with -m, then pushes HEAD to the default branch
+// Push commits a dirty tree with -m, then pushes HEAD to the current branch
 // with an ordinary push.
 func (appTarget) Push(ctx *target.TargetContext) (any, error) {
-	branch, err := git.RequireDefaultBranch()
+	branch, err := git.CurrentBranch()
 	if err != nil {
 		return nil, err
 	}

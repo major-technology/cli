@@ -166,7 +166,7 @@ func TargetCommands() []*cobra.Command {
 For a skill, workflow, or agent, push uploads the workspace as a new unpublished
 version. -m sets the version notes.
 
-For an app, push sends local commits to the default branch:
+For an app, push sends local commits to the current branch:
   - With uncommitted changes and -m, push stages every change in the repository
     (git add -A), commits it with -m as the message, then pushes.
   - With uncommitted changes and no -m, push fails and commits nothing.

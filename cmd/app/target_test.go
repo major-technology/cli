@@ -100,6 +100,25 @@ func TestAppPushDirtyTreeRequiresMessageThenCommitsAndPushes(t *testing.T) {
 	}
 }
 
+func TestAppPushOnBranchPushesToThatBranch(t *testing.T) {
+	work, remote := cloneFixture(t)
+	mainBefore := gitSHA(remote)
+	runGit(t, work, "checkout", "-b", "export")
+	runGit(t, work, "commit", "--allow-empty", "-m", "branch work")
+	t.Chdir(work)
+	ctx, _, _ := appContext(t, work, "", false)
+
+	if _, err := (appTarget{}).Push(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if gitOutput(t, remote, "rev-parse", "refs/heads/export") != gitSHA(work) {
+		t.Fatal("push did not land HEAD on origin/export")
+	}
+	if gitSHA(remote) != mainBefore {
+		t.Fatal("push on a branch moved main")
+	}
+}
+
 func TestAppPullConflictLeavesMarkersAndFails(t *testing.T) {
 	// Default git config: no global or system pull.rebase/pull.ff reaches git.
 	t.Setenv("GIT_CONFIG_GLOBAL", os.DevNull)
@@ -194,6 +213,26 @@ func TestAppPublishWithUnpushedHeadFailsBeforeDeploying(t *testing.T) {
 	}
 	if stdout.Len() != 0 {
 		t.Fatalf("stdout after an error: %q", stdout.String())
+	}
+}
+
+func TestAppPublishOnBranchFailsWithMergeHint(t *testing.T) {
+	work, remote := cloneFixture(t)
+	probe := newDeployProbe(t, remote, "prototype", "", http.StatusOK)
+	runGit(t, work, "checkout", "-b", "export")
+	runGit(t, work, "push", "-u", "origin", "export")
+	t.Chdir(work)
+	ctx, _, _ := appContext(t, work, "", true)
+
+	_, err := appTarget{}.Publish(ctx)
+	if err == nil || !strings.Contains(err.Error(), "Merge export into main") {
+		t.Fatalf("publish on a branch: %v", err)
+	}
+	if strings.Contains(err.Error(), "Checkout") {
+		t.Fatalf("publish on a branch must not tell the caller to check out main: %v", err)
+	}
+	if probe.posts.Load() != 0 {
+		t.Fatal("a version was created from a branch")
 	}
 }
 

@@ -56,5 +56,6 @@ reason that data that should be shared for the entire org.
 
 - Use `postgresql_psql` for read-only exploration (schema inspection, SELECT queries)
 - Use `run_migration` for all schema changes and data modifications on managed databases
+- All branches of an app share its database: `run_migration` from a branch sandbox changes production immediately
 - Use parameterized queries (`$1`, `$2`, ...) — never interpolate values into SQL strings
 - After creating tables with `run_migration`, generate a TypeScript client for the app to use in code
