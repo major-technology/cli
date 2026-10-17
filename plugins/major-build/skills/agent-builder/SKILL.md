@@ -83,6 +83,10 @@ Then cite what you found in `prompt.md`: "query `analytics.daily_sessions` filte
 
 Skills are reusable instruction bundles authored in the Skill Library; attached skills auto-load when the agent's sessions start. `list_attachable_skills` returns `{id, slug, description}`; add the ids you want to the `skills` array in `agent.jsonc`. Attach only skills whose `description` clearly fits the agent's job — a skill the model never uses is noise. If no fitting skill exists and the user has described one, use the `skill-builder` skill to build it.
 
+## Giving the agent a web browser
+
+To let the agent visit or interact with web pages, set `"browserSettings": { "enabled": true }` in `agent.jsonc`. Its sessions then get a hosted web browser through the `browser` tool. There is no browser connector to add. Leave it off unless the agent's job needs the web.
+
 ## Running on a schedule
 
 An agent has **no schedule of its own** — running an agent on a cadence is a property of a _workflow_ whose trigger fires the agent. If the user wants this agent to run on a schedule, load the `workflow-builder` skill and build a workflow there.
