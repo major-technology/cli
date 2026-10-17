@@ -46,6 +46,10 @@ Always use an `agentId` returned by `list` or `create` (`target_type: "agent"`) 
 
 The definition shape — fields, the allowed model ids, permission decisions — is the JSON Schema the Major API serves at `GET https://api.prod.major.build/public/agent.schema.json`, the single source of truth. YOU MUST CURL THIS SCHEMA BEFORE WRITING `agent.jsonc`; its `x-validatorRules` carry the rules beyond shape (membership grants access, ids must exist in the org, bundle is exactly the two files). `major validate` and every `major push` enforce all of it, with errors naming the offending path.
 
+## Browser
+
+To let the agent visit or interact with web pages, set `"browserSettings": { "enabled": true }` in `agent.jsonc`. Its sessions then get a hosted web browser through the `browser` tool. There is no browser connector to add. Leave it off unless the agent's job needs the web.
+
 ## Tool permissions
 
 **Sensible defaults are already applied — usually don't touch this.** Read-only tools and `GET` endpoints default to `always_allow`; writes and every non-`GET` method default to `ask`. Only list a tool or endpoint explicitly when the user wants to deviate (e.g. "never let it delete anything").
