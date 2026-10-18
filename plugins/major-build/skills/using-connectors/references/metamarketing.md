@@ -29,7 +29,7 @@
 - `mcp__resources__metamarketing_get_insights` — Get performance insights/analytics for an ad account. Args: `resourceId`, `adAccountId`, `fields?`, `datePreset?`, `timeRange?`, `level?`, `limit?`
 - `mcp__resources__metamarketing_get_lead_forms` — List lead generation forms for a Facebook page. Args: `resourceId`, `pageId`, `limit?`, `after?`
 - `mcp__resources__metamarketing_get_leads` — Get leads submitted to a lead form. Args: `resourceId`, `formId`, `limit?`, `after?`
-- `mcp__resources__metamarketing_invoke` — Make any HTTP request (GET/POST/DELETE) for write operations. Args: `resourceId`, `method`, `path`, `query?`, `body?`, `timeoutMs?`
+- `mcp__resources__http_proxy_get` / `mcp__resources__http_proxy_invoke` — Generic proxy for any other Graph API call. `http_proxy_get` is read-only and runs without approval; `http_proxy_invoke` takes every other method. Args: `resourceId`, `url` (leading-slash path under `https://graph.facebook.com`, e.g. `/v21.0/act_AD_ACCOUNT_ID/campaigns`), `method` (invoke only), `headers?`, `body?` (invoke only), `timeoutMs?`. See [using-http-proxy](http-proxy.md).
 
 ## TypeScript Client
 

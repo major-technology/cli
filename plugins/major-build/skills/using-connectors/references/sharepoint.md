@@ -27,7 +27,7 @@
 - `mcp__resources__sharepoint_get_file_download_url` — Get a pre-authenticated download URL for a file. Args: `resourceId`, `siteId`, `itemId`
 - `mcp__resources__sharepoint_create_upload_session` — Create a pre-authenticated upload session. Args: `resourceId`, `siteId`, `fileName`, `parentPath?`, `conflictBehavior?`
 - `mcp__resources__sharepoint_get` — Generic GET request to any Microsoft Graph endpoint. Args: `resourceId`, `path`, `query?`
-- `mcp__resources__sharepoint_invoke` — Generic HTTP request to Microsoft Graph (for JSON write operations). Args: `resourceId`, `method`, `path`, `query?`, `body?`, `timeoutMs?`
+- `mcp__resources__http_proxy_get` / `mcp__resources__http_proxy_invoke` — Generic proxy for any other Microsoft Graph call. `http_proxy_get` is read-only and runs without approval; `http_proxy_invoke` takes every other method (JSON writes). Args: `resourceId`, `url` (leading-slash path under `https://graph.microsoft.com`, e.g. `/v1.0/sites/SITE_ID/lists`), `method` (invoke only), `headers?`, `body?` (invoke only), `timeoutMs?`. See [using-http-proxy](http-proxy.md).
 
 ## TypeScript Client
 
@@ -144,7 +144,7 @@ For files larger than 4MB, split into ~10MB chunks and PUT each with the appropr
 ## Tips
 
 - **Microsoft Graph API**: All paths are relative to `https://graph.microsoft.com`. Use `/v1.0/` prefix for stable endpoints.
-- **File operations**: Always use the presigned URL tools (`get_file_download_url`, `create_upload_session`) for binary file transfer. The generic `invoke` tool only handles JSON request/response bodies.
+- **File operations**: Always use the presigned URL tools (`get_file_download_url`, `create_upload_session`) for binary file transfer. The client's `invoke` method and the proxy tools are for JSON request/response bodies.
 - **Admin consent**: These scopes use delegated permissions and do NOT require admin consent by default. However, some Microsoft 365 tenants disable user consent org-wide — in that case, a tenant admin will need to approve the app once.
 - **Common SharePoint paths**:
   - Sites: `/v1.0/sites?search=keyword`, `/v1.0/sites/{hostname}:/{server-relative-path}`
@@ -152,6 +152,6 @@ For files larger than 4MB, split into ~10MB chunks and PUT each with the appropr
   - Drives: `/v1.0/sites/{site-id}/drives`, `/v1.0/sites/{site-id}/drive/root/children`
   - Files: `/v1.0/sites/{site-id}/drive/items/{item-id}`, `/v1.0/sites/{site-id}/drive/root:/{path}`
 - **OData queries**: Use `$select`, `$filter`, `$expand`, `$top`, `$orderby` as query parameters
-- **Pagination**: Graph API uses `@odata.nextLink` for pagination — pass the full URL to `invoke` for subsequent pages
+- **Pagination**: Graph API uses `@odata.nextLink` for pagination — pass that full URL as `url` to `http_proxy_get` for subsequent pages
 
 **Docs**: [Microsoft Graph SharePoint API Reference](https://learn.microsoft.com/en-us/graph/api/resources/sharepoint?view=graph-rest-1.0)

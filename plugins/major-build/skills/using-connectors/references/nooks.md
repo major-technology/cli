@@ -23,7 +23,7 @@
 ## MCP Tools
 
 - `mcp__resources__nooks_get` — Make a GET request to any Nooks API endpoint. Args: `resourceId`, `path`, `query?`
-- `mcp__resources__nooks_invoke` — Make any HTTP request to the Nooks API (including writes). Args: `resourceId`, `method`, `path`, `query?`, `body?`, `timeoutMs?`
+- `mcp__resources__http_proxy_get` / `mcp__resources__http_proxy_invoke` — Generic proxy for any other Nooks API call. `http_proxy_get` is read-only and runs without approval; `http_proxy_invoke` takes every other method. Args: `resourceId`, `url` (leading-slash path under `https://partner-api.nooks.in/v1`, e.g. `/me`), `method` (invoke only), `headers?`, `body?` (invoke only), `timeoutMs?`. See [using-http-proxy](http-proxy.md).
 
 ## TypeScript Client
 

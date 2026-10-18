@@ -50,9 +50,9 @@ If `tiktokads_list_advertisers` returns `data.list: []` with `code: 0, message: 
 - `mcp__resources__tiktokads_list_campaigns` - List campaigns for one advertiser. Args: `resourceId`, `advertiserId`, `campaignIds?`, `campaignName?`, `page?`, `pageSize?`
 - `mcp__resources__tiktokads_get_campaign` - Fetch one campaign by ID. Args: `resourceId`, `advertiserId`, `campaignId`
 - `mcp__resources__tiktokads_run_report` - Run a Marketing API report. Args: `resourceId`, `advertiserId`, `metrics`, `reportType?`, `dataLevel?`, `dimensions?`, `startDate?`, `endDate?`, `page?`, `pageSize?`
-- `mcp__resources__tiktokads_invoke` - Escape hatch for any TikTok Marketing API request under `/open_api/v1.3/`. Args: `resourceId`, `method`, `path`, `query?`, `body?`, `timeoutMs?`
+- `mcp__resources__http_proxy_get` / `mcp__resources__http_proxy_invoke` — Generic proxy for any other TikTok Marketing API request call. `http_proxy_get` is read-only and runs without approval; `http_proxy_invoke` takes every other method. Args: `resourceId`, `url` (leading-slash path under `https://business-api.tiktok.com`, e.g. `/open_api/v1.3/campaign/get/?advertiser_id=1234567890`), `method` (invoke only), `headers?`, `body?` (invoke only), `timeoutMs?`. See [using-http-proxy](http-proxy.md).
 
-Prefer the typed tools over `tiktokads_invoke` when they cover the use case. Write methods through `tiktokads_invoke` require the connector's `accessMode` to be `readwrite`.
+Prefer the typed tools over the proxy when they cover the use case. Writes through `http_proxy_invoke` require the connector's `accessMode` to be `readwrite`.
 
 ---
 
@@ -149,29 +149,24 @@ const advertiserList = envelope.data?.list ?? [];
 
 ---
 
-## Raw Invoke Rules
+## Raw Proxy Rules
 
-`tiktokads_invoke` is a thin API wrapper. Include TikTok-required fields exactly as TikTok expects them. The connector injects the access token automatically; for `/oauth2/advertiser/get/` it also injects `app_id` and `secret`.
+The proxy is a thin API wrapper. Include TikTok-required fields exactly as TikTok expects them. The proxy injects the access token automatically. To list advertisers, use `tiktokads_list_advertisers`: `/oauth2/advertiser/get/` also needs the app's `app_id` and `secret`, which only that tool sends.
 
-For advertiser-scoped endpoints, include `advertiser_id` in `query` or JSON `body` yourself:
+For advertiser-scoped endpoints, include `advertiser_id` in the query string or JSON `body` yourself:
 
 ```json
 {
-	"method": "GET",
-	"path": "/campaign/get/",
-	"query": {
-		"advertiser_id": ["1234567890"]
-	}
+	"resourceId": "RESOURCE_ID",
+	"url": "/open_api/v1.3/campaign/get/?advertiser_id=1234567890"
 }
 ```
-
-Direct calls to `/oauth2/access_token` and `/oauth2/refresh_token` are blocked — authentication is handled by the connector.
 
 ---
 
 ## TikTok API Notes
 
-- Most Marketing API list endpoints accept `filtering` as a JSON-stringified object inside the query (TikTok's convention). The typed `listCampaigns` builder handles this for you; raw `invoke` callers must stringify themselves.
+- Most Marketing API list endpoints accept `filtering` as a JSON-stringified object inside the query (TikTok's convention). The typed `listCampaigns` builder handles this for you; raw proxy callers must stringify themselves.
 - Reports require both `dimensions` and `metrics` to be JSON-stringified arrays in the query.
 - TikTok responses use `{ code, message, data, request_id }` as the envelope. `code: 0` means success; non-zero codes carry a human-readable `message`.
 - Access tokens for the advertiser flow are long-lived — there is no refresh. If a call fails with auth errors, ask the user to reconnect the resource.

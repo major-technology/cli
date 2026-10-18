@@ -27,7 +27,7 @@
 - `mcp__resources__notion_query_database` — Query a Notion database with optional filters and sorts. Args: `resourceId`, `databaseId`, `filter?`, `sorts?`, `startCursor?`, `pageSize?`
 - `mcp__resources__notion_get_database` — Get a Notion database schema and properties. Args: `resourceId`, `databaseId`
 - `mcp__resources__notion_get_block_children` — Get child blocks of a page or block. Args: `resourceId`, `blockId`, `startCursor?`, `pageSize?`
-- `mcp__resources__notion_invoke` — Make any HTTP request to the Notion API. Args: `resourceId`, `method`, `path`, `query?`, `body?`, `timeoutMs?`
+- `mcp__resources__http_proxy_get` / `mcp__resources__http_proxy_invoke` — Generic proxy for any other Notion API call. `http_proxy_get` is read-only and runs without approval; `http_proxy_invoke` takes every other method. Args: `resourceId`, `url` (leading-slash path under `https://api.notion.com`, e.g. `/v1/pages/PAGE_ID`), `method` (invoke only), `headers?`, `body?` (invoke only), `timeoutMs?`. The proxy sets `Notion-Version`. See [using-http-proxy](http-proxy.md).
 
 ## TypeScript Client
 

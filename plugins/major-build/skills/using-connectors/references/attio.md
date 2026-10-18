@@ -22,7 +22,7 @@
 - `mcp__resources__attio_list_objects` — List all CRM objects in the workspace. Args: `resourceId`
 - `mcp__resources__attio_list_records` — Query records for a specific object with optional filtering. Args: `resourceId`, `objectSlug`, `filter?`, `sorts?`, `limit?`
 - `mcp__resources__attio_list_lists` — List all lists in the workspace. Args: `resourceId`
-- `mcp__resources__attio_invoke` — Make any HTTP request to the Attio API (including writes). Args: `resourceId`, `method`, `path`, `query?`, `body?`, `timeoutMs?`
+- `mcp__resources__http_proxy_get` / `mcp__resources__http_proxy_invoke` — Generic proxy for any other Attio API call. `http_proxy_get` is read-only and runs without approval; `http_proxy_invoke` takes every other method. Args: `resourceId`, `url` (leading-slash path under `https://api.attio.com`, e.g. `/v2/lists`), `method` (invoke only), `headers?`, `body?` (invoke only), `timeoutMs?`. See [using-http-proxy](http-proxy.md).
 
 ## TypeScript Client
 
