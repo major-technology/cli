@@ -121,13 +121,6 @@ func runCreate(cobraCmd *cobra.Command) error {
 	if demoResourceResp.Resource != nil {
 		selectedResources = []api.ResourceItem{*demoResourceResp.Resource}
 		cobraCmd.Printf("✓ Demo resource found: %s (%s)\n", demoResourceResp.Resource.Name, demoResourceResp.Resource.Type)
-
-		// Save the demo resource to the application
-		_, err = apiClient.SaveApplicationResources(orgID, createResp.ApplicationID, []string{demoResourceResp.Resource.ID})
-		if err != nil {
-			return errors.WrapError("failed to save demo resource", err)
-		}
-		cobraCmd.Println("✓ Demo resource linked to application")
 	}
 
 	// Push to the new remote

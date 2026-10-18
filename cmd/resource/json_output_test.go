@@ -32,8 +32,7 @@ func TestResourceCommandsExposeJSONFlag(t *testing.T) {
 
 func TestRunAddJSONAfterAPIAndLocalGeneration(t *testing.T) {
 	dir := preparedResourceWorkspace(t)
-	var saved atomic.Int32
-	restoreAPIClient(t, resourceMutationServer(t, &saved, true))
+	restoreAPIClient(t, resourceMutationServer(t, true))
 
 	orig := addResourcesToProject
 	var generated atomic.Int32
@@ -58,9 +57,6 @@ func TestRunAddJSONAfterAPIAndLocalGeneration(t *testing.T) {
 	if err := runAdd(cmd); err != nil {
 		t.Fatalf("runAdd: %v stderr=%q", err, stderr.String())
 	}
-	if saved.Load() == 0 {
-		t.Fatal("expected SaveApplicationResources")
-	}
 	if generated.Load() != 1 {
 		t.Fatalf("local generation calls = %d, want 1", generated.Load())
 	}
@@ -79,8 +75,7 @@ func TestRunAddJSONAfterAPIAndLocalGeneration(t *testing.T) {
 
 func TestRunAddJSONNotEmittedWhenGenerationFails(t *testing.T) {
 	preparedResourceWorkspace(t)
-	var saved atomic.Int32
-	restoreAPIClient(t, resourceMutationServer(t, &saved, true))
+	restoreAPIClient(t, resourceMutationServer(t, true))
 
 	orig := addResourcesToProject
 	addResourcesToProject = func(cmd *cobra.Command, projectDir string, resources []api.ResourceItem, applicationID string) error {
@@ -100,9 +95,6 @@ func TestRunAddJSONNotEmittedWhenGenerationFails(t *testing.T) {
 	if err := runAdd(cmd); err == nil {
 		t.Fatal("expected generation failure")
 	}
-	if saved.Load() == 0 {
-		t.Fatal("API mutation still happens before generation")
-	}
 	if strings.TrimSpace(stdout.String()) != "" {
 		t.Fatalf("must not emit JSON after generation failure, stdout=%q", stdout.String())
 	}
@@ -113,8 +105,7 @@ func TestRunRemoveJSONAfterAPIAndLocalGeneration(t *testing.T) {
 	if err := writeLocalResource(dir, jsonResourceID); err != nil {
 		t.Fatal(err)
 	}
-	var saved atomic.Int32
-	restoreAPIClient(t, resourceMutationServer(t, &saved, false))
+	restoreAPIClient(t, resourceMutationServer(t, false))
 
 	orig := addResourcesToProject
 	addResourcesToProject = func(cmd *cobra.Command, projectDir string, resources []api.ResourceItem, applicationID string) error {
@@ -133,9 +124,6 @@ func TestRunRemoveJSONAfterAPIAndLocalGeneration(t *testing.T) {
 	cmd, stdout, stderr := jsonCommand(t)
 	if err := runRemove(cmd); err != nil {
 		t.Fatalf("runRemove: %v stderr=%q", err, stderr.String())
-	}
-	if saved.Load() == 0 {
-		t.Fatal("expected SaveApplicationResources")
 	}
 	result := decodeOneObject(t, stdout.String())
 	if result["resourceId"] != jsonResourceID || result["attached"] != false {
@@ -170,7 +158,7 @@ func restoreAPIClient(t *testing.T, baseURL string) {
 	t.Cleanup(func() { singletons.SetAPIClient(prev) })
 }
 
-func resourceMutationServer(t *testing.T, saved *atomic.Int32, includeTarget bool) string {
+func resourceMutationServer(t *testing.T, includeTarget bool) string {
 	t.Helper()
 	resources := `{"resources":[{"id":"` + jsonResourceID + `","name":"db","type":"postgres","description":"db"}]}`
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -181,10 +169,6 @@ func resourceMutationServer(t *testing.T, saved *atomic.Int32, includeTarget boo
 		case r.URL.Path == "/resources":
 			w.Header().Set("Content-Type", "application/json")
 			fmt.Fprint(w, resources)
-		case r.URL.Path == "/application-resources":
-			saved.Add(1)
-			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprint(w, `{"success":true}`)
 		case r.URL.Path == "/applications/"+niAppID+"/resources":
 			w.Header().Set("Content-Type", "application/json")
 			if includeTarget {

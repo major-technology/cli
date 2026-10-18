@@ -90,7 +90,6 @@ func TestManageNonInteractiveRefusesAndNamesAddRemove(t *testing.T) {
 	t.Chdir(dir)
 	t.Setenv("MAJOR_TOKEN", "test-injected-token")
 
-	var writes atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.URL.Path == "/applications/"+niAppID+"/info":
@@ -99,9 +98,6 @@ func TestManageNonInteractiveRefusesAndNamesAddRemove(t *testing.T) {
 		case r.URL.Path == "/resources":
 			w.Header().Set("Content-Type", "application/json")
 			fmt.Fprint(w, `{"resources":[{"id":"r1","name":"DB","type":"postgres","description":"db"}]}`)
-		case r.URL.Path == "/application-resources":
-			writes.Add(1)
-			w.WriteHeader(http.StatusInternalServerError)
 		default:
 			t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
 			w.WriteHeader(http.StatusInternalServerError)
@@ -123,9 +119,6 @@ func TestManageNonInteractiveRefusesAndNamesAddRemove(t *testing.T) {
 	}
 	if !strings.Contains(msg, "remove --id") {
 		t.Fatalf("error must name resource remove --id, got %v", err)
-	}
-	if writes.Load() != 0 {
-		t.Fatalf("SaveApplicationResources calls = %d, want 0", writes.Load())
 	}
 }
 

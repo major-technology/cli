@@ -192,7 +192,7 @@ func runCreate(cobraCmd *cobra.Command) error {
 	var selectedResources []api.ResourceItem
 	if !isNonInteractive {
 		cobraCmd.Println("\nSelecting resources for your application...")
-		selectedResources, err = utils.SelectApplicationResources(cobraCmd, apiClient, orgID, createResp.ApplicationID)
+		selectedResources, err = utils.SelectApplicationResources(cobraCmd, apiClient, orgID)
 		if err != nil {
 			return errors.ErrorFailedToSelectResources
 		}

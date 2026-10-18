@@ -314,22 +314,6 @@ func (c *Client) GetResources(organizationID string) (*GetResourcesResponse, err
 	return &resp, nil
 }
 
-// SaveApplicationResources saves the selected resources for an application
-func (c *Client) SaveApplicationResources(organizationID, applicationID string, resourceIDs []string) (*SaveApplicationResourcesResponse, error) {
-	req := SaveApplicationResourcesRequest{
-		OrganizationID: organizationID,
-		ApplicationID:  applicationID,
-		ResourceIDs:    resourceIDs,
-	}
-
-	var resp SaveApplicationResourcesResponse
-	err := c.doRequest("POST", "/application-resources", req, &resp)
-	if err != nil {
-		return nil, err
-	}
-	return &resp, nil
-}
-
 // --- Version Check endpoints ---
 
 // CheckVersion checks if the CLI version is up to date

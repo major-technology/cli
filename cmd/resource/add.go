@@ -75,11 +75,6 @@ func runAdd(cobraCmd *cobra.Command) error {
 	}
 	selectedIDs = append(selectedIDs, flagAddResourceID)
 
-	_, err = apiClient.SaveApplicationResources(appInfo.OrganizationID, appInfo.ApplicationID, selectedIDs)
-	if err != nil {
-		return errors.WrapError("failed to save resources", err)
-	}
-
 	selectedResources := utils.ResolveResourceItems(selectedIDs, orgResources.Resources)
 	if err := generateLocalResources(cobraCmd, flagAddJSON, selectedResources, appInfo.ApplicationID); err != nil {
 		return errors.WrapError("failed to add resource to project", err)

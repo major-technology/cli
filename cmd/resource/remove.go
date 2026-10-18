@@ -68,11 +68,6 @@ func runRemove(cobraCmd *cobra.Command) error {
 		return fmt.Errorf("resource with ID %q is not attached to this application", flagRemoveResourceID)
 	}
 
-	_, err = apiClient.SaveApplicationResources(appInfo.OrganizationID, appInfo.ApplicationID, selectedIDs)
-	if err != nil {
-		return errors.WrapError("failed to save resources", err)
-	}
-
 	selectedResources := utils.ResolveResourceItems(selectedIDs, orgResources.Resources)
 	if err := generateLocalResources(cobraCmd, flagRemoveJSON, selectedResources, appInfo.ApplicationID); err != nil {
 		return errors.WrapError("failed to update project resources", err)

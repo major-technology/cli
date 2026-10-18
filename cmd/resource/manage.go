@@ -38,7 +38,7 @@ func runManage(cobraCmd *cobra.Command) error {
 	apiClient := singletons.GetAPIClient()
 
 	cobraCmd.Println("\nSelecting resources for your application...")
-	selectedResources, err := utils.SelectApplicationResources(cobraCmd, apiClient, appInfo.OrganizationID, appInfo.ApplicationID)
+	selectedResources, err := utils.SelectApplicationResources(cobraCmd, apiClient, appInfo.OrganizationID)
 	if err != nil {
 		return errors.ErrorFailedToSelectResourcesTryAgain
 	}
