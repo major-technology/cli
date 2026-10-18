@@ -42,11 +42,9 @@ If LinkedIn refresh fails because the refresh token is revoked or expired, the c
 - `mcp__resources__linkedin_list_campaigns` - List campaigns for an ad account. Args: `resourceId`, `adAccountId`, `status?`, `pageSize?`, `pageToken?`
 - `mcp__resources__linkedin_list_creatives` - List creatives for an ad account or campaigns. Args: `resourceId`, `adAccountId`, `campaignIds?`, `pageSize?`, `pageToken?`
 - `mcp__resources__linkedin_get_ad_analytics` - Fetch ad analytics. Args: `resourceId`, `adAccountId`, `dateRange`, `pivot`, `metrics?`
-- `mcp__resources__linkedin_invoke` - Escape hatch for LinkedIn Marketing API requests. Args: `resourceId`, `method`, `path`, `query?`, `body?`
+- `mcp__resources__http_proxy_get` / `mcp__resources__http_proxy_invoke` — Generic proxy for any other LinkedIn Marketing API request call. `http_proxy_get` is read-only and runs without approval; `http_proxy_invoke` takes every other method. Args: `resourceId`, `url` (leading-slash path under `https://api.linkedin.com`, e.g. `/rest/adAccounts?q=search`), `method` (invoke only), `headers?`, `body?` (invoke only), `timeoutMs?`. The proxy sets `Linkedin-Version` and `X-Restli-Protocol-Version`. See [using-http-proxy](http-proxy.md).
 
-Prefer typed list and analytics tools over `linkedin_invoke` when they cover the use case.
-
-When using `linkedin_invoke` directly, pass query values as arrays because the connector backend expects `Record<string, string[]>`, for example `{ q: ["search"], pageSize: ["25"] }`.
+Prefer typed list and analytics tools over the proxy when they cover the use case.
 
 ---
 

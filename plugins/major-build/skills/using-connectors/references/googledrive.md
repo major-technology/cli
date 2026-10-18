@@ -36,9 +36,9 @@ Google Drive requires OAuth authentication before use.
 
 - `mcp__resources__googledrive_list_files` — Search and list files. Args: `resourceId`, `query?` (Drive search syntax), `maxResults?`, `pageToken?`
 - `mcp__resources__googledrive_get_file` — Get file metadata by ID. Args: `resourceId`, `fileId`
-- `mcp__resources__googledrive_get_file_content` — Export a Google Docs/Sheets/Slides file to a specified format. Args: `resourceId`, `fileId`, `mimeType?` (default: "text/plain"). For binary files, use `googledrive_invoke` with `alt=media`.
+- `mcp__resources__googledrive_get_file_content` — Export a Google Docs/Sheets/Slides file to a specified format. Args: `resourceId`, `fileId`, `mimeType?` (default: "text/plain"). For binary files, use `http_proxy_get` with `alt=media`.
 - `mcp__resources__googledrive_list_shared_drives` — List shared drives. Args: `resourceId`
-- `mcp__resources__googledrive_invoke` — Make any HTTP request to the Google Drive API v3 (for operations not covered by other tools). Args: `resourceId`, `method`, `path`, `query?`, `body?`, `timeoutMs?`
+- `mcp__resources__http_proxy_get` / `mcp__resources__http_proxy_invoke` — Generic proxy for any other Google Drive API v3 call call. `http_proxy_get` is read-only and runs without approval; `http_proxy_invoke` takes every other method. Args: `resourceId`, `url` (leading-slash path under `https://www.googleapis.com/drive`, e.g. `/v3/files/FILE_ID`), `method` (invoke only), `headers?`, `body?` (invoke only), `timeoutMs?`. See [using-http-proxy](http-proxy.md).
 
 ## TypeScript Client
 
@@ -73,7 +73,7 @@ const exportResult = await googleDriveClient.invoke("GET", "files/FILE_ID/export
 - **Drive search syntax**: `name contains 'report'`, `mimeType = 'application/vnd.google-apps.spreadsheet'`, `modifiedTime > '2024-01-01'`, `'FOLDER_ID' in parents`, `trashed = false`. Combine with `and`/`or`.
 - **Google Workspace MIME types**: `application/vnd.google-apps.document` (Docs), `application/vnd.google-apps.spreadsheet` (Sheets), `application/vnd.google-apps.presentation` (Slides), `application/vnd.google-apps.folder` (Folder)
 - **Export MIME types** (for `get_file_content`): `text/plain`, `text/csv`, `application/pdf`, `application/vnd.openxmlformats-officedocument.wordprocessingml.document` (.docx), `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` (.xlsx)
-- **Binary file download**: Use `googledrive_invoke` with path `files/{id}?alt=media` to download non-Google files directly.
+- **Binary file download**: Use `http_proxy_get` with url `/v3/files/{id}?alt=media` to download non-Google files directly.
 - **Pagination**: Check `nextPageToken` in the response and pass it as `pageToken` to get the next page.
 - **Fields parameter**: Use `fields` query param to limit response size, e.g. `fields=files(id,name,mimeType,modifiedTime,size)`.
 - Response structure: `{ kind: "api", status: number, body: { kind: "json", value: {...} } }`

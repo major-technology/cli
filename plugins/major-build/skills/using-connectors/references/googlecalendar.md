@@ -38,7 +38,7 @@ Google Calendar requires OAuth authentication before use.
 - `mcp__resources__googlecalendar_list_calendars` — List all calendars accessible to the connected account. Args: `resourceId`
 - `mcp__resources__googlecalendar_list_events` — List events with optional date filtering, search, and pagination. Args: `resourceId`, `calendarId?` (default: "primary"), `timeMin?`, `timeMax?`, `maxResults?`, `q?`, `singleEvents?`, `orderBy?`, `pageToken?`
 - `mcp__resources__googlecalendar_create_event` — Create a new calendar event. Args: `resourceId`, `summary`, `startDateTime`, `endDateTime`, `calendarId?`, `location?`, `eventDescription?`, `timeZone?`, `attendees?`
-- `mcp__resources__googlecalendar_invoke` — Make any HTTP request to the Google Calendar API v3 (for operations not covered by other tools). Args: `resourceId`, `method`, `path`, `query?`, `body?`, `timeoutMs?`
+- `mcp__resources__http_proxy_get` / `mcp__resources__http_proxy_invoke` — Generic proxy for any other Google Calendar API v3 call. `http_proxy_get` is read-only and runs without approval; `http_proxy_invoke` takes every other method. Args: `resourceId`, `url` (leading-slash path under `https://www.googleapis.com/calendar`, e.g. `/v3/calendars/primary/events?updatedMin=2026-01-01T00:00:00Z`), `method` (invoke only), `headers?`, `body?` (invoke only), `timeoutMs?`. See [using-http-proxy](http-proxy.md).
 
 ## TypeScript Client
 

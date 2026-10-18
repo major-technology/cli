@@ -26,7 +26,7 @@
 - `mcp__resources__clerk_list_users` — List users with optional filtering. Args: `resourceId`, `emailAddress?`, `limit?`, `offset?`
 - `mcp__resources__clerk_get_user` — Get a single user by ID. Args: `resourceId`, `userId`
 - `mcp__resources__clerk_list_organizations` — List organizations. Args: `resourceId`, `limit?`, `offset?`
-- `mcp__resources__clerk_invoke` — Make any HTTP request to the Clerk API (including writes). Args: `resourceId`, `method`, `path`, `query?`, `body?`, `timeoutMs?`
+- `mcp__resources__http_proxy_get` / `mcp__resources__http_proxy_invoke` — Generic proxy for any other Clerk Backend API call. `http_proxy_get` is read-only and runs without approval; `http_proxy_invoke` takes every other method. Args: `resourceId`, `url` (leading-slash path under `https://api.clerk.com`, e.g. `/v1/users`), `method` (invoke only), `headers?`, `body?` (invoke only), `timeoutMs?`. See [using-http-proxy](http-proxy.md).
 
 ## TypeScript Client
 

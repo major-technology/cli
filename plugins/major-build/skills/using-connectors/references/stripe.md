@@ -22,7 +22,7 @@
 
 ## MCP Tools
 
-**Tool selection:** For any read-only operation, prefer `stripe_get` (or a specialized `stripe_list_*` / `stripe_get_*` tool) over `stripe_invoke`. Reserve `stripe_invoke` for writes (POST/PUT/DELETE) or endpoints the other tools don't cover.
+**Tool selection:** For any read-only operation, prefer `stripe_get` (or a specialized `stripe_list_*` / `stripe_get_*` tool) over the proxy. Reserve `http_proxy_invoke` for writes (POST/PUT/DELETE) or endpoints the other tools don't cover.
 
 - `mcp__resources__stripe_get` — **Preferred for all read-only (GET) requests.** Make a GET request to any Stripe API endpoint. Args: `resourceId`, `path`, `query?`
 - `mcp__resources__stripe_list_customers` — List customers with optional email filter and cursor pagination. Args: `resourceId`, `email?`, `limit?`, `startingAfter?`
@@ -31,7 +31,7 @@
 - `mcp__resources__stripe_get_balance` — Get the current account balance. Args: `resourceId`
 - `mcp__resources__stripe_list_subscriptions` — List subscriptions with optional filters. Args: `resourceId`, `customer?`, `status?`, `limit?`, `startingAfter?`
 - `mcp__resources__stripe_list_invoices` — List invoices with optional filters. Args: `resourceId`, `customer?`, `status?`, `limit?`, `startingAfter?`
-- `mcp__resources__stripe_invoke` — Make any HTTP request (GET/POST/PUT/DELETE). **Use only for write operations** (POST/PUT/DELETE) or endpoints not covered by `stripe_get` / `stripe_list_*` / `stripe_get_*`. Args: `resourceId`, `method`, `path`, `query?`, `headers?`, `body?`, `timeoutMs?`
+- `mcp__resources__http_proxy_get` / `mcp__resources__http_proxy_invoke` — Generic proxy for any other Stripe API call call. `http_proxy_get` is read-only and runs without approval; `http_proxy_invoke` takes every other method. Args: `resourceId`, `url` (leading-slash path under `https://api.stripe.com`, e.g. `/v1/refunds`), `method` (invoke only), `headers?`, `body?` (invoke only), `timeoutMs?`. **Use only for write operations** or endpoints not covered by `stripe_get` / `stripe_list_*` / `stripe_get_*`. See [using-http-proxy](http-proxy.md).
 
 ## TypeScript Client
 

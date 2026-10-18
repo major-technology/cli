@@ -23,7 +23,7 @@
 ## MCP Tools
 
 - `mcp__resources__customerio_get` — Make a GET request to the App API. Args: `resourceId`, `path`, `query?`
-- `mcp__resources__customerio_invoke` — Make any HTTP request to the App API or Track API (including writes). Args: `resourceId`, `method`, `path`, `query?`, `body?`, `timeoutMs?`
+- `mcp__resources__http_proxy_get` / `mcp__resources__http_proxy_invoke` — Generic proxy for any other App API or Track API call. `http_proxy_get` is read-only and runs without approval; `http_proxy_invoke` takes every other method. Args: `resourceId`, `url` (leading-slash path under `the App API host`, e.g. `/v1/segments`), `method` (invoke only), `headers?`, `body?` (invoke only), `timeoutMs?`. For the Track API, pass the full URL instead (`https://track.customer.io/api/v1/...`, or `track-eu` for EU accounts). See [using-http-proxy](http-proxy.md).
 
 ## TypeScript Client
 
