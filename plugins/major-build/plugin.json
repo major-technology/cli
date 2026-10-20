@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "major",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Build and manage Major apps, agents, skills, workflows, and connected resources.",
   "author": {
     "name": "Major Technology"
