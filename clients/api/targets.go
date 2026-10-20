@@ -12,6 +12,8 @@ type TargetVersion struct {
 	AgentID     string  `json:"agentId,omitempty"`
 	SkillID     string  `json:"skillId,omitempty"`
 	WorkflowID  string  `json:"workflowId,omitempty"`
+	PriorityID  string  `json:"priorityId,omitempty"`
+	Title       string  `json:"title,omitempty"`
 	Name        string  `json:"name,omitempty"`
 	Slug        *string `json:"slug,omitempty"`
 	Label       string  `json:"label,omitempty"`
@@ -20,13 +22,15 @@ type TargetVersion struct {
 }
 
 // DisplayName is the human name the kind carries: an agent's name, a skill's
-// slug, or a workflow's label.
+// slug, a workflow's label, or a priority's title.
 func (v TargetVersion) DisplayName() string {
 	switch {
 	case v.Name != "":
 		return v.Name
 	case v.Label != "":
 		return v.Label
+	case v.Title != "":
+		return v.Title
 	case v.Slug != nil && *v.Slug != "":
 		return *v.Slug
 	case v.SkillID != "":

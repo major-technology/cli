@@ -17,6 +17,7 @@ import (
 	"github.com/major-technology/cli/cmd/demo"
 	"github.com/major-technology/cli/cmd/mcp"
 	"github.com/major-technology/cli/cmd/org"
+	"github.com/major-technology/cli/cmd/priority"
 	"github.com/major-technology/cli/cmd/project"
 	"github.com/major-technology/cli/cmd/resource"
 	"github.com/major-technology/cli/cmd/sandbox"
@@ -140,6 +141,9 @@ func init() {
 
 	skill.Cmd.GroupID = "main"
 	rootCmd.AddCommand(skill.Cmd)
+
+	priority.Cmd.GroupID = "main"
+	rootCmd.AddCommand(priority.Cmd)
 
 	workflow.Cmd.GroupID = "main"
 	rootCmd.AddCommand(workflow.Cmd)

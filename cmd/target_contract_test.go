@@ -23,6 +23,7 @@ const (
 	bundleAgentID    = "33333333-3333-4333-8333-333333333333"
 	bundleSkillID    = "44444444-4444-4444-8444-444444444444"
 	bundleWorkflowID = "55555555-5555-4555-8555-555555555555"
+	bundlePriorityID = "77777777-7777-4777-8777-777777777777"
 )
 
 // bundleServer fakes the /cli/<kind>s routes and the presigned S3 URLs for one
@@ -437,5 +438,51 @@ func TestPublishSlugFlagIsAppOnly(t *testing.T) {
 		if cmd.Flags().Lookup("slug") != nil {
 			t.Fatalf("major %s must not take --slug", action)
 		}
+	}
+}
+
+func TestPushOfUnchangedWorkspaceUploadsNothingUntilFilesChange(t *testing.T) {
+	server := newBundleServer(t, "skills", bundleSkillID, nil)
+	dir := bundleWorkspace(t, workspace.Target{Kind: "skill", SkillID: bundleSkillID}, map[string]string{
+		"SKILL.md": "---\nname: brand-kit\ndescription: d\n---\n",
+	})
+	push := func() {
+		t.Helper()
+		if _, stderr, err := runTopLevel(t, "push", map[string]string{}); err != nil {
+			t.Fatalf("push: %v stderr=%q", err, stderr)
+		}
+	}
+
+	push()
+	push()
+	if len(server.uploads) != 1 {
+		t.Fatalf("an unchanged workspace uploaded %d bundles, want 1", len(server.uploads))
+	}
+
+	if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte("---\nname: brand-kit\ndescription: changed\n---\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	push()
+	if len(server.uploads) != 2 {
+		t.Fatalf("a changed workspace uploaded %d bundles in total, want 2", len(server.uploads))
+	}
+}
+
+func TestPriorityPushMissingEntryFailsAsInvalidBundleOnStderr(t *testing.T) {
+	newBundleServer(t, "priorities", bundlePriorityID, nil)
+	bundleWorkspace(t, workspace.Target{Kind: "priority", PriorityID: bundlePriorityID}, map[string]string{
+		"priority.json": `{"title":"T","position":1,"closed":false}`,
+		"preview.html":  "<p>p</p>",
+	})
+
+	stdout, stderr, err := runTopLevel(t, "push", map[string]string{})
+	if err == nil {
+		t.Fatal("expected push to fail without full.html")
+	}
+	if stdout != "" {
+		t.Fatalf("stdout after an error: %q", stdout)
+	}
+	if !strings.Contains(stderr, `"invalid":true`) || !strings.Contains(stderr, "full.html: is required") {
+		t.Fatalf("stderr = %q", stderr)
 	}
 }
