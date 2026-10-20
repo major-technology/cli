@@ -341,6 +341,24 @@ type InvalidBundleError struct{ Err error }
 func (e *InvalidBundleError) Error() string { return e.Err.Error() }
 func (e *InvalidBundleError) Unwrap() error { return e.Err }
 
+// ListOwned returns the sorted slash-separated paths of the files a kind owns under root. It runs
+// no bundle rule: a caller that validates elsewhere (a server-side check) wants the raw list.
+func ListOwned(root string, files FileSet) ([]string, error) {
+	owned, err := walkOwned(root, files)
+	if err != nil {
+		return nil, err
+	}
+	rels := make([]string, 0, len(owned))
+	for rel, mode := range owned {
+		if !mode.IsRegular() {
+			return nil, fmt.Errorf("%s must be a regular file", rel)
+		}
+		rels = append(rels, rel)
+	}
+	sort.Strings(rels)
+	return rels, nil
+}
+
 func readOwnedFiles(root string, files FileSet) ([]string, map[string][]byte, error) {
 	owned, err := walkOwned(root, files)
 	if err != nil {
@@ -481,7 +499,7 @@ type cloneResult struct {
 	AgentID    string `json:"agentId,omitempty"`
 	SkillID    string `json:"skillId,omitempty"`
 	WorkflowID string `json:"workflowId,omitempty"`
-	PriorityID string `json:"priorityId,omitempty"`
+	FileID     string `json:"fileId,omitempty"`
 	Path       string `json:"path"`
 	Version    int    `json:"version"`
 	name       string
@@ -510,7 +528,7 @@ func (t BundleTarget) Clone(cmd *cobra.Command, org string, target workspace.Tar
 		AgentID:    pull.AgentID,
 		SkillID:    pull.SkillID,
 		WorkflowID: pull.WorkflowID,
-		PriorityID: pull.PriorityID,
+		FileID:     pull.FileID,
 		Path:       dir,
 		Version:    pull.Version,
 		name:       pull.DisplayName(),

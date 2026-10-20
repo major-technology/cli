@@ -4,72 +4,37 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
 
 	"github.com/major-technology/cli/clients/api"
 	"github.com/major-technology/cli/clients/workspace"
+	"github.com/major-technology/cli/cmd/file"
 	"github.com/major-technology/cli/cmd/target"
 	"github.com/major-technology/cli/singletons"
 	"github.com/spf13/cobra"
 )
 
+// Cmd holds the commands for what is Pepper's about a priority: its row, title, position and closed
+// state. A priority's content is a File workspace, moved with `major push` and `major pull`.
 var Cmd = &cobra.Command{Use: "priority", Short: "Manage Pepper priorities"}
 
-// priorityFiles are the entries every priority folder must hold.
-var priorityFiles = []string{"priority.json", "preview.html", "full.html"}
-
-// bundle is the priority kind: every regular file under the root, less the skip list.
-var bundle = target.BundleTarget{
-	Kind:    "priority",
-	APIPath: "priorities",
-	Files: func(string) target.FileSet {
-		return target.FileSet{
-			Owns: func(rel string) bool {
-				if path.Base(rel) == ".DS_Store" {
-					return false
-				}
-				for _, segment := range strings.Split(path.Dir(rel), "/") {
-					if target.SkippedDirs[segment] {
-						return false
-					}
-				}
-				return true
-			},
-			Check: func(rels []string) error {
-				present := map[string]bool{}
-				for _, rel := range rels {
-					present[rel] = true
-				}
-				for _, name := range priorityFiles {
-					if !present[name] {
-						return fmt.Errorf("%s: is required", name)
-					}
-				}
-				return nil
-			},
-		}
-	},
-	Pack:             target.PackZip,
-	ValidateByUpload: true,
-	PublishMessage:   "priorities go live on push",
-}
+const priorityFileName = "priority.json"
 
 func init() {
 	Cmd.PersistentFlags().Bool("json", false, "Print one JSON result")
-	Cmd.AddCommand(newCreateCmd(), newCloneCmd(), newListCmd(), newDeleteCmd(), newRestoreCmd())
-	target.Register("priority", bundle)
+	Cmd.AddCommand(newCreateCmd(), newValidateCmd(), newUpdateCmd(), newListCmd(), newDeleteCmd(), newRestoreCmd())
 }
 
-type createResult struct {
-	PriorityID string `json:"priorityId"`
-	Path       string `json:"path"`
-}
-
-func (r createResult) String() string {
-	return fmt.Sprintf("Created priority %s in %s.", r.PriorityID, r.Path)
+// withJSONFailure prints a failed command as one JSON line on stderr under --json, like the target commands.
+func withJSONFailure(run func(*cobra.Command, []string) error) func(*cobra.Command, []string) error {
+	return func(cmd *cobra.Command, args []string) error {
+		if err := run(cmd, args); err != nil {
+			return target.JSONFailure(cmd, err)
+		}
+		return nil
+	}
 }
 
 type priorityFile struct {
@@ -78,17 +43,30 @@ type priorityFile struct {
 	Closed   bool   `json:"closed"`
 }
 
+type createResult struct {
+	FileID string `json:"fileId"`
+	Path   string `json:"path"`
+}
+
+func (r createResult) String() string {
+	return fmt.Sprintf("Created priority %s in %s.", r.FileID, r.Path)
+}
+
 // readTitle is the title in the folder's priority.json, or "" when there is none.
 func readTitle(dir string) string {
-	data, err := os.ReadFile(filepath.Join(dir, "priority.json"))
+	data, err := os.ReadFile(filepath.Join(dir, priorityFileName))
 	if err != nil {
 		return ""
 	}
-	var file priorityFile
-	if json.Unmarshal(data, &file) != nil {
+	var parsed priorityFile
+	if json.Unmarshal(data, &parsed) != nil {
 		return ""
 	}
-	return file.Title
+	return parsed.Title
+}
+
+func htmlEscape(text string) string {
+	return strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;").Replace(text)
 }
 
 // scaffold writes the entries a folder is missing and leaves existing ones alone.
@@ -97,32 +75,54 @@ func scaffold(dir, title string) error {
 	if err != nil {
 		return err
 	}
-	defaults := map[string][]byte{
-		"priority.json": append(priority, '\n'),
-		"preview.html":  []byte("<!doctype html>\n<html><body><h3>" + htmlEscape(title) + "</h3></body></html>\n"),
-		"full.html":     []byte("<!doctype html>\n<html><body><h1>" + htmlEscape(title) + "</h1></body></html>\n"),
+	defaults := []struct {
+		name    string
+		content []byte
+	}{
+		{priorityFileName, append(priority, '\n')},
+		{"preview.html", []byte(previewScaffold(title))},
+		{"full.html", []byte("<!doctype html>\n<html><body><h1>" + htmlEscape(title) + "</h1></body></html>\n")},
 	}
-	for _, name := range priorityFiles {
-		full := filepath.Join(dir, name)
+	for _, entry := range defaults {
+		full := filepath.Join(dir, entry.name)
 		if _, err := os.Lstat(full); err == nil {
 			continue
 		} else if !os.IsNotExist(err) {
 			return err
 		}
-		if err := os.WriteFile(full, defaults[name], 0644); err != nil {
+		if err := os.WriteFile(full, entry.content, 0644); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func htmlEscape(text string) string {
-	return strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;").Replace(text)
+// previewScaffold is a placeholder preview: the title and one status line, nothing more, so it
+// suggests no layout. It draws no border or padding (the card does) and uses the injected theme variables.
+func previewScaffold(title string) string {
+	return `<!doctype html>
+<html>
+<body style="display:flex;flex-direction:column;gap:4px;font-family:var(--font)">
+<span style="font-size:14px;font-weight:500;color:var(--fg)">` + htmlEscape(title) + `</span>
+<span style="font-size:12px;color:var(--muted)">Just created</span>
+</body>
+</html>
+`
+}
+
+var nonSlug = regexp.MustCompile(`[^a-z0-9]+`)
+
+func slug(text string) string {
+	value := strings.Trim(nonSlug.ReplaceAllString(strings.ToLower(text), "-"), "-")
+	if value == "" {
+		return "priority"
+	}
+	return value
 }
 
 func newCreateCmd() *cobra.Command {
 	var dir, title string
-	cmd := &cobra.Command{Use: "create", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
+	cmd := &cobra.Command{Use: "create", Args: cobra.NoArgs, RunE: withJSONFailure(func(cmd *cobra.Command, _ []string) error {
 		if dir == "" && title == "" {
 			return fmt.Errorf("major priority create requires --dir or --title")
 		}
@@ -156,44 +156,99 @@ func newCreateCmd() *cobra.Command {
 		if err := scaffold(abs, title); err != nil {
 			return err
 		}
-		cfg := workspace.Config{OrganizationID: org, Target: workspace.Target{Kind: "priority", PriorityID: created.PriorityID}}
+		cfg := workspace.Config{OrganizationID: org, Target: workspace.Target{Kind: "file", FileID: created.FileID}}
 		if err := workspace.Write(abs, cfg); err != nil {
 			return err
 		}
-		return target.Output(cmd, createResult{PriorityID: created.PriorityID, Path: abs})
-	}}
+		return target.Output(cmd, createResult{FileID: created.FileID, Path: abs})
+	})}
 	cmd.Flags().StringVar(&dir, "dir", "", "Folder to bind: an existing priority folder is adopted, missing entries are scaffolded")
 	cmd.Flags().StringVar(&title, "title", "", "Priority title (defaults to the title in priority.json, then the folder name)")
 	return cmd
 }
 
-var nonSlug = regexp.MustCompile(`[^a-z0-9]+`)
-
-func slug(text string) string {
-	value := strings.Trim(nonSlug.ReplaceAllString(strings.ToLower(text), "-"), "-")
-	if value == "" {
-		return "priority"
+// folderFileID is the File id a priority folder is bound to.
+func folderFileID(dir string) (string, string, error) {
+	abs, err := filepath.Abs(dir)
+	if err != nil {
+		return "", "", err
 	}
-	return value
+	cfg, err := workspace.Load(abs)
+	if err != nil {
+		return "", "", fmt.Errorf("%s is not a priority folder: %w", abs, err)
+	}
+	if cfg.Target.Kind != "file" {
+		return "", "", fmt.Errorf("%s is not a priority folder: its workspace is a %s", abs, cfg.Target.Kind)
+	}
+	return cfg.Target.FileID, abs, nil
 }
 
-func newCloneCmd() *cobra.Command {
+type validateResult struct{}
+
+func (validateResult) String() string { return "Priority folder is valid." }
+
+func newValidateCmd() *cobra.Command {
 	var dir string
-	cmd := &cobra.Command{Use: "clone <id>", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
-		org, err := target.OrganizationID()
+	cmd := &cobra.Command{Use: "validate", Args: cobra.NoArgs, RunE: withJSONFailure(func(cmd *cobra.Command, _ []string) error {
+		id, abs, err := folderFileID(dir)
 		if err != nil {
 			return err
 		}
-		if dir == "" {
-			dir = args[0]
-		}
-		abs, err := target.RequireNewDir(dir)
+		entries, err := target.ListOwned(abs, file.Bundle.Files(id))
 		if err != nil {
 			return err
 		}
-		return bundle.Clone(cmd, org, workspace.Target{Kind: "priority", PriorityID: args[0]}, abs)
-	}}
-	cmd.Flags().StringVar(&dir, "dir", "", "New directory (defaults to the priority ID)")
+		var priorityJSON *string
+		if data, err := os.ReadFile(filepath.Join(abs, priorityFileName)); err == nil {
+			text := string(data)
+			priorityJSON = &text
+		} else if !os.IsNotExist(err) {
+			return err
+		}
+		result, err := singletons.GetAPIClient().ValidatePriority(id, priorityJSON, entries)
+		if err != nil {
+			return err
+		}
+		if !result.Valid {
+			messages := make([]string, 0, len(result.Errors))
+			for _, item := range result.Errors {
+				if item.Path != "" {
+					messages = append(messages, item.Path+": "+item.Message)
+				} else {
+					messages = append(messages, item.Message)
+				}
+			}
+			return &target.InvalidBundleError{Err: fmt.Errorf("%s", strings.Join(messages, "; "))}
+		}
+		return target.Output(cmd, validateResult{})
+	})}
+	cmd.Flags().StringVar(&dir, "dir", ".", "Priority folder")
+	return cmd
+}
+
+type updateResult struct {
+	FileID string `json:"fileId"`
+}
+
+func (r updateResult) String() string { return "Updated priority " + r.FileID + "." }
+
+func newUpdateCmd() *cobra.Command {
+	var dir string
+	cmd := &cobra.Command{Use: "update <fileId>", Args: cobra.ExactArgs(1), RunE: withJSONFailure(func(cmd *cobra.Command, args []string) error {
+		data, err := os.ReadFile(filepath.Join(dir, priorityFileName))
+		if err != nil {
+			return err
+		}
+		var priority map[string]any
+		if err := json.Unmarshal(data, &priority); err != nil {
+			return &target.InvalidBundleError{Err: fmt.Errorf("%s: is not valid JSON", priorityFileName)}
+		}
+		if err := singletons.GetAPIClient().UpdatePriority(args[0], priority); err != nil {
+			return err
+		}
+		return target.Output(cmd, updateResult{FileID: args[0]})
+	})}
+	cmd.Flags().StringVar(&dir, "dir", ".", "Priority folder holding priority.json")
 	return cmd
 }
 
@@ -214,7 +269,7 @@ func (r listResult) String() string {
 }
 
 func newListCmd() *cobra.Command {
-	return &cobra.Command{Use: "list", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
+	return &cobra.Command{Use: "list", Args: cobra.NoArgs, RunE: withJSONFailure(func(cmd *cobra.Command, _ []string) error {
 		org, err := target.OrganizationID()
 		if err != nil {
 			return err
@@ -224,27 +279,27 @@ func newListCmd() *cobra.Command {
 			return err
 		}
 		return target.Output(cmd, listResult{result})
-	}}
+	})}
 }
 
 type deleteResult struct {
-	PriorityID string `json:"priorityId"`
+	FileID string `json:"fileId"`
 }
 
-func (r deleteResult) String() string { return "Deleted priority " + r.PriorityID + "." }
+func (r deleteResult) String() string { return "Deleted priority " + r.FileID + "." }
 
 func newDeleteCmd() *cobra.Command {
-	return &cobra.Command{Use: "delete <id>", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+	return &cobra.Command{Use: "delete <fileId>", Args: cobra.ExactArgs(1), RunE: withJSONFailure(func(cmd *cobra.Command, args []string) error {
 		if err := singletons.GetAPIClient().DeletePriority(args[0]); err != nil {
 			return err
 		}
-		return target.Output(cmd, deleteResult{PriorityID: args[0]})
-	}}
+		return target.Output(cmd, deleteResult{FileID: args[0]})
+	})}
 }
 
 type restoredPriority struct {
-	PriorityID string `json:"priorityId"`
-	Path       string `json:"path"`
+	FileID string `json:"fileId"`
+	Path   string `json:"path"`
 }
 type restoreResult struct {
 	Restored []restoredPriority `json:"restored"`
@@ -254,7 +309,7 @@ func (r restoreResult) String() string {
 	return fmt.Sprintf("Restored %d priorities.", len(r.Restored))
 }
 
-// heldIDs are the priority ids bound by a folder directly under root.
+// heldIDs are the File ids bound by a folder directly under root.
 func heldIDs(root string) (map[string]bool, error) {
 	entries, err := os.ReadDir(root)
 	if err != nil {
@@ -270,8 +325,8 @@ func heldIDs(root string) (map[string]bool, error) {
 			continue
 		}
 		var cfg workspace.Config
-		if json.Unmarshal(data, &cfg) == nil && cfg.Target.PriorityID != "" {
-			held[cfg.Target.PriorityID] = true
+		if json.Unmarshal(data, &cfg) == nil && cfg.Target.FileID != "" {
+			held[cfg.Target.FileID] = true
 		}
 	}
 	return held, nil
@@ -279,7 +334,7 @@ func heldIDs(root string) (map[string]bool, error) {
 
 func newRestoreCmd() *cobra.Command {
 	var root string
-	cmd := &cobra.Command{Use: "restore", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
+	cmd := &cobra.Command{Use: "restore", Args: cobra.NoArgs, RunE: withJSONFailure(func(cmd *cobra.Command, _ []string) error {
 		if root == "" {
 			return fmt.Errorf("major priority restore requires --root")
 		}
@@ -311,20 +366,28 @@ func newRestoreCmd() *cobra.Command {
 			if _, err := os.Lstat(dir); err == nil {
 				dir += "-" + item.ID[:8]
 			}
-			cfg := workspace.Config{OrganizationID: org, Target: workspace.Target{Kind: "priority", PriorityID: item.ID}}
+			cfg := workspace.Config{OrganizationID: org, Target: workspace.Target{Kind: "file", FileID: item.ID}}
 			if err := os.MkdirAll(dir, 0755); err != nil {
 				return err
 			}
 			if err := workspace.Write(dir, cfg); err != nil {
 				return err
 			}
-			if _, err := bundle.Pull(&target.TargetContext{Root: dir, Config: &cfg, API: singletons.GetAPIClient(), Command: cmd}); err != nil {
+			if _, err := file.Bundle.Pull(&target.TargetContext{Root: dir, Config: &cfg, API: singletons.GetAPIClient(), Command: cmd}); err != nil {
 				return err
 			}
-			result.Restored = append(result.Restored, restoredPriority{PriorityID: item.ID, Path: dir})
+			// priority.json is not in the File bundle: it comes back from the priority's row.
+			data, err := json.MarshalIndent(priorityFile{Title: item.Title, Position: item.Position, Closed: false}, "", "\t")
+			if err != nil {
+				return err
+			}
+			if err := os.WriteFile(filepath.Join(dir, priorityFileName), append(data, '\n'), 0644); err != nil {
+				return err
+			}
+			result.Restored = append(result.Restored, restoredPriority{FileID: item.ID, Path: dir})
 		}
 		return target.Output(cmd, result)
-	}}
+	})}
 	cmd.Flags().StringVar(&root, "root", "", "Folder holding the priority folders")
 	return cmd
 }

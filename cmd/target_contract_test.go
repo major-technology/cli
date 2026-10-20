@@ -23,7 +23,7 @@ const (
 	bundleAgentID    = "33333333-3333-4333-8333-333333333333"
 	bundleSkillID    = "44444444-4444-4444-8444-444444444444"
 	bundleWorkflowID = "55555555-5555-4555-8555-555555555555"
-	bundlePriorityID = "77777777-7777-4777-8777-777777777777"
+	bundleFileID     = "77777777-7777-4777-8777-777777777777"
 )
 
 // bundleServer fakes the /cli/<kind>s routes and the presigned S3 URLs for one
@@ -61,6 +61,8 @@ func (s *bundleServer) idFields(version int) map[string]any {
 		return map[string]any{"agentId": s.id, "name": "Helper", "version": version}
 	case "skills":
 		return map[string]any{"skillId": s.id, "slug": "brand-kit", "version": version}
+	case "files":
+		return map[string]any{"fileId": s.id, "version": version}
 	default:
 		return map[string]any{"workflowId": s.id, "label": "Weekly", "version": version}
 	}
@@ -215,6 +217,8 @@ type bundleKind struct {
 	target  workspace.Target
 	files   map[string]string
 	pull    []byte
+	// noPublish marks a kind whose pushes go live, so `major publish` refuses.
+	noPublish bool
 }
 
 func bundleKinds(t *testing.T) []bundleKind {
@@ -237,6 +241,12 @@ func bundleKinds(t *testing.T) []bundleKind {
 			files:  map[string]string{bundleWorkflowID + ".jsonc": `{"label":"Weekly"}`},
 			pull:   []byte(`{"label":"Pulled"}`),
 		},
+		{
+			name: "file", apiPath: "files", id: bundleFileID,
+			target: workspace.Target{Kind: "file", FileID: bundleFileID},
+			files:  map[string]string{"preview.html": "<p>p</p>", "full.html": "<p>f</p>", "priority.json": "{}"},
+			pull:   zipBytes(t, map[string]string{"preview.html": "pulled"}), noPublish: true,
+		},
 	}
 }
 
@@ -247,6 +257,9 @@ func TestBundleTargetsPrintOneJSONObjectPerAction(t *testing.T) {
 			newBundleServer(t, kind.apiPath, kind.id, kind.pull)
 			bundleWorkspace(t, kind.target, kind.files)
 			for _, action := range []string{"validate", "push", "publish", "pull"} {
+				if action == "publish" && kind.noPublish {
+					continue
+				}
 				flags := map[string]string{}
 				if action == "publish" {
 					flags["yes"] = "true"
@@ -272,6 +285,9 @@ func TestBundleTargetErrorsLeaveStdoutEmpty(t *testing.T) {
 			server := newBundleServer(t, kind.apiPath, kind.id, kind.pull)
 			bundleWorkspace(t, kind.target, kind.files)
 			for _, action := range []string{"pull", "push", "validate", "publish"} {
+				if action == "publish" && kind.noPublish {
+					continue
+				}
 				server.fail[action] = true
 				server.fail["push-upload-url"] = action == "push"
 				flags := map[string]string{}
@@ -468,21 +484,37 @@ func TestPushOfUnchangedWorkspaceUploadsNothingUntilFilesChange(t *testing.T) {
 	}
 }
 
-func TestPriorityPushMissingEntryFailsAsInvalidBundleOnStderr(t *testing.T) {
-	newBundleServer(t, "priorities", bundlePriorityID, nil)
-	bundleWorkspace(t, workspace.Target{Kind: "priority", PriorityID: bundlePriorityID}, map[string]string{
-		"priority.json": `{"title":"T","position":1,"closed":false}`,
+func TestFilePushPacksRenderableEntriesWithoutPriorityJSON(t *testing.T) {
+	server := newBundleServer(t, "files", bundleFileID, nil)
+	bundleWorkspace(t, workspace.Target{Kind: "file", FileID: bundleFileID}, map[string]string{
 		"preview.html":  "<p>p</p>",
+		"full.html":     "<p>f</p>",
+		"chart.js":      "1",
+		"priority.json": `{"title":"T","position":1,"closed":false}`,
+		".major/x":      "state",
 	})
+
+	if _, stderr, err := runTopLevel(t, "push", map[string]string{}); err != nil {
+		t.Fatalf("push: %v stderr=%q", err, stderr)
+	}
+	want := []string{"chart.js", "full.html", "preview.html"}
+	if got := zipNames(t, server.uploads[0]); strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Fatalf("uploaded entries = %v, want %v", got, want)
+	}
+}
+
+func TestFilePushWithoutHTMLFailsAsInvalidBundleOnStderr(t *testing.T) {
+	newBundleServer(t, "files", bundleFileID, nil)
+	bundleWorkspace(t, workspace.Target{Kind: "file", FileID: bundleFileID}, map[string]string{"chart.js": "1"})
 
 	stdout, stderr, err := runTopLevel(t, "push", map[string]string{})
 	if err == nil {
-		t.Fatal("expected push to fail without full.html")
+		t.Fatal("expected push to fail without an .html entry")
 	}
 	if stdout != "" {
 		t.Fatalf("stdout after an error: %q", stdout)
 	}
-	if !strings.Contains(stderr, `"invalid":true`) || !strings.Contains(stderr, "full.html: is required") {
+	if !strings.Contains(stderr, `"invalid":true`) {
 		t.Fatalf("stderr = %q", stderr)
 	}
 }

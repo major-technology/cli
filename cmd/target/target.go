@@ -88,7 +88,7 @@ func runTargetAction(cmd *cobra.Command, action string) error {
 		return fmt.Errorf("unknown target action %q", action)
 	}
 	if err != nil {
-		return jsonFailure(cmd, err)
+		return JSONFailure(cmd, err)
 	}
 	return Output(cmd, result)
 }
@@ -101,10 +101,10 @@ type failureResult struct {
 	Invalid    bool   `json:"invalid"`
 }
 
-// jsonFailure prints the failure as one JSON line on stderr when --json is set
+// JSONFailure prints the failure as one JSON line on stderr when --json is set
 // (stdout stays empty after an error), then returns the error unchanged for the
 // usual report and exit code.
-func jsonFailure(cmd *cobra.Command, err error) error {
+func JSONFailure(cmd *cobra.Command, err error) error {
 	if jsonOutput, _ := cmd.Flags().GetBool("json"); !jsonOutput {
 		return err
 	}
