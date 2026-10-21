@@ -52,7 +52,7 @@ func Register(kind string, t Target) {
 	registry[kind] = t
 }
 
-var errNoWorkspace = errors.New("no .major/config.json found; run major agent clone, major skill clone, major workflow clone, major priority clone, or major app clone (or major agent create, major skill create, major workflow create, major priority create, or major app create)")
+var errNoWorkspace = errors.New("no .major/config.json found; run major agent clone, major skill clone, major workflow clone, or major app clone (or major agent create, major skill create, major workflow create, or major app create)")
 
 func runTargetAction(cmd *cobra.Command, action string) error {
 	cwd, err := os.Getwd()
@@ -88,7 +88,7 @@ func runTargetAction(cmd *cobra.Command, action string) error {
 		return fmt.Errorf("unknown target action %q", action)
 	}
 	if err != nil {
-		return JSONFailure(cmd, err)
+		return jsonFailure(cmd, err)
 	}
 	return Output(cmd, result)
 }
@@ -101,10 +101,10 @@ type failureResult struct {
 	Invalid    bool   `json:"invalid"`
 }
 
-// JSONFailure prints the failure as one JSON line on stderr when --json is set
+// jsonFailure prints the failure as one JSON line on stderr when --json is set
 // (stdout stays empty after an error), then returns the error unchanged for the
 // usual report and exit code.
-func JSONFailure(cmd *cobra.Command, err error) error {
+func jsonFailure(cmd *cobra.Command, err error) error {
 	if jsonOutput, _ := cmd.Flags().GetBool("json"); !jsonOutput {
 		return err
 	}

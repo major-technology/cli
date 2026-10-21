@@ -15,9 +15,10 @@ import (
 	"github.com/major-technology/cli/cmd/app"
 	cliconfig "github.com/major-technology/cli/cmd/config"
 	"github.com/major-technology/cli/cmd/demo"
+	// The file kind has no command group of its own: importing it registers it for `major push|pull|validate|publish`.
+	_ "github.com/major-technology/cli/cmd/file"
 	"github.com/major-technology/cli/cmd/mcp"
 	"github.com/major-technology/cli/cmd/org"
-	"github.com/major-technology/cli/cmd/priority"
 	"github.com/major-technology/cli/cmd/project"
 	"github.com/major-technology/cli/cmd/resource"
 	"github.com/major-technology/cli/cmd/sandbox"
@@ -141,9 +142,6 @@ func init() {
 
 	skill.Cmd.GroupID = "main"
 	rootCmd.AddCommand(skill.Cmd)
-
-	priority.Cmd.GroupID = "main"
-	rootCmd.AddCommand(priority.Cmd)
 
 	workflow.Cmd.GroupID = "main"
 	rootCmd.AddCommand(workflow.Cmd)

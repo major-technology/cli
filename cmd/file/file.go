@@ -1,6 +1,5 @@
 // Package file is the generic File kind: a workspace folder bound to a Major File, pulled and pushed
-// with `major pull`, `major push` and `major publish`. It knows nothing about what a File is used for; commands that do
-// (such as `major priority`) build on it.
+// with `major pull`, `major push` and `major publish`. It knows nothing about what a File is used for.
 package file
 
 import (
