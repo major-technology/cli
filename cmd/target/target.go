@@ -1,6 +1,7 @@
 package target
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"github.com/major-technology/cli/clients/api"
 	mjrToken "github.com/major-technology/cli/clients/token"
 	"github.com/major-technology/cli/clients/workspace"
+	clierrors "github.com/major-technology/cli/errors"
 	"github.com/major-technology/cli/singletons"
 	"github.com/major-technology/cli/utils"
 	"github.com/spf13/cobra"
@@ -86,9 +88,35 @@ func runTargetAction(cmd *cobra.Command, action string) error {
 		return fmt.Errorf("unknown target action %q", action)
 	}
 	if err != nil {
-		return err
+		return jsonFailure(cmd, err)
 	}
 	return Output(cmd, result)
+}
+
+// failureResult is what --json prints when an action fails: the message, the
+// HTTP status of an API refusal, and whether the bundle itself was rejected.
+type failureResult struct {
+	Error      string `json:"error"`
+	StatusCode int    `json:"statusCode,omitempty"`
+	Invalid    bool   `json:"invalid"`
+}
+
+// jsonFailure prints the failure as one JSON line on stderr when --json is set
+// (stdout stays empty after an error), then returns the error unchanged for the
+// usual report and exit code.
+func jsonFailure(cmd *cobra.Command, err error) error {
+	if jsonOutput, _ := cmd.Flags().GetBool("json"); !jsonOutput {
+		return err
+	}
+	result := failureResult{Error: err.Error()}
+	var cliErr *clierrors.CLIError
+	if errors.As(err, &cliErr) {
+		result.StatusCode = cliErr.StatusCode
+	}
+	var invalid *InvalidBundleError
+	result.Invalid = errors.As(err, &invalid) || result.StatusCode == 400
+	_ = json.NewEncoder(cmd.ErrOrStderr()).Encode(result)
+	return err
 }
 
 // Output writes one JSON object with --json, and the result's text otherwise.

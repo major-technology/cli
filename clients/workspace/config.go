@@ -26,6 +26,7 @@ var kindIDField = map[string]string{
 	"skill":    "skillId",
 	"agent":    "agentId",
 	"workflow": "workflowId",
+	"file":     "fileId",
 }
 
 // ErrNotFound is returned when no .major/config.json exists before a Git or
@@ -38,8 +39,12 @@ type Target struct {
 	SkillID       string `json:"skillId,omitempty"`
 	AgentID       string `json:"agentId,omitempty"`
 	WorkflowID    string `json:"workflowId,omitempty"`
+	FileID        string `json:"fileId,omitempty"`
 	// Version is the bundle version last pulled or pushed into this workspace.
 	Version int `json:"version,omitempty"`
+	// PushedHash is the hash of the bundle last pushed from this workspace. A push of
+	// identical content is skipped. A pull clears it.
+	PushedHash string `json:"pushedHash,omitempty"`
 }
 
 type Config struct {
@@ -53,6 +58,7 @@ func (t Target) Validate() error {
 		"skill":    t.SkillID,
 		"agent":    t.AgentID,
 		"workflow": t.WorkflowID,
+		"file":     t.FileID,
 	}
 
 	var present []string
@@ -62,7 +68,7 @@ func (t Target) Validate() error {
 		}
 	}
 	if len(present) != 1 {
-		return fmt.Errorf("target must have exactly one of applicationId, skillId, agentId, or workflowId")
+		return fmt.Errorf("target must have exactly one of applicationId, skillId, agentId, workflowId, or fileId")
 	}
 	if _, ok := kindIDField[t.Kind]; !ok {
 		return fmt.Errorf("unknown target kind %q", t.Kind)
@@ -86,6 +92,8 @@ func (t Target) ID() string {
 		return t.AgentID
 	case "workflow":
 		return t.WorkflowID
+	case "file":
+		return t.FileID
 	default:
 		return ""
 	}
@@ -266,7 +274,7 @@ func encodeConfig(existing []byte, cfg Config) ([]byte, error) {
 }
 
 func invalidConfigError(path string, err error) error {
-	return fmt.Errorf("invalid workspace config %s: %w; repair .major/config.json with organizationId and exactly one app, skill, agent, or workflow target", path, err)
+	return fmt.Errorf("invalid workspace config %s: %w; repair .major/config.json with organizationId and exactly one app, skill, agent, workflow, or file target", path, err)
 }
 
 func isNotGitRepository(out []byte, err error) bool {

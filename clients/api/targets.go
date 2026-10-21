@@ -12,6 +12,7 @@ type TargetVersion struct {
 	AgentID     string  `json:"agentId,omitempty"`
 	SkillID     string  `json:"skillId,omitempty"`
 	WorkflowID  string  `json:"workflowId,omitempty"`
+	FileID      string  `json:"fileId,omitempty"`
 	Name        string  `json:"name,omitempty"`
 	Slug        *string `json:"slug,omitempty"`
 	Label       string  `json:"label,omitempty"`
@@ -31,6 +32,8 @@ func (v TargetVersion) DisplayName() string {
 		return *v.Slug
 	case v.SkillID != "":
 		return "skill " + v.SkillID
+	case v.FileID != "":
+		return "file " + v.FileID
 	default:
 		return "bundle"
 	}

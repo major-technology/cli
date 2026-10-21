@@ -3,6 +3,8 @@ package target
 import (
 	"archive/zip"
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -119,6 +121,8 @@ func (t BundleTarget) Pull(ctx *TargetContext) (any, error) {
 		return nil, err
 	}
 	resp.DownloadURL = ""
+	// The pulled files are the server's, not what this workspace last pushed.
+	ctx.Config.Target.PushedHash = ""
 	if err := recordVersion(ctx, resp.Version); err != nil {
 		return nil, err
 	}
@@ -130,6 +134,12 @@ func (t BundleTarget) Push(ctx *TargetContext) (any, error) {
 	data, contentType, err := t.pack(ctx.Root, id)
 	if err != nil {
 		return nil, err
+	}
+	sum := sha256.Sum256(data)
+	hash := hex.EncodeToString(sum[:])
+	// An unchanged workspace uploads nothing and saves no version.
+	if ctx.Config.Target.Version > 0 && ctx.Config.Target.PushedHash == hash {
+		return versionResult{TargetVersion: api.TargetVersion{Version: ctx.Config.Target.Version}, action: "Unchanged"}, nil
 	}
 	key, err := t.upload(ctx, id, data, contentType)
 	if err != nil {
@@ -144,6 +154,7 @@ func (t BundleTarget) Push(ctx *TargetContext) (any, error) {
 		return nil, err
 	}
 	pushed.DownloadURL = ""
+	ctx.Config.Target.PushedHash = hash
 	if err := recordVersion(ctx, pushed.Version); err != nil {
 		return nil, err
 	}
@@ -202,7 +213,7 @@ func (t BundleTarget) Validate(ctx *TargetContext) (any, error) {
 				messages = append(messages, item.Message)
 			}
 		}
-		return nil, fmt.Errorf("%s bundle is invalid: %s", t.Kind, strings.Join(messages, "; "))
+		return nil, &InvalidBundleError{Err: fmt.Errorf("%s bundle is invalid: %s", t.Kind, strings.Join(messages, "; "))}
 	}
 	return validateResult{TargetValidateResponse: result, kind: t.Kind}, nil
 }
@@ -317,6 +328,13 @@ func walkOwned(root string, files FileSet) (map[string]fs.FileMode, error) {
 	return found, err
 }
 
+// InvalidBundleError marks a bundle the kind's own rules reject, locally or on
+// the server, so a caller reading --json output can tell it from an outage.
+type InvalidBundleError struct{ Err error }
+
+func (e *InvalidBundleError) Error() string { return e.Err.Error() }
+func (e *InvalidBundleError) Unwrap() error { return e.Err }
+
 func readOwnedFiles(root string, files FileSet) ([]string, map[string][]byte, error) {
 	owned, err := walkOwned(root, files)
 	if err != nil {
@@ -331,7 +349,7 @@ func readOwnedFiles(root string, files FileSet) ([]string, map[string][]byte, er
 	}
 	sort.Strings(rels)
 	if err := files.Check(rels); err != nil {
-		return nil, nil, err
+		return nil, nil, &InvalidBundleError{Err: err}
 	}
 	contents := make(map[string][]byte, len(rels))
 	for _, rel := range rels {
@@ -457,6 +475,7 @@ type cloneResult struct {
 	AgentID    string `json:"agentId,omitempty"`
 	SkillID    string `json:"skillId,omitempty"`
 	WorkflowID string `json:"workflowId,omitempty"`
+	FileID     string `json:"fileId,omitempty"`
 	Path       string `json:"path"`
 	Version    int    `json:"version"`
 	name       string
@@ -485,6 +504,7 @@ func (t BundleTarget) Clone(cmd *cobra.Command, org string, target workspace.Tar
 		AgentID:    pull.AgentID,
 		SkillID:    pull.SkillID,
 		WorkflowID: pull.WorkflowID,
+		FileID:     pull.FileID,
 		Path:       dir,
 		Version:    pull.Version,
 		name:       pull.DisplayName(),
