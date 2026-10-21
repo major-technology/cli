@@ -217,8 +217,6 @@ type bundleKind struct {
 	target  workspace.Target
 	files   map[string]string
 	pull    []byte
-	// noPublish marks a kind whose pushes go live, so `major publish` refuses.
-	noPublish bool
 }
 
 func bundleKinds(t *testing.T) []bundleKind {
@@ -245,7 +243,7 @@ func bundleKinds(t *testing.T) []bundleKind {
 			name: "file", apiPath: "files", id: bundleFileID,
 			target: workspace.Target{Kind: "file", FileID: bundleFileID},
 			files:  map[string]string{"preview.html": "<p>p</p>", "full.html": "<p>f</p>", "priority.json": "{}"},
-			pull:   zipBytes(t, map[string]string{"preview.html": "pulled"}), noPublish: true,
+			pull:   zipBytes(t, map[string]string{"preview.html": "pulled"}),
 		},
 	}
 }
@@ -257,9 +255,6 @@ func TestBundleTargetsPrintOneJSONObjectPerAction(t *testing.T) {
 			newBundleServer(t, kind.apiPath, kind.id, kind.pull)
 			bundleWorkspace(t, kind.target, kind.files)
 			for _, action := range []string{"validate", "push", "publish", "pull"} {
-				if action == "publish" && kind.noPublish {
-					continue
-				}
 				flags := map[string]string{}
 				if action == "publish" {
 					flags["yes"] = "true"
@@ -285,9 +280,6 @@ func TestBundleTargetErrorsLeaveStdoutEmpty(t *testing.T) {
 			server := newBundleServer(t, kind.apiPath, kind.id, kind.pull)
 			bundleWorkspace(t, kind.target, kind.files)
 			for _, action := range []string{"pull", "push", "validate", "publish"} {
-				if action == "publish" && kind.noPublish {
-					continue
-				}
 				server.fail[action] = true
 				server.fail["push-upload-url"] = action == "push"
 				flags := map[string]string{}

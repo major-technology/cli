@@ -55,9 +55,6 @@ type BundleTarget struct {
 	// ValidateByUpload validates a zip by uploading it and sending its key,
 	// instead of sending the files inline.
 	ValidateByUpload bool
-	// PublishMessage, when set, is the refusal `major publish` gives for a kind
-	// whose saved versions are already live.
-	PublishMessage string
 }
 
 // SkippedDirs are never walked, packed, or replaced, on any kind.
@@ -222,9 +219,6 @@ func (t BundleTarget) Validate(ctx *TargetContext) (any, error) {
 }
 
 func (t BundleTarget) Publish(ctx *TargetContext) (any, error) {
-	if t.PublishMessage != "" {
-		return nil, fmt.Errorf("%s", t.PublishMessage)
-	}
 	if flag := ctx.Command.Flags().Lookup("slug"); flag != nil && flag.Changed {
 		return nil, fmt.Errorf("--slug is only for app workspaces; %s workspaces have no URL", t.Kind)
 	}
