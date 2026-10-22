@@ -13,7 +13,7 @@
       "name": "major",
       "source": "./plugins/major-build",
       "description": "Skills for building on Major (apps, agents, skills, workflows) and using its connectors — shared by Claude Code and the Major orchestrator",
-      "version": "1.1.0"
+      "version": "1.2.0"
     }
   ]
 }
