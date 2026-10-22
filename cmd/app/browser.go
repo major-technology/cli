@@ -33,6 +33,7 @@ var (
 	flagBrowserWaitTime      float64
 	flagBrowserWaitText      string
 	flagBrowserWaitTextGone  string
+	flagBrowserChecks        []string
 )
 
 type sandboxToolContent struct {
@@ -137,6 +138,22 @@ var browserWaitForCmd = &cobra.Command{
 	},
 }
 
+var browserValidateCmd = &cobra.Command{
+	Use:   "validate <path> --check \"...\"",
+	Short: "Check one page of the preview: pass/fail for each --check",
+	Long: `Open one page of the preview server, wait for it to load, and judge each
+--check (one to three) against a screenshot of the whole page. Prints PASS or
+FAIL per check. It cannot click or type, and it does not read the console.`,
+	Args: cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if len(flagBrowserChecks) < 1 || len(flagBrowserChecks) > 3 {
+			return &errors.CLIError{Title: "pass one to three --check flags"}
+		}
+
+		return runBrowserValidate(cmd, args[0], flagBrowserChecks)
+	},
+}
+
 var browserCloseCmd = &cobra.Command{
 	Use:   "close",
 	Short: "Close the browser page",
@@ -153,6 +170,7 @@ func init() {
 	browserWaitForCmd.Flags().Float64Var(&flagBrowserWaitTime, "time", 0, "Seconds to wait")
 	browserWaitForCmd.Flags().StringVar(&flagBrowserWaitText, "text", "", "Text to wait for")
 	browserWaitForCmd.Flags().StringVar(&flagBrowserWaitTextGone, "text-gone", "", "Text to wait to disappear")
+	browserValidateCmd.Flags().StringArrayVar(&flagBrowserChecks, "check", nil, "A specific thing to verify on the page (repeat up to 3 times)")
 
 	browserCmd.AddCommand(browserNavigateCmd)
 	browserCmd.AddCommand(browserSnapshotCmd)
@@ -160,6 +178,7 @@ func init() {
 	browserCmd.AddCommand(browserConsoleCmd)
 	browserCmd.AddCommand(browserNetworkCmd)
 	browserCmd.AddCommand(browserWaitForCmd)
+	browserCmd.AddCommand(browserValidateCmd)
 	browserCmd.AddCommand(browserCloseCmd)
 }
 
@@ -176,6 +195,42 @@ func runBrowserTextTool(cmd *cobra.Command, name string, args map[string]any) er
 	}
 
 	return nil
+}
+
+func runBrowserValidate(cmd *cobra.Command, path string, checks []string) error {
+	result, err := callSandboxTool("browser_validate", map[string]any{"path": path, "checks": checks})
+	if err != nil {
+		return err
+	}
+
+	var verdicts struct {
+		Checks []struct {
+			Check string `json:"check"`
+			Pass  bool   `json:"pass"`
+		} `json:"checks"`
+	}
+
+	for _, c := range result.Content {
+		if c.Type != "text" {
+			continue
+		}
+
+		if err := json.Unmarshal([]byte(c.Text), &verdicts); err != nil {
+			return errors.WrapError("failed to read the page check result", err)
+		}
+
+		for _, v := range verdicts.Checks {
+			status := "FAIL"
+			if v.Pass {
+				status = "PASS"
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "%s  %s\n", status, v.Check)
+		}
+
+		return nil
+	}
+
+	return &errors.CLIError{Title: "the page check returned no result"}
 }
 
 func runBrowserScreenshot(cmd *cobra.Command, filename string) error {
