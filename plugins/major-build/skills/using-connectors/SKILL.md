@@ -70,6 +70,7 @@ Find the connector's row below and read its reference file (in this skill's `ref
 | Salesforce | `salesforce` | [salesforce.md](references/salesforce.md) | Implements Salesforce SOQL queries, sObject CRUD, and metadata exploration using generated clients and MCP tools. |
 | SharePoint | `sharepoint` | [sharepoint.md](references/sharepoint.md) | Implements Microsoft SharePoint access — sites, lists, document libraries, and file operations — using generated clients and MCP tools. |
 | Slack | `slack` | [slack.md](references/slack.md) | Implements Slack messaging, channel operations, and Web API calls using generated clients and MCP tools. |
+| Slack (Personal) | `slackuser` | [slackuser.md](references/slackuser.md) | Implements reading, searching, and posting in Slack as the connected user (their channels, DMs, and workspace search) using MCP tools and the HTTP proxy. |
 | Snowflake | `snowflake` | [snowflake.md](references/snowflake.md) | Implements Snowflake warehouse queries, schema exploration, and data operations using generated clients and MCP tools. |
 | AWS SQS | `sqs` | [sqs.md](references/sqs.md) | Implements AWS SQS message queue operations for sending, receiving, and managing messages using generated clients and MCP tools. |
 | Stripe | `stripe` | [stripe.md](references/stripe.md) | Implements Stripe payment API access for customers, payments, subscriptions, invoices, and balance using generated clients and MCP tools. |
