@@ -55,6 +55,7 @@ Find the connector's row below and read its reference file (in this skill's `ref
 | LinkedIn Marketing API | `linkedin` | [linkedinads.md](references/linkedinads.md) | Implements LinkedIn Marketing API data access for ad accounts, campaigns, creatives, and analytics using generated clients and MCP tools. |
 | Custom MCP Connector (BYO remote MCP server) | `mcp_custom` | [mcp_custom.md](references/mcp_custom.md) | Implements runtime tool calls to a custom (bring-your-own) remote MCP server connector, using the in-session MCP tools for exploration and the generic createMcpClient for app code. |
 | Meta Marketing | `metamarketing` | [metamarketing.md](references/metamarketing.md) | Implements Meta (Facebook) Marketing API access for campaigns, ads, insights, and lead forms using generated clients and MCP tools. |
+| Microsoft To Do | `microsofttodo` | [microsofttodo.md](references/microsofttodo.md) | Implements Microsoft To Do access (task lists, tasks, checklist items, linked resources) through the Major HTTP proxy. |
 | Microsoft SQL Server | `mssql` | [mssql.md](references/mssql.md) | Implements Microsoft SQL Server connections, queries, and schema exploration using generated clients and MCP tools. |
 | MySQL | `mysql` | [mysql.md](references/mysql.md) | Implements MySQL database connections, SQL queries, and data operations using generated clients and MCP tools. |
 | Neo4j | `neo4j` | [neo4j.md](references/neo4j.md) | Implements Neo4j Cypher queries, graph traversal, and node/relationship operations using generated clients and MCP tools. |
