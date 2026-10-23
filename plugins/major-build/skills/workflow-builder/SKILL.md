@@ -39,7 +39,7 @@ Always use a `workflowId` returned by `list` or `create` (`target_type: "workflo
 
 ## The definition format
 
-The definition shape AND the enforced graph rules are the workflow-definition JSON Schema the Major API serves at `GET https://api.prod.major.build/public/workflow.schema.json` — the single source of truth (the graph rules are its `x-validatorRules`). YOU MUST CURL THIS SCHEMA BEFORE BUILDING A WORKFLOW. `major validate` (and every push) enforces all of it, with errors naming the offending path.
+The definition shape AND the enforced graph rules are the workflow-definition JSON Schema the Major API serves at `GET ${MAJOR_URL:-https://api.prod.major.build}/public/workflow.schema.json` (`MAJOR_URL` is your environment's Major API when it's set) — the single source of truth (the graph rules are its `x-validatorRules`). YOU MUST CURL THIS SCHEMA BEFORE BUILDING A WORKFLOW. `major validate` (and every push) enforces all of it, with errors naming the offending path.
 
 Runtime semantics the schema can't express:
 
@@ -85,9 +85,22 @@ Node outputs by type:
 
 - `app_call` sends its resolved `config.input` as query params for GET/DELETE and as a JSON body for POST/PUT/PATCH; its output is the response body (non-object bodies wrap as `{"body": ...}`).
 - `agent_call` with an `output_schema` outputs exactly that shape; without one it outputs `{"result": "<final message text>"}`.
+- `pepper_call` outputs `{"messageId": "..."}`; nothing Pepper says comes back into the run.
 - `human_approval` outputs `{"choice": "<options[].value>", "responded_by": "<user id>", "timed_out": true?}` (`responded_by` absent on timeout).
 - Inside a `for_each` body, `<for_each_id>.item` and `<for_each_id>.index` are the current iteration; after the exit edge, `<for_each_id>.results` holds the per-iteration results in item order (the output of each iteration's final node) unless `collect_results` is false.
 - `router`, `join`, and `wait` produce no state worth referencing.
+
+## Calling Pepper
+
+Pepper is an organization member's always-on personal agent, which they chat with in Major and Slack. Use `pepper_call` only when your system prompt says the organization has Pepper. When the user says "my Pepper", they mean this agent, not one returned by `list`.
+
+```jsonc
+{ "id": "tell_pepper", "type": "pepper_call", "label": "Tell Pepper", "config": { "prompt": "New lead: {{json trigger.input}}" } }
+```
+
+- A triggered run's prompt goes to the publisher's Pepper; `run_workflow` and single-node runs go to the Pepper of whoever ran them. `prompt` interpolates state like an `agent_call` prompt.
+- Pepper only tells its user, in its own chat, or decides nothing needs them. It never acts on a workflow's prompt (no emails, posts or changes for anyone), because other people can edit the workflow. Don't build a workflow that relies on Pepper doing something.
+- The node fails when the organization has Pepper turned off.
 
 ## Workflow
 
