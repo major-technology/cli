@@ -44,14 +44,14 @@ const listsRes = await proxyFetch("/v1.0/me/todo/lists");
 if (!listsRes.ok) throw new Error(`Microsoft To Do ${listsRes.status}: ${await listsRes.text()}`);
 const { value: lists } = await listsRes.json();
 
-// Open tasks in one list
-const tasksRes = await proxyFetch(
-  `/v1.0/me/todo/lists/${lists[0].id}/tasks?$filter=status ne 'completed'&$top=50`,
-);
+// Open tasks in the default "Tasks" list
+const defaultList = lists.find((l: { wellknownListName: string }) => l.wellknownListName === "defaultList");
+const tasksRes = await proxyFetch(`/v1.0/me/todo/lists/${defaultList.id}/tasks`);
 const { value: tasks } = await tasksRes.json();
+const openTasks = tasks.filter((t: { status: string }) => t.status !== "completed");
 
 // Create a task with a due date
-const created = await proxyFetch(`/v1.0/me/todo/lists/${lists[0].id}/tasks`, {
+const created = await proxyFetch(`/v1.0/me/todo/lists/${defaultList.id}/tasks`, {
   method: "POST",
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({
@@ -93,12 +93,14 @@ A task list takes `{ displayName }`. A task takes `title`, `body { content, cont
 ## Tips
 
 - **Complete a task with PATCH**: send `{ "status": "completed" }`. Send `{ "status": "notStarted" }` to reopen it.
-- **The default list** has `wellknownListName: "defaultList"` ("Tasks"). Flagged Outlook emails appear in the list with `wellknownListName: "flaggedEmails"`.
+- **Built-in lists**: `wellknownListName` is `defaultList` for the built-in "Tasks" list, `flaggedEmails` for tasks from flagged Outlook emails, and `none` for lists the user created. The built-in lists cannot be renamed or deleted.
+- **Ownership**: each list has `isOwner` (the user owns the list) and `isShared` (the list is shared with other users).
 - **Dates are `dateTimeTimeZone` objects** (`{ dateTime, timeZone }`), not plain ISO strings.
-- **Filter on the server**: `$filter=status ne 'completed'` or `$filter=importance eq 'high'`. Use `$orderby=createdDateTime desc` to sort.
-- **To Do covers the signed-in user's own lists** (`/me/todo`). Lists shared with the user appear in `/me/todo/lists` too, with `isShared: true`.
+- **Filter tasks in code.** Microsoft documents only that list endpoints support "some" OData query parameters; it does not list which `$filter` / `$orderby` expressions work on tasks. Fetch the list and filter on `status`, `importance`, or `dueDateTime` in code. If you try a server-side `$filter`, check `res.ok` and fall back to filtering in code.
+- **Delta** (`/tasks/delta`) supports `$select`, `$top`, and `$expand`. Its only `$filter` / `$orderby` expressions are on `receivedDateTime`. Save the `@odata.deltaLink` and call it next time to get only the changes.
+- **A task id can change** when the task moves to another list.
 - **`readonly` connections return `403` on writes.** Ask the user to reconnect with the `readwrite` preset.
-- **Pagination** uses `@odata.nextLink` in the response. Request the next page by passing its path and query as the next `url` (strip `https://graph.microsoft.com`). Use `$top` to set the page size.
+- **Pagination** uses `@odata.nextLink` in the response. Request the next page by passing its path and query as the next `url` (strip `https://graph.microsoft.com`).
 - **Non-2xx upstream statuses are passed through** — always inspect `res.ok` / `res.status` before treating the body as success.
 
 **Docs**: [Microsoft Graph To Do API](https://learn.microsoft.com/en-us/graph/api/resources/todo-overview)
