@@ -1,8 +1,8 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "major",
-  "version": "1.3.0",
-  "description": "Build and manage Major apps, agents, skills, workflows, and connected resources.",
+  "version": "1.4.0",
+  "description": "Build and manage Major apps, agents, skills, workflows, files, and connected resources.",
   "author": {
     "name": "Major Technology"
   },
@@ -13,7 +13,7 @@
       "interface": {
         "displayName": "Major",
         "shortDescription": "Build apps and agents on Major",
-        "longDescription": "Create and manage Major apps, agents, skills, workflows, and connected resources from ChatGPT.",
+        "longDescription": "Create and manage Major apps, agents, skills, workflows, files, and connected resources from ChatGPT.",
         "developerName": "Major Technology",
         "category": "Developer Tools",
         "capabilities": ["Interactive"],
