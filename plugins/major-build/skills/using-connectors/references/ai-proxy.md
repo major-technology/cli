@@ -1,6 +1,6 @@
 ## Major AI Proxy
 
-Major provides a built-in AI proxy that lets apps call Anthropic, OpenAI, and Gemini APIs without configuring API keys. Usage is billed at cost against the user's credits.
+Major provides a built-in AI proxy that lets apps call Anthropic, OpenAI, and Gemini APIs, and TypeSafe's Jev, without configuring API keys. Usage is billed at cost against the user's credits.
 
 ## Workflow
 
@@ -150,6 +150,28 @@ const imagen = await ai.models.generateImages({
 const imageBytes = imagen.generatedImages?.[0]?.image?.imageBytes;
 ```
 
+### Jev (TypeSafe) — Classify and Score
+
+Jev answers questions about a piece of text with calibrated probabilities instead of generated text: yes/no (`noul`), pick-one (`choice`), or a rating (`score`). Use it to classify, route, filter, or score text; it is much cheaper and faster than a chat model for that. Use the official `@typesafe-ai/sdk`, with its `baseURL` at the proxy's `/typesafe` prefix; the SDK appends `/v1/systemone` itself.
+
+```typescript
+import { TypeSafeClient, noul, choice, score } from "@typesafe-ai/sdk";
+
+const jev = new TypeSafeClient({
+	apiKey: process.env.MAJOR_JWT_TOKEN,
+	baseURL: process.env.MAJOR_AI_PROXY_URL + "/typesafe",
+});
+
+const result = await jev.systemOne({
+	state: { user_request: text },
+	questions: {
+		isUrgent: noul("Is this request urgent?"),
+	},
+});
+
+const urgency = result.answers.isUrgent.noul; // yes-probability, 0–1
+```
+
 ## Available Models
 
 **Anthropic:**
@@ -173,6 +195,10 @@ const imageBytes = imagen.generatedImages?.[0]?.image?.imageBytes;
 - `gemini-2.5-flash` (fast, mid-tier)
 - `gemini-2.5-flash-lite` (cheapest)
 
+**Jev (TypeSafe):**
+
+- Jev (the SDK picks the model; only input tokens are billed)
+
 **Image generation:**
 
 - `gpt-image-1`, `gpt-image-2` (OpenAI, via `images.generate` / `images.edit`)
@@ -182,8 +208,8 @@ const imageBytes = imagen.generatedImages?.[0]?.image?.imageBytes;
 
 ## Rules
 
-- Always use the native provider SDK (`@anthropic-ai/sdk`, `openai`, or `@google/genai`) — never a unified SDK
-- Set the base URL to `MAJOR_AI_PROXY_URL + "/<provider>"` — `/anthropic`, `/openai`, or `/genai`. For Anthropic and OpenAI, this is the SDK's `baseURL`; for Gemini, it's `httpOptions.baseUrl`.
+- Always use the native provider SDK (`@anthropic-ai/sdk`, `openai`, `@google/genai`, or `@typesafe-ai/sdk`) — never a unified SDK
+- Set the base URL to `MAJOR_AI_PROXY_URL + "/<provider>"` — `/anthropic`, `/openai`, `/genai`, or `/typesafe`. For Anthropic, OpenAI, and TypeSafe, this is the SDK's `baseURL`; for Gemini, it's `httpOptions.baseUrl`.
 - **Set `apiKey` to `process.env.MAJOR_JWT_TOKEN`** — this is required for authentication. Without it, all requests will be rejected.
 - Never hardcode API keys or proxy URLs
 - Only use models from the allowlist above
@@ -195,13 +221,14 @@ Only these endpoints are available through the proxy:
 - **Anthropic:** `/v1/messages` (chat)
 - **OpenAI:** `/v1/chat/completions` (chat), `/v1/responses` (responses API), `/v1/audio/speech` (text-to-speech), `/v1/audio/transcriptions` (speech-to-text), `/v1/images/generations`, `/v1/images/edits`, `/v1/images/variations`
 - **Gemini:** `/v1beta/models/{model}:generateContent`, `/v1beta/models/{model}:streamGenerateContent`, `/v1beta/models/{model}:countTokens`, `/v1beta/models/{model}:generateImages`
+- **TypeSafe:** `/v1/systemone` (Jev questions)
 
 All image endpoints are stateless — input image bytes only live in the request body for that one call. There's no Files API, no Assistants/threads, and no server-side persistence.
 
 ## Limitations
 
 - No embeddings or video generation
-- Anthropic, OpenAI, and Gemini only
+- Anthropic, OpenAI, Gemini, and TypeSafe (Jev) only
 - Gemini: chat, streaming, token counting, and image generation only — embeddings, files, video, cached contents, tuning, and the Live API are not supported
 - Monthly spending limits apply — requests are rejected if limit exceeded or wallet empty
 - Specific models from the allowlist only

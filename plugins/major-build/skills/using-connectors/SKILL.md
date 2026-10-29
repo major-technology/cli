@@ -82,7 +82,7 @@ Find the connector's row below and read its reference file (in this skill's `ref
 
 | Resource | Subtype | Reference | Covers |
 | --- | --- | --- | --- |
-| Major AI Proxy | `ai-proxy` | [ai-proxy.md](references/ai-proxy.md) | Use when the user asks to add AI features, LLM calls, or chat functionality to their app. |
+| Major AI Proxy | `ai-proxy` | [ai-proxy.md](references/ai-proxy.md) | Use when the user asks to add AI features, LLM calls, chat, or text classification/scoring (Jev) to their app. |
 | HTTP Proxy | `http-proxy` | [http-proxy.md](references/http-proxy.md) | Implements drop-in HTTP proxy access to any connected resource (Stripe, HubSpot, Slack, Gmail, etc.) via the SDK fetch wrapper or generic MCP tools. |
 | Major Auth Connector | `majorauth` | [majorauth.md](references/majorauth.md) | Share or revoke application access for users by email. |
 | Managed Databases | `managed-database` | [managed-database.md](references/managed-database.md) | Set up and use Major-managed PostgreSQL databases. |
