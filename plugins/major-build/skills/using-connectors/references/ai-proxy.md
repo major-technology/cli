@@ -150,6 +150,26 @@ const imagen = await ai.models.generateImages({
 const imageBytes = imagen.generatedImages?.[0]?.image?.imageBytes;
 ```
 
+### Jev (TypeSafe)
+
+Jev answers yes/no (`noul`), pick-one (`choice`), and rating (`score`) questions about text with probabilities. Use it instead of a chat model to classify, filter, or score text.
+
+```typescript
+import { TypeSafeClient, noul } from "@typesafe-ai/sdk";
+
+const jev = new TypeSafeClient({
+	apiKey: process.env.MAJOR_JWT_TOKEN,
+	baseURL: process.env.MAJOR_AI_PROXY_URL + "/typesafe",
+});
+
+const { answers } = await jev.systemOne({
+	state: { user_request: text },
+	questions: { isUrgent: noul("Is this request urgent?") },
+});
+
+answers.isUrgent.noul; // yes-probability, 0–1
+```
+
 ## Available Models
 
 **Anthropic:**
@@ -201,7 +221,7 @@ All image endpoints are stateless — input image bytes only live in the request
 ## Limitations
 
 - No embeddings or video generation
-- Anthropic, OpenAI, and Gemini only
+- Anthropic, OpenAI, Gemini, and Jev only
 - Gemini: chat, streaming, token counting, and image generation only — embeddings, files, video, cached contents, tuning, and the Live API are not supported
 - Monthly spending limits apply — requests are rejected if limit exceeded or wallet empty
 - Specific models from the allowlist only
