@@ -1,6 +1,6 @@
 ---
 name: file-builder
-description: Create and edit Major Files — static pages (HTML plus CSS, JS, JSON, images, fonts, markdown) with their data written in, made in minutes with no backend or deploy — and the sandbox-based edit/validate/save/publish lifecycle. Use when the user wants something to read now, such as a report, briefing, or one-off chart, or to change an existing File. A page that needs live data or that the user will come back to is an app instead.
+description: Create and edit Major Files — static pages (HTML plus CSS, JS, JSON, images, fonts, markdown) with their data written in, made in minutes with no backend or deploy — and the sandbox-based edit/validate/save/publish lifecycle. Use for anything static the user will read or share with colleagues, such as a report, briefing, explainer, or one-off chart, or to change an existing File. A page that needs fresh data, saves input, or runs compute is an app instead.
 ---
 
 # Building a Major File
