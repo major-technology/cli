@@ -63,7 +63,7 @@ const fullAgent = `{
 	"slug": "triage",
 	"name": "Triage",
 	"systemPrompt": "You triage.",
-	"connectors": [{ "slot": "prod-db", "permissions": [{ "tool": "postgresql_psql", "decision": "always_allow" }] }],
+	"connectors": [{ "slot": "prod-db", "permissions": [{ "tool": "postgresql_query", "decision": "always_allow" }] }],
 	"apps": [{ "slot": "crm", "permissions": [{ "method": "POST", "path": "/api/orders", "decision": "ask" }] }],
 	"skills": ["pdf-tools", { "slot": "reporting" }]
 }`
@@ -88,7 +88,7 @@ func TestCompileFullAgentWithBindings(t *testing.T) {
 	if len(agent.Connectors) != 1 || agent.Connectors[0].ResourceID != testResourceID {
 		t.Fatalf("connectors = %+v", agent.Connectors)
 	}
-	if p := agent.Connectors[0].Permissions; len(p) != 1 || p[0].Tool != "postgresql_psql" || p[0].Decision != "always_allow" {
+	if p := agent.Connectors[0].Permissions; len(p) != 1 || p[0].Tool != "postgresql_query" || p[0].Decision != "always_allow" {
 		t.Fatalf("connector permissions = %+v", p)
 	}
 	if len(agent.Apps) != 1 || agent.Apps[0].ApplicationID != testApplicationID {

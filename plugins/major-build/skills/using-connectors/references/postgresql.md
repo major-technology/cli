@@ -21,7 +21,7 @@
 
 ## MCP Tools
 
-- `mcp__resources__postgresql_psql` — Execute read-only SQL queries and psql backslash commands (`\dt`, `\d`, `\di`, `\df`, etc.). Args: `resourceId`, `command`, `timeoutMs?`
+- `mcp__resources__postgresql_query` — Execute one read-only SQL statement (SELECT, SHOW, EXPLAIN). Inspect schema via `information_schema` / `pg_catalog`. Args: `resourceId`, `statement`, `params?`, `timeoutMs?`
 - `mcp__resources__postgresql_invoke` — Execute write SQL against managed or external PostgreSQL resources. Args: `resourceId`, `sql`, `params?`, `timeoutMs?`, `description`
 
 ## TypeScript Client
@@ -43,8 +43,8 @@ if (result.ok) {
 ## Tips
 
 - Use parameterized queries (`$1`, `$2`, ...) — never interpolate values into SQL strings
-- `psql` is read-only; use `postgresql_invoke` for data modifications against managed or external PostgreSQL resources
+- `postgresql_query` is read-only; use `postgresql_invoke` for data modifications against managed or external PostgreSQL resources
 - The TypeScript client supports full read/write operations regardless of managed status
-- Use `psql` exclusively for read-only tasks. Never use invoke for read only.
+- Use `postgresql_query` exclusively for read-only tasks. Never use invoke for read only.
 
 **Docs**: [PostgreSQL Documentation](https://www.postgresql.org/docs/)
