@@ -161,3 +161,22 @@ func TestBrowserOutsideSandboxExplains(t *testing.T) {
 		t.Fatalf("want the sandbox-only error, got %v", err)
 	}
 }
+
+func TestBrowserValidateSendsPathAndChecksAndPrintsVerdicts(t *testing.T) {
+	calls := fakeSandbox(t, `{"content":[{"type":"text","text":"{\"path\":\"/settings\",\"checks\":[{\"check\":\"Save is visible\",\"pass\":true},{\"check\":\"Save is red\",\"pass\":false}]}"}]}`)
+
+	out, err := runBrowser(t, "validate", "/settings", "--check", "Save is visible", "--check", "Save is red")
+	if err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+
+	if len(*calls) != 1 || (*calls)[0].name != "browser_validate" || (*calls)[0].args["path"] != "/settings" {
+		t.Fatalf("unexpected calls: %+v", *calls)
+	}
+	if checks, _ := (*calls)[0].args["checks"].([]any); len(checks) != 2 || checks[0] != "Save is visible" || checks[1] != "Save is red" {
+		t.Fatalf("unexpected checks: %+v", (*calls)[0].args["checks"])
+	}
+	if !strings.Contains(out, "PASS  Save is visible") || !strings.Contains(out, "FAIL  Save is red") {
+		t.Fatalf("output missing verdicts: %q", out)
+	}
+}
