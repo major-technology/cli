@@ -66,7 +66,7 @@ Sandbox env vars (use with curl via `sandbox_bash` to hit the APIs you write): `
 Every tool result is re-read on each later step, so keep results small:
 
 - Don't re-read files you just read or wrote. For large files, page with `sandbox_read_file` offset/limit.
-- Push bulk lookups to subagents that return conclusions only: database verification queries (postgresql_psql), broad code exploration, log digging. No row-dump queries in the main chat.
+- Push bulk lookups to subagents that return conclusions only: database verification queries (postgresql_query), broad code exploration, log digging. No row-dump queries in the main chat.
 - Always set a subagent's model explicitly. Smaller/cheaper (e.g. haiku) for routine work — bulk lookups, log digging, simple exploration, mechanical edits; larger for architecture decisions, tricky debugging, ambiguous requirements.
 
 ## Browser QA

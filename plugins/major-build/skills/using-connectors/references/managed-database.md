@@ -29,7 +29,7 @@ Call `mcp__plugin_major_major__setup_managed_database` with the app's `applicati
 After setup completes and you have the resource ID:
 
 1. **MCP tools** (direct SQL, no code needed):
-   - `mcp__resources__postgresql_psql` — Read-only SQL queries and psql commands (`\dt`, `\d`, etc.). Args: `resourceId`, `command`
+   - `mcp__resources__postgresql_query` — One read-only SQL statement; inspect schema via `information_schema`. Args: `resourceId`, `statement`
    - `mcp__plugin_major_major__run_migration` — DDL/DML migrations (managed databases only). Args: `applicationId`, `migration`, `description`
 
 2. **Generated TypeScript clients** (for app code):
@@ -54,7 +54,7 @@ reason that data that should be shared for the entire org.
 
 ## Tips
 
-- Use `postgresql_psql` for read-only exploration (schema inspection, SELECT queries)
+- Use `postgresql_query` for read-only exploration (schema inspection, SELECT queries)
 - Use `run_migration` for all schema changes and data modifications on managed databases
 - All branches of an app share its database: `run_migration` from a branch sandbox changes production immediately
 - Use parameterized queries (`$1`, `$2`, ...) — never interpolate values into SQL strings
