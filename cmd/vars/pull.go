@@ -11,7 +11,6 @@ import (
 
 	"github.com/major-technology/cli/clients/git"
 	"github.com/major-technology/cli/errors"
-	"github.com/major-technology/cli/singletons"
 	"github.com/major-technology/cli/utils"
 	"github.com/spf13/cobra"
 )
@@ -51,33 +50,15 @@ func runPull(cmd *cobra.Command) error {
 		return errors.WrapError("failed to identify application", err)
 	}
 
-	apiClient := singletons.GetAPIClient()
-
 	// Resolve target environment (flag takes precedence over stored choice).
 	env, err := resolveEnvironment(info.ApplicationID, flagPullEnv)
 	if err != nil {
 		return err
 	}
 
-	// If the user passed --env and it differs from their stored choice, switch
-	// their stored choice to the requested environment before fetching. The
-	// POST /application/env endpoint always uses the user's stored choice.
-	if flagPullEnv != "" {
-		currentResp, err := apiClient.GetApplicationEnvironment(info.ApplicationID)
-		if err != nil {
-			return errors.WrapError("failed to get current environment", err)
-		}
-		if currentResp.EnvironmentID == nil || *currentResp.EnvironmentID != env.ID {
-			cmd.Printf("Setting your active environment to %q...\n", env.Name)
-			if _, err := apiClient.SetApplicationEnvironment(info.ApplicationID, env.ID); err != nil {
-				return errors.WrapError("failed to switch environment", err)
-			}
-		}
-	}
-
-	envVars, err := apiClient.GetApplicationEnv(info.OrganizationID, info.ApplicationID)
+	envVars, err := fetchEnvValues(cmd, info, env, flagPullEnv)
 	if err != nil {
-		return errors.WrapError("failed to fetch environment variables", err)
+		return err
 	}
 
 	// Sort keys: user-defined first (alphabetical), then MAJOR_* (alphabetical).

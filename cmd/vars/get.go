@@ -45,18 +45,18 @@ func runGet(cmd *cobra.Command, key string) error {
 		return err
 	}
 
-	appID, err := getAppID()
+	info, err := utils.GetApplicationInfo("")
 	if err != nil {
-		return err
+		return errors.WrapError("failed to identify application", err)
 	}
 
-	env, err := resolveEnvironment(appID, flagGetEnv)
+	env, err := resolveEnvironment(info.ApplicationID, flagGetEnv)
 	if err != nil {
 		return err
 	}
 
 	apiClient := singletons.GetAPIClient()
-	resp, err := apiClient.GetEnvVariables(appID)
+	resp, err := apiClient.GetEnvVariables(info.ApplicationID)
 	if err != nil {
 		return errors.WrapError("failed to get env variables", err)
 	}
@@ -65,12 +65,16 @@ func runGet(cmd *cobra.Command, key string) error {
 		if v.Key != key {
 			continue
 		}
-		value, ok := findValueForEnv(v.Values, env.ID)
-		if !ok {
+		if !isSetInEnv(v, env.ID) {
 			return &errors.CLIError{
 				Title: fmt.Sprintf("%s has no value in %q environment", key, env.Name),
 			}
 		}
+		envVars, err := fetchEnvValues(cmd, info, env, flagGetEnv)
+		if err != nil {
+			return err
+		}
+		value := envVars[key]
 		if flagGetJSON {
 			return utils.WriteJSON(cmd, getJSONOutput{Key: key, Value: value, Environment: env.Name})
 		}

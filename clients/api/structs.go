@@ -237,15 +237,19 @@ type EnvVariableValue struct {
 	Value         string `json:"value"`
 }
 
-// EnvVariable represents an env variable row as returned by the server
+// EnvVariable represents an env variable row as returned by the server: the key and the
+// environments it has a value in. Values never travel with a listing; GetApplicationEnv
+// returns them for the user's active environment.
 type EnvVariable struct {
-	ID             string             `json:"id"`
-	OrganizationID string             `json:"organizationId"`
-	ApplicationID  string             `json:"applicationId"`
-	Key            string             `json:"key"`
-	Values         []EnvVariableValue `json:"values"`
-	CreatedAt      string             `json:"createdAt,omitempty"`
-	UpdatedAt      string             `json:"updatedAt,omitempty"`
+	ID             string   `json:"id"`
+	OrganizationID string   `json:"organizationId"`
+	ApplicationID  string   `json:"applicationId"`
+	Key            string   `json:"key"`
+	EnvironmentIDs []string `json:"environmentIds"`
+	// Values is what servers before the encrypted cutover sent instead of EnvironmentIDs.
+	Values    []EnvVariableValue `json:"values,omitempty"`
+	CreatedAt string             `json:"createdAt,omitempty"`
+	UpdatedAt string             `json:"updatedAt,omitempty"`
 }
 
 // GetEnvVariablesResponse represents the response from GET /cli/application/:applicationId/env-variables

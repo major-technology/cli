@@ -20,8 +20,8 @@ var listCmd = &cobra.Command{
 	Short: "List environment variables for the current environment",
 	Long: `List all environment variables for the selected environment.
 
-By default values are masked. Pass --show-values to reveal them, or --json
-to emit machine-readable output with full values.
+By default values are masked and never fetched. Pass --show-values to reveal
+them, or --json to emit machine-readable output with full values.
 
 Example:
   major vars list --env staging`,
@@ -47,42 +47,47 @@ type listJSONOutput struct {
 }
 
 func runList(cmd *cobra.Command) error {
-	appID, err := getAppID()
+	info, err := utils.GetApplicationInfo("")
 	if err != nil {
-		return err
+		return errors.WrapError("failed to identify application", err)
 	}
 
-	env, err := resolveEnvironment(appID, flagListEnv)
+	env, err := resolveEnvironment(info.ApplicationID, flagListEnv)
 	if err != nil {
 		return err
 	}
 
 	apiClient := singletons.GetAPIClient()
-	resp, err := apiClient.GetEnvVariables(appID)
+	resp, err := apiClient.GetEnvVariables(info.ApplicationID)
 	if err != nil {
 		return errors.WrapError("failed to get env variables", err)
 	}
 
-	// Filter to rows that have a value for the target environment
-	type row struct {
-		Key   string
-		Value string
-	}
-	var rows []row
+	// Keys that have a value in the target environment. The listing carries no values;
+	// they are fetched only when the caller asked to see them.
+	var keys []string
 	for _, v := range resp.EnvVariables {
-		if value, ok := findValueForEnv(v.Values, env.ID); ok {
-			rows = append(rows, row{Key: v.Key, Value: value})
+		if isSetInEnv(v, env.ID) {
+			keys = append(keys, v.Key)
 		}
 	}
-	sort.Slice(rows, func(i, j int) bool { return rows[i].Key < rows[j].Key })
+	sort.Strings(keys)
+
+	values := map[string]string{}
+	if (flagListShowValues || flagListJSON) && len(keys) > 0 {
+		values, err = fetchEnvValues(cmd, info, env, flagListEnv)
+		if err != nil {
+			return err
+		}
+	}
 
 	if flagListJSON {
 		out := listJSONOutput{
 			Environment: env.Name,
-			Variables:   make([]listJSONEntry, 0, len(rows)),
+			Variables:   make([]listJSONEntry, 0, len(keys)),
 		}
-		for _, r := range rows {
-			out.Variables = append(out.Variables, listJSONEntry{Key: r.Key, Value: r.Value})
+		for _, k := range keys {
+			out.Variables = append(out.Variables, listJSONEntry{Key: k, Value: values[k]})
 		}
 		if err := utils.WriteJSON(cmd, out); err != nil {
 			return errors.WrapError("failed to encode JSON", err)
@@ -92,32 +97,32 @@ func runList(cmd *cobra.Command) error {
 
 	cmd.Printf("Environment: %s\n\n", env.Name)
 
-	if len(rows) == 0 {
+	if len(keys) == 0 {
 		cmd.Println("No variables set.")
 		return nil
 	}
 
 	// Compute column width for key
 	maxKey := len("KEY")
-	for _, r := range rows {
-		if len(r.Key) > maxKey {
-			maxKey = len(r.Key)
+	for _, k := range keys {
+		if len(k) > maxKey {
+			maxKey = len(k)
 		}
 	}
 
 	cmd.Printf("%-*s  %s\n", maxKey, "KEY", "VALUE")
-	for _, r := range rows {
-		display := r.Value
-		if !flagListShowValues {
-			display = maskValue(r.Value)
+	for _, k := range keys {
+		display := maskedValue
+		if flagListShowValues {
+			display = values[k]
 		}
-		cmd.Printf("%-*s  %s\n", maxKey, r.Key, display)
+		cmd.Printf("%-*s  %s\n", maxKey, k, display)
 	}
 
 	noun := "variables"
-	if len(rows) == 1 {
+	if len(keys) == 1 {
 		noun = "variable"
 	}
-	cmd.Printf("\n%d %s.\n", len(rows), noun)
+	cmd.Printf("\n%d %s.\n", len(keys), noun)
 	return nil
 }
