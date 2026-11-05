@@ -1,0 +1,26 @@
+# Fails a PR that introduces a dependency with a known vulnerability. Uses the OSV-Scanner reusable
+# PR workflow, which scans the base branch and the PR and reports only what the PR adds, so
+# pre-existing advisories do not block unrelated PRs.
+name: OSV Scan
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  actions: read
+  contents: read
+  security-events: write
+
+jobs:
+  osv-scan:
+    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable-pr.yml@v2.7.0
+    with:
+      # Code scanning upload needs GitHub Advanced Security; results stay in the job log.
+      upload-sarif: false
+      # No --config: osv-scanner auto-discovers osv-scanner.toml next to each lockfile. --config
+      # would force one file onto every scan and hard-error on the base branch, which does not have
+      # it until this PR merges.
+      scan-args: |-
+        -r
+        ./
