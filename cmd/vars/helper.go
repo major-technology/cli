@@ -9,6 +9,7 @@ import (
 	"github.com/major-technology/cli/errors"
 	"github.com/major-technology/cli/singletons"
 	"github.com/major-technology/cli/utils"
+	"github.com/spf13/cobra"
 )
 
 // keyPattern matches a valid env var key: must start with a letter or underscore,
@@ -90,23 +91,47 @@ func getAppID() (string, error) {
 	return info.ApplicationID, nil
 }
 
-// maskValue returns a masked representation of a value suitable for display.
-// Values of 4 chars or fewer are fully masked; longer values show the first
-// 4 characters followed by 8 bullets.
-func maskValue(value string) string {
-	if len(value) <= 4 {
-		return strings.Repeat("•", len(value))
-	}
-	return value[:4] + strings.Repeat("•", 8)
-}
+// maskedValue stands in for a value the listing does not carry.
+const maskedValue = "••••••••"
 
-// findValueForEnv returns the value for a specific environment from a row's values slice,
-// and whether it was found.
-func findValueForEnv(values []api.EnvVariableValue, environmentID string) (string, bool) {
-	for _, v := range values {
-		if v.EnvironmentID == environmentID {
-			return v.Value, true
+// isSetInEnv reports whether a listed variable has a value in the given environment.
+// Servers before the encrypted cutover sent the values themselves instead of the ids.
+func isSetInEnv(v api.EnvVariable, environmentID string) bool {
+	for _, id := range v.EnvironmentIDs {
+		if id == environmentID {
+			return true
 		}
 	}
-	return "", false
+	for _, value := range v.Values {
+		if value.EnvironmentID == environmentID {
+			return true
+		}
+	}
+	return false
+}
+
+// fetchEnvValues returns every variable of the target environment, decrypted, plus the
+// platform's MAJOR_* vars. POST /application/env always serves the user's stored
+// environment choice, so when --env names a different one the choice is switched first.
+func fetchEnvValues(cmd *cobra.Command, info *api.GetApplicationByRepoResponse, env *resolvedEnv, envFlag string) (map[string]string, error) {
+	apiClient := singletons.GetAPIClient()
+
+	if envFlag != "" {
+		currentResp, err := apiClient.GetApplicationEnvironment(info.ApplicationID)
+		if err != nil {
+			return nil, errors.WrapError("failed to get current environment", err)
+		}
+		if currentResp.EnvironmentID == nil || *currentResp.EnvironmentID != env.ID {
+			cmd.Printf("Setting your active environment to %q...\n", env.Name)
+			if _, err := apiClient.SetApplicationEnvironment(info.ApplicationID, env.ID); err != nil {
+				return nil, errors.WrapError("failed to switch environment", err)
+			}
+		}
+	}
+
+	envVars, err := apiClient.GetApplicationEnv(info.OrganizationID, info.ApplicationID)
+	if err != nil {
+		return nil, errors.WrapError("failed to fetch environment variables", err)
+	}
+	return envVars, nil
 }
