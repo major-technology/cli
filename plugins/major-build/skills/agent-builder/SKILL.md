@@ -9,7 +9,7 @@ An _agent_ in Major is a saved AI configuration users can invoke. It is a **vers
 
 ```
 agent.jsonc   name, description, model, skills, env keys, connectors + applications
-              (with their per-tool permission decisions nested inline)
+              (with their per-tool permission decisions nested inline), browser settings
 prompt.md     the system prompt — the file IS the prompt, no wrapper
 ```
 
@@ -69,6 +69,18 @@ On Slack there is no panel. Tell the user to open the agent in the web app to fi
 - Slack is provisioned automatically when the user installs the Major Slack integration (Settings → Integrations) and is intentionally not a creatable connector — if it's missing from `list_resources`, tell them to install the integration.
 - If an existing connector needs more configuration to be usable (e.g. selecting a Google Sheets spreadsheet), call `mcp__plugin_major_major__request_resource_update` with the `resourceId` and what's missing.
 - Don't add connectors or applications speculatively — every one expands the agent's permissions. Keep the set minimal.
+
+## Browser
+
+Set `browserSettings.enabled: true` only when the agent must use websites that have no connector; it grants the hosted `browser` tool. Prefer a connector whenever one exists.
+
+Narrow the browser to the agent's job in the same object:
+
+- `allowedHosts`: the only sites its runs can reach (`example.com`, or `*.example.com` for subdomains, which doesn't cover `example.com` itself). When the job lives on a few sites, list them, plus the sites those pages load from (CDN, sign-in provider). Leave empty for open browsing.
+- `deniedHosts`: sites it must never open, in the same form.
+- `rules`: plain-English limits that every click, form and page is checked against ("Draft emails, but never send them"). An action that breaks one is blocked unless a user explicitly asks for that exact action.
+
+These add to the organization's browser controls and can't loosen them. They save and publish with the agent, and a run uses the version it started with.
 
 ## Research before writing the prompt
 
