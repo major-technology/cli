@@ -104,11 +104,9 @@ Resize when `get_app_scaling` shows CPU regularly near its limit, `cpu_high` or 
 
 `mcp__plugin_major_major__set_app_scaling` takes the `applicationId` and any of `cpuLimit`, `memoryLimit`, `autoscalingEnabled`, `scaleToZero`.
 
-- Apps are billed on their limits. Tell the user the current and new monthly estimate (both `get_app_scaling` and the result of a change report it) and get their go-ahead before calling it.
 - A change redeploys the app.
-- Go up one step at a time (double the limit), then measure again. Limits cannot go below the default or above the cap that `get_app_scaling` reports.
-- Leave autoscaling on unless the user wants a fixed cost.
-- Turning `scaleToZero` off keeps the app always running, which removes the cold start and costs more.
+- Leave autoscaling on
+- This is generally a good lever to use
 
 ## 6. Verify and report
 
