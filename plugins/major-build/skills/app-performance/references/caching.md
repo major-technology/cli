@@ -1,43 +1,21 @@
 # Caching in a Major app
 
-Pick the cache from the staleness the user agreed to (see the table in `SKILL.md`). The examples use a PostgreSQL client named `ordersDbClient`; read the generated client in `clients/` for the real name and method signatures.
+Pick the cache from the staleness the user agreed to (see the table in `SKILL.md`). The examples are Hono routes in `backend/src/` and use a PostgreSQL client named `ordersDbClient`; read the generated client in `backend/src/clients/` for the real name and method signatures. Register each route in `backend/src/app.ts` as the app's agent guide describes.
 
-## Same call repeated within one request: React `cache()`
+## Same call repeated within one request: load once
 
-When a layout, a page and a component each need the same data during one render, wrap the loader so it runs once. Nothing is kept between requests, so nothing can go stale.
-
-```typescript
-import "server-only";
-import { cache } from "react";
-import { ordersDbClient } from "@/clients";
-
-export const getAccount = cache(async (accountId: string) => {
-	const result = await ordersDbClient.invoke<{ id: string; name: string }>(
-		"SELECT id, name FROM accounts WHERE id = $1",
-		[accountId],
-		"get-account",
-	);
-
-	if (!result.ok) {
-		throw new Error("Failed to load account");
-	}
-
-	return result.result.rows[0];
-});
-```
+When several helpers in one handler need the same data, load it once at the top of the handler and pass the value down. Nothing is kept between requests, so nothing can go stale. If one screen makes several `/api` calls that each load the same data, merge them into one route instead.
 
 ## Seconds to an hour: in-process cache
 
-An app runs as one process, so a cache held in memory is seen by every request. Keep it on `globalThis`: Next.js can load a module more than once, and a plain module variable would then give each copy its own cache.
+Each backend instance is one Node process, so a cache held in memory is seen by every request that instance serves. It is best-effort: the backend is stateless and instances restart and scale at any time, so never keep anything here that cannot be reloaded.
 
 ```typescript
-// lib/ttl-cache.ts
-import "server-only";
-
+// backend/src/lib/ttl-cache.ts
 type Entry = { expiresAt: number; value: Promise<unknown> };
 
 const MAX_ENTRIES = 200;
-const store = ((globalThis as { __ttlCache?: Map<string, Entry> }).__ttlCache ??= new Map());
+const store = new Map<string, Entry>();
 
 export function cached<T>(key: string, ttlSeconds: number, load: () => Promise<T>): Promise<T> {
 	const hit = store.get(key);
@@ -83,44 +61,62 @@ Rules:
 Copy the slow result into a table in the app's managed database on a schedule, and have pages read the table. Page loads then cost one fast query however slow the source is, and the data survives deploys. This is the right cache for warehouses (Snowflake, BigQuery) and slow third-party APIs.
 
 1. Create the table with `mcp__plugin_major_major__run_migration`. Set up the managed database first if the app has none (see `using-connectors` → managed-database). Give the table a `refreshed_at` column.
-2. Add a route that reloads it, for example `app/api/snapshots/sales-summary/route.ts`: query the source, then replace the rows.
+2. Add a route that reloads it, for example `POST /api/snapshots/sales-summary` in `backend/src/routes/snapshots.ts`: query the source, then replace the rows.
 3. Schedule it: load `workflow-builder` and build a workflow with a cron trigger and an `app_call` node that calls the route. Set the schedule to the staleness the user agreed to.
 4. Read the table from the page and show `refreshed_at` as "Updated 12 minutes ago".
 
 ```typescript
-// app/api/snapshots/sales-summary/route.ts
-import { warehouseClient, appDbClient } from "@/clients";
+// backend/src/routes/snapshots.ts
+import { createRoute, z, type OpenAPIHono } from "@hono/zod-openapi";
+import { warehouseClient, appDbClient } from "../clients";
 
-export async function POST() {
-	const source = await warehouseClient.invoke<{ region: string; revenue: number }>(
-		"SELECT region, SUM(amount) AS revenue FROM orders GROUP BY region",
-		[],
-		"snapshot-sales-summary-read",
-	);
+const refreshSalesSummaryRoute = createRoute({
+	method: "post",
+	path: "/snapshots/sales-summary",
+	responses: {
+		200: {
+			description: "The snapshot was refreshed",
+			content: { "application/json": { schema: z.object({ rows: z.number() }) } },
+		},
+		500: {
+			description: "The source query or the write failed; the old rows are kept",
+			content: { "application/json": { schema: z.object({ error: z.string() }) } },
+		},
+	},
+});
 
-	if (!source.ok) {
-		return Response.json({ error: "Source query failed" }, { status: 502 });
-	}
+export function registerSnapshotRoutes(app: OpenAPIHono) {
+	app.openapi(refreshSalesSummaryRoute, async (c) => {
+		const source = await warehouseClient.invoke<{ region: string; revenue: number }>(
+			"SELECT region, SUM(amount) AS revenue FROM orders GROUP BY region",
+			[],
+			"snapshot-sales-summary-read",
+		);
 
-	// One statement, so readers never see an empty or half-filled table.
-	const written = await appDbClient.invoke(
-		`WITH incoming AS (
-			SELECT * FROM jsonb_to_recordset($1::jsonb) AS r(region text, revenue numeric)
-		), removed AS (
-			DELETE FROM sales_summary WHERE region NOT IN (SELECT region FROM incoming)
-		)
-		INSERT INTO sales_summary (region, revenue, refreshed_at)
-		SELECT region, revenue, now() FROM incoming
-		ON CONFLICT (region) DO UPDATE SET revenue = EXCLUDED.revenue, refreshed_at = EXCLUDED.refreshed_at`,
-		[JSON.stringify(source.result.rows)],
-		"snapshot-sales-summary-write",
-	);
+		if (!source.ok) {
+			return c.json({ error: "Source query failed" }, 500);
+		}
 
-	if (!written.ok) {
-		return Response.json({ error: "Snapshot write failed" }, { status: 500 });
-	}
+		// One statement, so readers never see an empty or half-filled table.
+		const written = await appDbClient.invoke(
+			`WITH incoming AS (
+				SELECT * FROM jsonb_to_recordset($1::jsonb) AS r(region text, revenue numeric)
+			), removed AS (
+				DELETE FROM sales_summary WHERE region NOT IN (SELECT region FROM incoming)
+			)
+			INSERT INTO sales_summary (region, revenue, refreshed_at)
+			SELECT region, revenue, now() FROM incoming
+			ON CONFLICT (region) DO UPDATE SET revenue = EXCLUDED.revenue, refreshed_at = EXCLUDED.refreshed_at`,
+			[JSON.stringify(source.result.rows)],
+			"snapshot-sales-summary-write",
+		);
 
-	return Response.json({ rows: source.result.rows.length });
+		if (!written.ok) {
+			return c.json({ error: "Snapshot write failed" }, 500);
+		}
+
+		return c.json({ rows: source.result.rows.length }, 200);
+	});
 }
 ```
 
@@ -136,13 +132,13 @@ Notes:
 For a GET route the browser fetches repeatedly (reference lists, filter options), let the browser reuse its copy. Always use `private`: the response was authorized for one user.
 
 ```typescript
-return Response.json(options, {
-	headers: { "Cache-Control": "private, max-age=60" },
-});
+c.header("Cache-Control", "private, max-age=60");
+
+return c.json(options, 200);
 ```
 
-This saves repeat requests from one person. It does nothing for other users or for server-rendered pages.
+This saves repeat requests from one person. It does nothing for other users.
 
-## What not to use
+## Older Next.js apps
 
-`unstable_cache`, `"use cache"` and a page-level `export const revalidate` do not work around resource calls. The generated clients read the incoming request's headers on every call so that Major can authorize it. Next.js does not allow that inside a cached function, and any page that makes a resource call is rendered per request regardless of `revalidate`.
+In a Next.js app, routes live in `app/api/**/route.ts` and clients in `clients/`; the caches above work the same way. React `cache()` dedupes a call within one server render. Keep the in-process cache on `globalThis`, because Next.js can load a module more than once. `unstable_cache`, `"use cache"` and a page-level `export const revalidate` do not work around resource calls: the generated clients read the incoming request's headers on every call, which Next.js forbids inside a cached function, and any page that makes a resource call is rendered per request regardless of `revalidate`.

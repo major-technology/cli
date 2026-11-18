@@ -26,12 +26,12 @@ Once you have a `resourceId`, use it directly with the tools and client below.
    - `mcp__resources__blob_del` — delete an object. Args: `resourceId`, `key`
 
 2. **Generated TypeScript client** (for app code):
-   - Call `mcp__plugin_major_major__sandbox_add-resource-client` with the app's `slug` and the `resourceId` to generate a typed client into `/clients/` (Next.js) or `/src/clients/` (Vite).
+   - Call `mcp__plugin_major_major__sandbox_add-resource-client` with the app's `slug` and the `resourceId` to generate a typed client into `backend/src/clients/` (`/clients/` in an older Next.js app).
    - **The `resourceType` you pass MUST be `"blob"`** — that is the underlying resource subtype. It is NOT `"managed_file_store"` / `"managed-file-storage"`; those are only the product name and will fail with `Invalid type`. The generated client class is `BlobResourceClient`.
 
 **CRITICAL: Do NOT guess client method names or signatures.** ALWAYS read the actual generated client source (or the `@major-tech/resource-client` package) before writing client code.
 
-**Framework note**: Next.js = use the client in server-side code only (Server Components, Server Actions, Route Handlers). Vite = call directly from the frontend.
+**Framework note**: use resource clients in backend code only (`backend/src/`), never in the frontend; the frontend calls your own `/api` route. In an older Next.js app: server-side code only (Server Components, Server Actions, Route Handlers).
 
 **Error handling**: always check `result.ok` before accessing `result.result`.
 

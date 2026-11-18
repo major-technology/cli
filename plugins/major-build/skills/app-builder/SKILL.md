@@ -1,11 +1,29 @@
 ---
 name: app-builder
-description: Create and edit Major apps — full-stack Next.js apps with frontend, backend API routes, and a live preview — how to create or mount an app sandbox and edit through the workspace tools.
+description: Create and edit Major apps — full-stack apps with a Vite + React frontend, a Hono backend under /api, and a live preview — how to create or mount an app sandbox and edit through the workspace tools.
 ---
 
 # Building a Major app
 
-An _app_ is a full-stack Next.js app (frontend + backend API routes) deployed and hosted by Major. Apps can use any connector; agents and workflows call a deployed app's API directly (Major handles auth and plumbing). Treat apps as **compute**: whenever you need to run code, use an app. Apps also visualize results for the user. Offload deterministic behavior into the app; agents and workflows call it.
+An _app_ is a full-stack app deployed and hosted by Major. Apps can use any connector; agents and workflows call a deployed app's API directly (Major handles auth and plumbing). Treat apps as **compute**: whenever you need to run code, use an app. Apps also visualize results for the user. Offload deterministic behavior into the app; agents and workflows call it.
+
+## App layout
+
+New apps start from the Vite-Hono template, a pnpm workspace:
+
+```
+frontend/   Vite + React single-page app, served from /
+backend/    Hono API, every route under /api
+shared/     types used by both
+```
+
+- The frontend calls the backend with relative URLs (`fetch("/api/...")`). Never put secrets in `VITE_*` variables: they ship in the public bundle.
+- Every backend route is defined with `createRoute` + zod from `@hono/zod-openapi` in `backend/src/routes/` and registered in `backend/src/app.ts`. The OpenAPI document at `/api/openapi.json` is what agents and workflows read to call the app.
+- Resource and agent clients run in the backend only. Keep `GET /api/healthz`; the platform health-checks it.
+- The backend is stateless: no local disk, no in-memory state that must outlive a request, no timers or background jobs.
+- The app's agent guide (`CLAUDE.md` at the repo root) has the full rules; read it before the first edit.
+
+Older apps are Next.js (App Router, API routes in `app/api/**/route.ts`, clients in `clients/`). Check for `frontend/` and `backend/` at the repo root to tell which stack you are editing, and follow that app's agent guide.
 
 ## Tools
 
@@ -54,9 +72,9 @@ Never `git checkout main` in a branch sandbox.
 
 The preview dev server is ALREADY running in the sandbox and hot-reloads on save; the preview is what the user sees. No build needed to see changes.
 
-- NEVER run `next build`, `pnpm build`, `npm run build`, or `yarn build` — unless specifically debugging a build issue.
-- NEVER delete the `.next` directory — it crashes the preview server and the entire session.
-- Check errors with lint (via `sandbox_bash`), not a build. After you finish editing, always lint and fix what it reports — lint failures fail a deploy. Lint ONCE per finished change, not per file edit.
+- NEVER run `pnpm build`, `vite build`, `next build`, `npm run build`, or `yarn build` — unless specifically debugging a build issue.
+- NEVER delete `node_modules` or, in a Next.js app, the `.next` directory — it crashes the preview server and the entire session.
+- Check errors with lint (`pnpm lint` via `sandbox_bash`: oxlint plus a type check of every package), not a build. After you finish editing, always lint and fix what it reports — lint failures fail a deploy. Lint ONCE per finished change, not per file edit.
 - Parallel subagents ONLY write code and run lint — never build.
 
 Sandbox env vars (use with curl via `sandbox_bash` to hit the APIs you write): `MAJOR_API_BASE_URL` (Major API base URL), `MAJOR_JWT_TOKEN` (Major API JWT), `APPLICATION_ID` (the application's id).
@@ -89,14 +107,15 @@ Before frontend work, run `major app theme get` in the app workspace. It returns
 - **Debugging** — load the `debug-issue` skill before investigating any failure, regression, or broken/blank/errored behavior (covers preview, app errors, logs, browser inspection).
 - **Performance** — load the `app-performance` skill when the app is slow or the user asks to speed it up, add caching, or give it more CPU or memory.
 - **Triggering agents** — before wiring app runtime code to Major agents (run / sendMessage / stop / approvals), read [references/using-agents.md](references/using-agents.md). `sandbox_add-agent-client` generates the typed client (same pattern as resource clients).
-- **Calling other apps** — to call another app in the org, run `major app xserver add --id <appId>` (ids from `major app list`; `major app xserver list` shows each callable app's URL), deploy, then from server code `fetch("<target app url><path>", { headers: { "x-major-jwt": <the incoming request's x-major-user-jwt header> }, redirect: "manual" })`; `redirect: "manual"` keeps the token from following a redirect to another host.
+- **Calling other apps** — to call another app in the org, run `major app xserver add --id <appId>` (ids from `major app list`; `major app xserver list` shows each callable app's URL), deploy, then from backend code `fetch("<target app url><path>", { headers: { "x-major-jwt": <the incoming request's x-major-user-jwt header> }, redirect: "manual" })`; `redirect: "manual"` keeps the token from following a redirect to another host.
 - **Recurring work** — apps no longer carry crons; `cron.json` is not read. Load the `workflow-builder` skill and build a workflow with a cron trigger and an `app_call` node.
 
 ## Calling go-api from app code
 
-- Never construct `PostgresResourceClient`, `SlackResourceClient`, `createProxyFetch`, or any resource client by hand. Import the generated client from `clients/` — it already copies the incoming `x-major-user-jwt`.
+- Never construct `PostgresResourceClient`, `SlackResourceClient`, `createProxyFetch`, or any resource client by hand. Import the generated client from `backend/src/clients/` (`clients/` in a Next.js app) — it already copies the incoming `x-major-user-jwt`.
 - go-api rejects resource calls without `x-major-user-jwt`. A hand-rolled client that only sets `MAJOR_JWT_TOKEN` fails, including from a webhook or workflow `app_call`.
-- Webhook routes and workflow `app_call`s are real requests: ingress already set `x-major-user-jwt` and `headers()` works. Do not drop `getHeaders` to make those routes run.
+- Webhook routes and workflow `app_call`s are real requests: ingress already set `x-major-user-jwt`, and the generated client reads it from the request (`hono/context-storage` in a Hono backend, `headers()` in Next.js). Do not drop `getHeaders` to make those routes run.
+- In a Hono backend, `contextStorage()` must stay registered in `backend/src/app.ts` before every route; without it the clients cannot see the request.
 - `MAJOR_JWT_TOKEN` alone is only for the runner and code outside a request (`current-build` and the error reporter keep using it).
 
 ## LLM calls from app code

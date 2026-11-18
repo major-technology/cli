@@ -15,17 +15,19 @@ Use the generic HTTP proxy tools — there are no RingCentral-specific MCP tools
 
 See [using-http-proxy](http-proxy.md) for the full proxy reference.
 
-## HTTP Proxy via `createProxyFetch` (Next.js)
+## HTTP Proxy via `createProxyFetch`
 
 For app code, drop the generic `createProxyFetch` into any SDK that takes a custom `fetch`, or use it as a plain `fetch` wrapper. Pass **leading-slash paths** instead of a full URL — the proxy resolves the upstream host.
 
 ```typescript
-import { createProxyFetch } from "@major-tech/resource-client/next";
+import { createProxyFetch } from "@major-tech/resource-client";
+import { tryGetContext } from "hono/context-storage";
 
 const proxyFetch = createProxyFetch({
   baseUrl: process.env.MAJOR_API_BASE_URL!,
   resourceId: process.env.RINGCENTRAL_RESOURCE_ID!,
   majorJwtToken: process.env.MAJOR_JWT_TOKEN!,
+  getUserJwt: () => tryGetContext()?.req.header("x-major-user-jwt"),
 });
 
 // List recent call log entries
@@ -56,7 +58,7 @@ await proxyFetch("/restapi/v1.0/account/~/extension/~/message-store?messageType=
 - `MAJOR_API_BASE_URL` and `MAJOR_JWT_TOKEN` are platform-managed env vars — assume they're set, don't ask the user to provide them. `RINGCENTRAL_RESOURCE_ID` is the UUID of the connected RingCentral resource.
 - **Always pass a leading-slash path.** Hardcoding `https://<instance>.ringcentral.com/...` will fail — the instance host isn't known to app code.
 - **`resourceId` must be a static string literal** — the query extractor only tracks proxy calls when the resource id is known at build time.
-- Server-side only (Server Components, Route Handlers, Server Actions). The `/next` subpath uses `next/headers`.
+- Backend code only. `getUserJwt` forwards the signed-in user (in an older Next.js app, import from `@major-tech/resource-client/next`, which supplies it).
 - Do NOT set the `Authorization` header — the proxy injects upstream auth.
 
 ## Common RingCentral endpoints

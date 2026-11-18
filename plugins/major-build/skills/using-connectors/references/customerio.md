@@ -7,12 +7,12 @@
 **Three ways to interact with Customer.io:**
 
 1. **MCP tools** (direct, no code needed): Tools follow the pattern `mcp__resources__<resourcetype>_<toolname>`. Use `mcp__resources__list_resources` to discover available resources and their IDs.
-2. **Generated TypeScript clients** (for app code): Call `mcp__plugin_major_major__sandbox_add-resource-client` with the app's `slug` and a `resourceId` to generate a typed client. Clients are created in `/clients/` (Next.js) or `/src/clients/` (Vite).
-3. **HTTP proxy** (Next.js apps): Use `createProxyFetch` from `@major-tech/resource-client/next` to call Customer.io directly with automatic auth injection. See [using-http-proxy](http-proxy.md) for setup and usage. Relative paths are joined to the App API host, so pass `/v1/segments`. For the Track API, pass the full URL (`https://track.customer.io/api/v1/...`, or `https://track-eu.customer.io/...` for EU accounts).
+2. **Generated TypeScript clients** (for app code): Call `mcp__plugin_major_major__sandbox_add-resource-client` with the app's `slug` and a `resourceId` to generate a typed client. Clients are created in `backend/src/clients/` (`/clients/` in an older Next.js app).
+3. **HTTP proxy** (app backend code): Use `createProxyFetch` to call Customer.io directly with automatic auth injection. See [using-http-proxy](http-proxy.md) for setup and usage. Relative paths are joined to the App API host, so pass `/v1/segments`. For the Track API, pass the full URL (`https://track.customer.io/api/v1/...`, or `https://track-eu.customer.io/...` for EU accounts).
 
-**CRITICAL: Do NOT guess client method names or signatures.** ALWAYS read the actual client source code in the generated `/clients/` directory (or the package itself) to verify available methods and their exact signatures before writing any client code.
+**CRITICAL: Do NOT guess client method names or signatures.** ALWAYS read the actual client source code in the generated clients directory (`backend/src/clients/`) or the package itself to verify available methods and their exact signatures before writing any client code.
 
-**Framework note**: Next.js = resource clients must be used in server-side code only (Server Components, Server Actions, API Routes). Vite = call directly from frontend.
+**Framework note**: use resource clients in backend code only (`backend/src/`), never in the frontend; the frontend calls your own `/api` route. In an older Next.js app: server-side code only (Server Components, Server Actions, Route Handlers).
 
 **Error handling**: Always check `result.ok` before accessing `result.result`.
 

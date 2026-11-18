@@ -7,12 +7,12 @@
 **Three ways to interact with Clerk:**
 
 1. **MCP tools** (direct, no code needed): Tools follow the pattern `mcp__resources__<resourcetype>_<toolname>`. Use `mcp__resources__list_resources` to discover available resources and their IDs.
-2. **Generated TypeScript clients** (for app code): Call `mcp__plugin_major_major__sandbox_add-resource-client` with the app's `slug` and a `resourceId` to generate a typed client. Clients are created in `/clients/` (Next.js) or `/src/clients/` (Vite).
-3. **HTTP proxy** (Next.js apps): Use `createProxyFetch` from `@major-tech/resource-client/next` to call the Clerk API directly with automatic auth injection. See [using-http-proxy](http-proxy.md) for setup and usage — preferred when you need to hit endpoints not covered by MCP tools or the typed client, or when using an official SDK that accepts a custom `fetch`.
+2. **Generated TypeScript clients** (for app code): Call `mcp__plugin_major_major__sandbox_add-resource-client` with the app's `slug` and a `resourceId` to generate a typed client. Clients are created in `backend/src/clients/` (`/clients/` in an older Next.js app).
+3. **HTTP proxy** (app backend code): Use `createProxyFetch` to call the Clerk API directly with automatic auth injection. See [using-http-proxy](http-proxy.md) for setup and usage — preferred when you need to hit endpoints not covered by MCP tools or the typed client, or when using an official SDK that accepts a custom `fetch`.
 
-**CRITICAL: Do NOT guess client method names or signatures.** The TypeScript clients in `@major-tech/resource-client` have strongly typed inputs and outputs. ALWAYS read the actual client source code in the generated `/clients/` directory (or the package itself) to verify available methods and their exact signatures before writing any client code.
+**CRITICAL: Do NOT guess client method names or signatures.** The TypeScript clients in `@major-tech/resource-client` have strongly typed inputs and outputs. ALWAYS read the actual client source code in the generated clients directory (`backend/src/clients/`) or the package itself to verify available methods and their exact signatures before writing any client code.
 
-**Framework note**: Next.js = resource clients must be used in server-side code only (Server Components, Server Actions, API Routes). Vite = call directly from frontend.
+**Framework note**: use resource clients in backend code only (`backend/src/`), never in the frontend; the frontend calls your own `/api` route. In an older Next.js app: server-side code only (Server Components, Server Actions, Route Handlers).
 
 **Error handling**: Always check `result.ok` before accessing `result.result`.
 
@@ -62,12 +62,10 @@ mcp__resources__clerk_list_users({
 })
 ```
 
-**Using the TypeScript client in a Next.js Server Action:**
+**Using the TypeScript client in backend code** (call `searchUsersByEmail` from a route in `backend/src/routes/`):
 
 ```typescript
-"use server";
-
-import { clerkClient } from "./clients";
+import { clerkClient } from "../clients";
 
 interface ClerkUser {
     id: string;

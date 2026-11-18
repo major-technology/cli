@@ -8,7 +8,7 @@ A **run** is one execution of the agent. The `runId` returned by `run()` is what
 
 ## Generated clients — never hand-write them
 
-Always call `sandbox_add-agent-client` first (find the id with the `list` tool, `target_type: "agent"`). It generates a typed singleton into `clients/` and returns the import line — **use that import VERBATIM**. Do not `createAgentsClient()`, do not `getAgentId()`, do not bake a uuid. The generated client already binds the agent id.
+Always call `sandbox_add-agent-client` first (find the id with the `list` tool, `target_type: "agent"`). It generates a typed singleton into `backend/src/clients/` (`clients/` in a Next.js app) and returns the import line — **use that import VERBATIM**. Do not `createAgentsClient()`, do not `getAgentId()`, do not bake a uuid. The generated client already binds the agent id.
 
 To stop triggering an agent, delete the code that references it and call `sandbox_remove-agent-client`.
 
@@ -23,7 +23,7 @@ import { supportBotClient } from "./clients"; // use the import add-agent-client
 ```
 
 - **No config needed.** `MAJOR_API_BASE_URL` and `MAJOR_JWT_TOKEN` are injected by the platform while building and after deployment; the generated client reads them.
-- **Server-side only** (Next.js): use the client in Server Components, Server Actions, Route Handlers — never in client components (it sends the deployment-identity token).
+- **Backend only**: use the client in `backend/` route handlers (Server Components, Server Actions or Route Handlers in a Next.js app) — never in frontend code (it sends the deployment-identity token). The frontend calls your own `/api` route, which calls the agent.
 
 ## Methods
 

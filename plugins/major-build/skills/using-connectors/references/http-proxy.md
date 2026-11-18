@@ -14,14 +14,15 @@ The HTTP proxy lets apps and MCP clients call any HTTP-based resource through a 
 
 ---
 
-## SDK: `createProxyFetch` (Next.js)
+## SDK: `createProxyFetch`
 
-`createProxyFetch` returns a `fetch`-compatible function that routes every request through the Major proxy. Drop it into any SDK that accepts a custom `fetch`.
+`createProxyFetch` returns a `fetch`-compatible function that routes every request through the Major proxy. Drop it into any SDK that accepts a custom `fetch`. Use it in backend code only (`backend/src/`).
 
 **Import:**
 
 ```typescript
-import { createProxyFetch } from "@major-tech/resource-client/next";
+import { createProxyFetch } from "@major-tech/resource-client";
+import { tryGetContext } from "hono/context-storage";
 ```
 
 **Config:**
@@ -31,23 +32,26 @@ import { createProxyFetch } from "@major-tech/resource-client/next";
 | `baseUrl`       | `string`       | yes      | Major API base — use `process.env.MAJOR_API_BASE_URL`                                         |
 | `resourceId`    | `string`       | yes      | UUID of the resource to proxy through                                                         |
 | `majorJwtToken` | `string`       | yes      | App-level JWT — use `process.env.MAJOR_JWT_TOKEN`                                             |
+| `getUserJwt`    | `() => string \| null \| undefined` | no | Returns the signed-in user's `x-major-user-jwt`; required for per-user-OAuth resources |
 | `fetch`         | `typeof fetch` | no       | Override runtime fetch (defaults to `globalThis.fetch`)                                       |
 | `timeoutMs`     | `number`       | no       | Default `X-Major-Timeout-Ms` (server-clamped to 60_000); only set if caller didn't supply one |
 
 `MAJOR_API_BASE_URL` and `MAJOR_JWT_TOKEN` are platform-managed env vars — assume they are already set; do not ask the user to provide them.
 
-`x-major-user-jwt` is auto-forwarded by reading `headers().get("x-major-user-jwt")` from the incoming Next request, so per-user-OAuth resources (Gmail, Calendar, Drive) work transparently. Outside a Next request scope (e.g. background jobs) the lookup is skipped.
+Pass `getUserJwt: () => tryGetContext()?.req.header("x-major-user-jwt")` so per-user-OAuth resources (Gmail, Calendar, Drive) resolve to the signed-in user. It reads the current request through `contextStorage()`, which the template registers in `backend/src/app.ts`. Outside a request (no context) it returns nothing and the header is skipped.
 
 ### Drop-in with a third-party SDK
 
 ```typescript
 import Stripe from "stripe";
-import { createProxyFetch } from "@major-tech/resource-client/next";
+import { createProxyFetch } from "@major-tech/resource-client";
+import { tryGetContext } from "hono/context-storage";
 
 const proxyFetch = createProxyFetch({
   baseUrl: process.env.MAJOR_API_BASE_URL!,
   resourceId: process.env.STRIPE_RESOURCE_ID!,
   majorJwtToken: process.env.MAJOR_JWT_TOKEN!,
+  getUserJwt: () => tryGetContext()?.req.header("x-major-user-jwt"),
 });
 
 const stripe = new Stripe("sk_unused_proxy_injects_real_key", {
@@ -62,12 +66,14 @@ The placeholder key is required by the Stripe SDK constructor but is never sent 
 ### Plain fetch
 
 ```typescript
-import { createProxyFetch } from "@major-tech/resource-client/next";
+import { createProxyFetch } from "@major-tech/resource-client";
+import { tryGetContext } from "hono/context-storage";
 
 const proxyFetch = createProxyFetch({
   baseUrl: process.env.MAJOR_API_BASE_URL!,
   resourceId: process.env.HUBSPOT_RESOURCE_ID!,
   majorJwtToken: process.env.MAJOR_JWT_TOKEN!,
+  getUserJwt: () => tryGetContext()?.req.header("x-major-user-jwt"),
 });
 
 const res = await proxyFetch("https://api.hubapi.com/crm/v3/objects/contacts", {
@@ -78,9 +84,9 @@ const res = await proxyFetch("https://api.hubapi.com/crm/v3/objects/contacts", {
 const data = await res.json();
 ```
 
-### Framework note
+### Older Next.js apps
 
-`createProxyFetch` is exported from `@major-tech/resource-client/next` and uses `next/headers` to forward the user JWT. Use it in Server Components, Route Handlers, or Server Actions only — never in client components.
+Import from `@major-tech/resource-client/next` instead and omit `getUserJwt`: that entry reads `x-major-user-jwt` with `next/headers`. Use it in Server Components, Route Handlers, or Server Actions only — never in client components.
 
 ### Limits
 
@@ -147,4 +153,4 @@ Use `proxy.baseUrls` as the allowed host prefixes when constructing the `url` fo
 
 - **`resourceId` must be static.** Pass the resource UUID as a string literal or simple identifier (e.g. an env var read at module scope). Dynamic expressions won't work — the resource won't be tracked against your app.
 - **No `Authorization` from your side.** Setting it does nothing (the proxy strips it) and risks leaking a key into a log. Let the proxy inject upstream auth.
-- **Per-user OAuth resources** (Gmail, Calendar, Drive) work automatically inside a Next request scope — the user JWT is auto-forwarded. In background jobs, only the app-level JWT is sent, so per-user calls will fail.
+- **Per-user OAuth resources** (Gmail, Calendar, Drive) need the user JWT: pass `getUserJwt` (automatic with the `/next` entry in an older Next.js app). Outside a request only the app-level JWT is sent, so per-user calls will fail.

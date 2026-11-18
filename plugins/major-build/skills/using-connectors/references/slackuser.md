@@ -50,17 +50,19 @@ Anything else (deleting a message, file uploads, user lookups, removing reaction
 
 - `mcp__resources__http_proxy_get` / `mcp__resources__http_proxy_invoke` — Args: `resourceId`, `url` (leading-slash Slack method path, e.g. `/users.lookupByEmail?email=jane@example.com`), `method` (invoke only), `headers?`, `body?` (invoke only), `timeoutMs?`. `http_proxy_get` is read-only; `http_proxy_invoke` needs approval. See [using-http-proxy](http-proxy.md).
 
-## HTTP Proxy via `createProxyFetch` (Next.js)
+## HTTP Proxy via `createProxyFetch`
 
 For app code, use `createProxyFetch` with **leading-slash Slack method paths** — they resolve against `https://slack.com/api`.
 
 ```typescript
-import { createProxyFetch } from "@major-tech/resource-client/next";
+import { createProxyFetch } from "@major-tech/resource-client";
+import { tryGetContext } from "hono/context-storage";
 
 const proxyFetch = createProxyFetch({
   baseUrl: process.env.MAJOR_API_BASE_URL!,
   resourceId: process.env.SLACKUSER_RESOURCE_ID!,
   majorJwtToken: process.env.MAJOR_JWT_TOKEN!,
+  getUserJwt: () => tryGetContext()?.req.header("x-major-user-jwt"),
 });
 
 // Search as the signed-in user
@@ -83,7 +85,7 @@ if (!postBody.ok) throw new Error(`Slack: ${postBody.error}`);
 - Slack answers most errors with HTTP 200 and `{ ok: false, error }` — always check `ok` in the body, not just `res.ok`.
 - `MAJOR_API_BASE_URL` and `MAJOR_JWT_TOKEN` are platform-managed env vars — assume they're set. `SLACKUSER_RESOURCE_ID` is the UUID of the connected Slack (Personal) resource.
 - **`resourceId` must be a static string literal** — the query extractor only tracks proxy calls when the resource id is known at build time.
-- Server-side only (Server Components, Route Handlers, Server Actions). The `/next` subpath uses `next/headers`, which forwards the signed-in user so each user acts as themselves.
+- Backend code only. `getUserJwt` forwards the signed-in user so each user acts as themselves (in an older Next.js app, import from `@major-tech/resource-client/next`, which supplies it).
 
 ## Common methods
 
