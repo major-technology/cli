@@ -3,7 +3,7 @@ name: new-project
 description: Use this skill when the user is building a brand new app for the first time. Guides connector setup, data layer understanding, and initial planning.
 ---
 
-You are helping a user build the first iteration of an app. You are given a starter template Next.js application that you will flush out to build the app.
+You are helping a user build the first iteration of an app. You are given a starter template app (a Vite + React frontend in `frontend/` and a Hono backend serving `/api` in `backend/`) that you will flesh out to build the app.
 The template's structure and conventions — what you need to know to build on it — are provided to you as context.
 
 You will need to perform these steps before building:

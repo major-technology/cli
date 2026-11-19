@@ -26,9 +26,9 @@ type LocalResource struct {
 	ApplicationID string `json:"applicationId"`
 }
 
-// ReadLocalResources reads the resources.json file from the project directory
+// ReadLocalResources reads the resources.json file from the project's client package
 func ReadLocalResources(projectDir string) ([]LocalResource, error) {
-	resourcesPath := filepath.Join(projectDir, "resources.json")
+	resourcesPath := filepath.Join(ClientProjectDir(projectDir), "resources.json")
 
 	// If file doesn't exist, return empty list (not an error)
 	if _, err := os.Stat(resourcesPath); os.IsNotExist(err) {
@@ -153,12 +153,12 @@ func ResolveResourceItems(ids []string, orgResources []api.ResourceItem) []api.R
 	return result
 }
 
-// DetectFramework detects the framework used in the project by checking package.json dependencies
-func DetectFramework(projectDir string) string {
-	packageJsonPath := filepath.Join(projectDir, "package.json")
-	data, err := os.ReadFile(packageJsonPath)
+// readPackageDependencies returns the names in a package.json's dependencies and devDependencies,
+// or nil when the file is missing or unreadable.
+func readPackageDependencies(dir string) map[string]bool {
+	data, err := os.ReadFile(filepath.Join(dir, "package.json"))
 	if err != nil {
-		return ""
+		return nil
 	}
 
 	var pkg struct {
@@ -166,19 +166,39 @@ func DetectFramework(projectDir string) string {
 		DevDependencies map[string]string `json:"devDependencies"`
 	}
 	if err := json.Unmarshal(data, &pkg); err != nil {
-		return ""
+		return nil
 	}
 
-	if _, ok := pkg.Dependencies["next"]; ok {
+	deps := make(map[string]bool, len(pkg.Dependencies)+len(pkg.DevDependencies))
+	for name := range pkg.Dependencies {
+		deps[name] = true
+	}
+	for name := range pkg.DevDependencies {
+		deps[name] = true
+	}
+	return deps
+}
+
+// ClientProjectDir returns the package that holds the app's generated clients and resources.json:
+// backend/ in a Vite-Hono app (its backend package depends on hono), the project root otherwise.
+func ClientProjectDir(projectDir string) string {
+	backendDir := filepath.Join(projectDir, "backend")
+	if readPackageDependencies(backendDir)["hono"] {
+		return backendDir
+	}
+	return projectDir
+}
+
+// DetectFramework detects the framework of the package in dir from its package.json dependencies.
+// Pass the client package (see ClientProjectDir), so a Vite-Hono app's backend detects as hono.
+func DetectFramework(dir string) string {
+	deps := readPackageDependencies(dir)
+	switch {
+	case deps["hono"]:
+		return "hono"
+	case deps["next"]:
 		return "nextjs"
-	}
-	if _, ok := pkg.DevDependencies["next"]; ok {
-		return "nextjs"
-	}
-	if _, ok := pkg.Dependencies["vite"]; ok {
-		return "vite"
-	}
-	if _, ok := pkg.DevDependencies["vite"]; ok {
+	case deps["vite"]:
 		return "vite"
 	}
 	return "nextjs"
@@ -232,7 +252,21 @@ func AddResourcesToProject(cmd *cobra.Command, projectDir string, resources []ap
 		return errors.WrapError("failed to install dependencies", err)
 	}
 
-	framework := DetectFramework(projectDir)
+	clientDir := ClientProjectDir(projectDir)
+	framework := DetectFramework(clientDir)
+
+	// The Vite-Hono template does not ship the generator; install it into the client package first.
+	if !readPackageDependencies(clientDir)["@major-tech/resource-client"] {
+		cmd.Println("  Installing @major-tech/resource-client...")
+		addCmd := exec.Command("pnpm", "add", "@major-tech/resource-client")
+		addCmd.Dir = clientDir
+		addCmd.Stdout = cmd.OutOrStdout()
+		addCmd.Stderr = cmd.ErrOrStderr()
+
+		if err := addCmd.Run(); err != nil {
+			return errors.WrapError("failed to install @major-tech/resource-client", err)
+		}
+	}
 
 	removeSuccessCount := 0
 	for _, resource := range resourcesToRemove {
@@ -244,7 +278,7 @@ func AddResourcesToProject(cmd *cobra.Command, projectDir string, resources []ap
 		}
 
 		pnpmCmd := exec.Command("pnpm", args...)
-		pnpmCmd.Dir = projectDir
+		pnpmCmd.Dir = clientDir
 		pnpmCmd.Stdout = cmd.OutOrStdout()
 		pnpmCmd.Stderr = cmd.ErrOrStderr()
 
@@ -272,7 +306,7 @@ func AddResourcesToProject(cmd *cobra.Command, projectDir string, resources []ap
 		}
 
 		pnpmCmd := exec.Command("pnpm", args...)
-		pnpmCmd.Dir = projectDir
+		pnpmCmd.Dir = clientDir
 		pnpmCmd.Stdout = cmd.OutOrStdout()
 		pnpmCmd.Stderr = cmd.ErrOrStderr()
 

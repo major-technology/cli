@@ -20,14 +20,14 @@ GitHub uses a GitHub App installation. When the user asks to connect GitHub:
 
 1. **Mounted GitHub MCP tools** (direct, preferred): The connected GitHub MCP server exposes tools as `mcp__<slug>__<toolName>`. Use `mcp__resources__list_resources` to discover the resource and its slug. The hosted tool catalog covers repositories, files, issues, pull requests, branches, commits, and releases.
 2. **Git token tool** (git CLI only): Call `mcp__resources__github_get_git_token` with the GitHub `resourceId`. Optionally downscope it to repository names and permissions.
-3. **Generated TypeScript client** (app code): Call `mcp__plugin_major_major__sandbox_add-resource-client` with the app's `slug` and the `resourceId`. The generated client is created in `/clients/` (Next.js) or `/src/clients/` (Vite).
-4. **HTTP proxy** (Next.js app code or direct MCP calls): Use `createProxyFetch` from `@major-tech/resource-client/next`, or `mcp__resources__http_proxy_get` / `mcp__resources__http_proxy_invoke`, for GitHub REST or GraphQL endpoints not covered by a mounted MCP tool. See [using-http-proxy](http-proxy.md).
+3. **Generated TypeScript client** (app code): Call `mcp__plugin_major_major__sandbox_add-resource-client` with the app's `slug` and the `resourceId`. The generated client is created in `backend/src/clients/` (`/clients/` in an older Next.js app).
+4. **HTTP proxy** (app backend code or direct MCP calls): Use `createProxyFetch`, or `mcp__resources__http_proxy_get` / `mcp__resources__http_proxy_invoke`, for GitHub REST or GraphQL endpoints not covered by a mounted MCP tool. See [using-http-proxy](http-proxy.md).
 
 **Do not guess tool names or argument shapes.** Mounted tools come from GitHub's hosted MCP server and may change. Inspect the tools available under the connector's actual slug before calling them. After generating a TypeScript client, read its source to verify exact methods and signatures.
 
 **Prefer least privilege:** For clone/fetch, request only the target repository with `permissions: { "contents": "read" }`. For push, use `contents: "write"` only when required.
 
-**Framework note:** In Next.js, generated resource clients and `createProxyFetch` must be used in server-side code only. Never expose a GitHub token or Major JWT to a Client Component or browser.
+**Framework note:** Use generated resource clients and `createProxyFetch` in backend code only. Never expose a GitHub token or Major JWT to frontend code or the browser.
 
 **Error handling:** Always check `result.ok` before accessing `result.result` from a generated client.
 
@@ -136,12 +136,14 @@ Use the raw token only when launching a server-side git operation. For normal Gi
 GitHub REST uses `https://api.github.com`; GraphQL uses `https://api.github.com/graphql`. The proxy injects the installation token, so **do not set `Authorization` yourself**.
 
 ```typescript
-import { createProxyFetch } from "@major-tech/resource-client/next";
+import { createProxyFetch } from "@major-tech/resource-client";
+import { tryGetContext } from "hono/context-storage";
 
 const githubFetch = createProxyFetch({
   baseUrl: process.env.MAJOR_API_BASE_URL!,
   resourceId: process.env.GITHUB_RESOURCE_ID!,
   majorJwtToken: process.env.MAJOR_JWT_TOKEN!,
+  getUserJwt: () => tryGetContext()?.req.header("x-major-user-jwt"),
 });
 
 const response = await githubFetch("https://api.github.com/repos/example-org/example-repo/issues", {
