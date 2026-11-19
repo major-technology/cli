@@ -24,6 +24,7 @@ const (
 	bundleSkillID    = "44444444-4444-4444-8444-444444444444"
 	bundleWorkflowID = "55555555-5555-4555-8555-555555555555"
 	bundleFileID     = "77777777-7777-4777-8777-777777777777"
+	bundleFunctionID = "88888888-8888-4888-8888-888888888888"
 )
 
 // bundleServer fakes the /cli/<kind>s routes and the presigned S3 URLs for one
@@ -63,6 +64,8 @@ func (s *bundleServer) idFields(version int) map[string]any {
 		return map[string]any{"skillId": s.id, "slug": "brand-kit", "version": version}
 	case "files":
 		return map[string]any{"fileId": s.id, "version": version}
+	case "functions":
+		return map[string]any{"functionId": s.id, "slug": "hello", "version": version}
 	default:
 		return map[string]any{"workflowId": s.id, "label": "Weekly", "version": version}
 	}
@@ -244,6 +247,12 @@ func bundleKinds(t *testing.T) []bundleKind {
 			target: workspace.Target{Kind: "file", FileID: bundleFileID},
 			files:  map[string]string{"preview.html": "<p>p</p>", "full.html": "<p>f</p>", "priority.json": "{}"},
 			pull:   zipBytes(t, map[string]string{"preview.html": "pulled"}),
+		},
+		{
+			name: "function", apiPath: "functions", id: bundleFunctionID,
+			target: workspace.Target{Kind: "function", FunctionID: bundleFunctionID},
+			files:  functionSources,
+			pull:   zipBytes(t, map[string]string{"index.ts": "pulled", "function.json": "{}", ".build/bundle.js": "built"}),
 		},
 	}
 }

@@ -42,6 +42,13 @@ type FileSet struct {
 	Check func(rels []string) error
 	// Single is the one file of a PackText kind.
 	Single string
+	// Ignore reports archive entries a pull drops without writing them, such as
+	// build output the server keeps beside the sources.
+	Ignore func(rel string) bool
+	// NestedConfigs makes the .major/config.json of workspaces nested under the
+	// root bundle content, so a pull brings them back with their ids. The
+	// root's own .major is never bundle content.
+	NestedConfigs bool
 }
 
 // BundleTarget serves one bundle kind (agent, skill, workflow) over its
@@ -55,6 +62,9 @@ type BundleTarget struct {
 	// ValidateByUpload validates a zip by uploading it and sending its key,
 	// instead of sending the files inline.
 	ValidateByUpload bool
+	// Build produces extra zip entries from the workspace (path to content),
+	// packed beside the owned files and never written to disk.
+	Build func(root string) (map[string][]byte, error)
 }
 
 // SkippedDirs are never walked, packed, or replaced, on any kind.
@@ -243,25 +253,59 @@ func (t BundleTarget) pack(root, id string) ([]byte, string, error) {
 		}
 		return data, "text/plain", nil
 	}
-	rels, contents, err := readOwnedFiles(root, files)
+	var built map[string][]byte
+	if t.Build != nil {
+		// The kind's file rules run first, so a missing source is reported as
+		// such and not as a build failure.
+		if _, _, err := readOwnedFiles(root, files); err != nil {
+			return nil, "", err
+		}
+		var err error
+		if built, err = t.Build(root); err != nil {
+			return nil, "", err
+		}
+	}
+	data, err := zipOwned(root, files, built)
 	if err != nil {
 		return nil, "", err
 	}
+	return data, "application/zip", nil
+}
+
+// PackFiles zips the files the set owns under root.
+func PackFiles(root string, files FileSet) ([]byte, error) {
+	return zipOwned(root, files, nil)
+}
+
+// zipOwned zips the owned files with any extra entries, in path order so the
+// same workspace always yields the same bytes.
+func zipOwned(root string, files FileSet, extra map[string][]byte) ([]byte, error) {
+	rels, contents, err := readOwnedFiles(root, files)
+	if err != nil {
+		return nil, err
+	}
+	for rel, content := range extra {
+		if _, exists := contents[rel]; !exists {
+			rels = append(rels, rel)
+		}
+		contents[rel] = content
+	}
+	sort.Strings(rels)
 	var b bytes.Buffer
 	z := zip.NewWriter(&b)
 	for _, rel := range rels {
 		w, err := z.Create(rel)
 		if err != nil {
-			return nil, "", err
+			return nil, err
 		}
 		if _, err = w.Write(contents[rel]); err != nil {
-			return nil, "", err
+			return nil, err
 		}
 	}
 	if err := z.Close(); err != nil {
-		return nil, "", err
+		return nil, err
 	}
-	return b.Bytes(), "application/zip", nil
+	return b.Bytes(), nil
 }
 
 func (t BundleTarget) upload(ctx *TargetContext, id string, data []byte, contentType string) (string, error) {
@@ -310,7 +354,8 @@ func walkOwned(root string, files FileSet) (map[string]fs.FileMode, error) {
 			return nil
 		}
 		if d.IsDir() {
-			if SkippedDirs[d.Name()] {
+			nestedConfig := files.NestedConfigs && d.Name() == workspace.ConfigDirName && filepath.Dir(full) != root
+			if SkippedDirs[d.Name()] && !nestedConfig {
 				return filepath.SkipDir
 			}
 			return nil
@@ -385,6 +430,9 @@ func unpackBundle(root string, data []byte, kind string, files FileSet) error {
 	incoming := map[string][]byte{}
 	for _, entry := range reader.File {
 		if strings.HasSuffix(entry.Name, "/") {
+			continue
+		}
+		if files.Ignore != nil && safeRel(entry.Name) && files.Ignore(entry.Name) {
 			continue
 		}
 		if !safeRel(entry.Name) || !files.Owns(entry.Name) {
@@ -476,6 +524,7 @@ type cloneResult struct {
 	SkillID    string `json:"skillId,omitempty"`
 	WorkflowID string `json:"workflowId,omitempty"`
 	FileID     string `json:"fileId,omitempty"`
+	FunctionID string `json:"functionId,omitempty"`
 	Path       string `json:"path"`
 	Version    int    `json:"version"`
 	name       string
@@ -488,6 +537,11 @@ func (r cloneResult) String() string {
 // Clone writes .major/config.json into a new directory, pulls the latest saved
 // version into it, and prints the clone result.
 func (t BundleTarget) Clone(cmd *cobra.Command, org string, target workspace.Target, dir string) error {
+	return Clone(cmd, t, org, target, dir)
+}
+
+// Clone is BundleTarget.Clone for any kind whose Pull returns a version result.
+func Clone(cmd *cobra.Command, t Target, org string, target workspace.Target, dir string) error {
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
@@ -505,6 +559,7 @@ func (t BundleTarget) Clone(cmd *cobra.Command, org string, target workspace.Tar
 		SkillID:    pull.SkillID,
 		WorkflowID: pull.WorkflowID,
 		FileID:     pull.FileID,
+		FunctionID: pull.FunctionID,
 		Path:       dir,
 		Version:    pull.Version,
 		name:       pull.DisplayName(),
@@ -545,4 +600,26 @@ func capitalize(s string) string {
 		return s
 	}
 	return strings.ToUpper(s[:1]) + s[1:]
+}
+
+// The helpers below let a kind with its own transport (a workflow moves a
+// definition and an archive) reuse the shared file handling.
+
+// ReadFile reads one regular file under root.
+func ReadFile(root, rel string) ([]byte, error) { return readRegularFile(root, rel) }
+
+// WriteFile writes root/rel without following a symlink out of the workspace.
+func WriteFile(root, rel string, content []byte) error { return writeFileUnder(root, rel, content) }
+
+// Unpack replaces the files the set owns under root with the archive.
+func Unpack(root string, data []byte, kind string, files FileSet) error {
+	return unpackBundle(root, data, kind, files)
+}
+
+// RecordVersion persists the version a pull or push landed.
+func RecordVersion(ctx *TargetContext, version int) error { return recordVersion(ctx, version) }
+
+// VersionResult is the result of a pull ("Pulled") or push ("Saved", "Unchanged").
+func VersionResult(version api.TargetVersion, action string) any {
+	return versionResult{TargetVersion: version, action: action}
 }

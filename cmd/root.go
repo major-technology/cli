@@ -17,6 +17,7 @@ import (
 	"github.com/major-technology/cli/cmd/demo"
 	// The file kind has no command group of its own: importing it registers it for `major push|pull|validate|publish`.
 	_ "github.com/major-technology/cli/cmd/file"
+	"github.com/major-technology/cli/cmd/function"
 	"github.com/major-technology/cli/cmd/mcp"
 	"github.com/major-technology/cli/cmd/org"
 	"github.com/major-technology/cli/cmd/project"
@@ -145,6 +146,9 @@ func init() {
 
 	workflow.Cmd.GroupID = "main"
 	rootCmd.AddCommand(workflow.Cmd)
+
+	function.Cmd.GroupID = "main"
+	rootCmd.AddCommand(function.Cmd)
 
 	for _, command := range target.TargetCommands() {
 		command.GroupID = "main"

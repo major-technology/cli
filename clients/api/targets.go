@@ -13,6 +13,7 @@ type TargetVersion struct {
 	SkillID     string  `json:"skillId,omitempty"`
 	WorkflowID  string  `json:"workflowId,omitempty"`
 	FileID      string  `json:"fileId,omitempty"`
+	FunctionID  string  `json:"functionId,omitempty"`
 	Name        string  `json:"name,omitempty"`
 	Slug        *string `json:"slug,omitempty"`
 	Label       string  `json:"label,omitempty"`
@@ -34,6 +35,8 @@ func (v TargetVersion) DisplayName() string {
 		return "skill " + v.SkillID
 	case v.FileID != "":
 		return "file " + v.FileID
+	case v.FunctionID != "":
+		return "function " + v.FunctionID
 	default:
 		return "bundle"
 	}
@@ -64,6 +67,8 @@ type TriggerFailure struct {
 type TargetPublishResponse struct {
 	VersionID       string           `json:"versionId,omitempty"`
 	WorkflowID      string           `json:"workflowId,omitempty"`
+	FunctionID      string           `json:"functionId,omitempty"`
+	Slug            string           `json:"slug,omitempty"`
 	Label           string           `json:"label,omitempty"`
 	Version         int              `json:"version"`
 	TriggerFailures []TriggerFailure `json:"triggerFailures,omitempty"`

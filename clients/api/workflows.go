@@ -32,6 +32,44 @@ func (c *Client) CreateWorkflow(organizationID string) (*WorkflowCreateResponse,
 	return &resp, err
 }
 
+// WorkflowPull is a workflow's latest saved version: its definition, and the
+// archive of every other workspace file when the version has one.
+type WorkflowPull struct {
+	TargetVersion
+	ArchiveDownloadURL *string `json:"functionsDownloadUrl,omitempty"`
+}
+
+// WorkflowUpload is where a push PUTs the definition and the archive of the
+// rest of the workspace. An API that stores no archive leaves ArchiveURL empty.
+type WorkflowUpload struct {
+	UploadURL  string `json:"uploadUrl"`
+	UploadKey  string `json:"uploadKey"`
+	ArchiveURL string `json:"functionsUploadUrl"`
+	ArchiveKey string `json:"functionsUploadKey"`
+}
+
+func (c *Client) PullWorkflow(id string) (*WorkflowPull, error) {
+	var resp WorkflowPull
+	err := c.doRequest("POST", targetPath("workflows", id, "pull"), map[string]any{}, &resp)
+	return &resp, err
+}
+func (c *Client) WorkflowUploadURL(id string) (*WorkflowUpload, error) {
+	var resp WorkflowUpload
+	err := c.doRequest("POST", targetPath("workflows", id, "push-upload-url"), map[string]any{}, &resp)
+	return &resp, err
+}
+
+// PushWorkflow saves an uploaded definition, with the archive when one was uploaded.
+func (c *Client) PushWorkflow(id, definitionKey, archiveKey string) (*TargetVersion, error) {
+	body := map[string]string{"uploadKey": definitionKey}
+	if archiveKey != "" {
+		body["functionsUploadKey"] = archiveKey
+	}
+	var resp TargetVersion
+	err := c.doRequest("POST", targetPath("workflows", id, "push"), body, &resp)
+	return &resp, err
+}
+
 type WorkflowRun struct {
 	ID                string  `json:"id"`
 	WorkflowID        string  `json:"workflowId"`
