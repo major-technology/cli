@@ -15,7 +15,7 @@ Install via the shadcn registry:
 npx shadcn@latest add https://cdn.major.build/shadcn/data-table.json
 ```
 
-This copies the data table source code into `components/data-table/` in the project. All imports use the project's path alias (typically `@/components/data-table`).
+Run it from `frontend/`. This copies the data table source code into `frontend/src/components/data-table/` (`components/data-table/` in an older Next.js app). All imports use the project's path alias (`@/components/data-table`).
 
 ## Is a Table the Right UI?
 
@@ -778,15 +778,14 @@ Data is accessed through resource clients (`@major-tech/resource-client`), NOT d
 
 For PostgreSQL resources, the resource client executes raw SQL and returns typed results. The patterns below show the SQL to generate — pass them through the resource client's query method.
 
-### Next.js Route Handler Pattern
+### Hono Route Pattern
 
-All generated apps are Next.js. Server endpoints go in `app/api/.../route.ts`:
+Server endpoints are Hono routes in `backend/src/routes/`, defined with `createRoute` and registered in `backend/src/app.ts`. `resourceClient` below stands for the generated client imported from `../clients`.
 
 ```typescript
-import { NextResponse, type NextRequest } from "next/server";
-import { z } from "zod";
+import { createRoute, z, type OpenAPIHono } from "@hono/zod-openapi";
 
-// Zod schema for validating query params
+// Paging and sorting params. Column filters arrive as extra query params, read from the raw URL below.
 const querySchema = z.object({
 	page: z.coerce.number().int().min(0).default(0),
 	pageSize: z.coerce.number().int().min(1).max(200).default(50),
@@ -795,56 +794,90 @@ const querySchema = z.object({
 	search: z.string().optional(),
 });
 
+const userSchema = z.object({ id: z.string(), name: z.string(), email: z.string(), created_at: z.string(), score: z.number() });
+const errorSchema = z.object({ success: z.literal(false), error: z.object({ code: z.string(), message: z.string() }) });
+
+type User = z.infer<typeof userSchema>;
+
 // Whitelist of sortable columns — ALWAYS validate against this
 const SORTABLE_COLUMNS = ["name", "email", "created_at", "score"] as const;
 
-export async function GET(request: NextRequest) {
-	const params = request.nextUrl.searchParams;
+const listUsersRoute = createRoute({
+	method: "get",
+	path: "/users",
+	request: { query: querySchema },
+	responses: {
+		200: {
+			description: "One page of users",
+			content: {
+				"application/json": {
+					schema: z.object({
+						success: z.literal(true),
+						items: z.array(userSchema),
+						page: z.number(),
+						totalPages: z.number(),
+						totalCount: z.number(),
+					}),
+				},
+			},
+		},
+		500: { description: "The query failed", content: { "application/json": { schema: errorSchema } } },
+	},
+});
 
-	try {
-		const query = querySchema.parse(Object.fromEntries(params));
+export function registerUserRoutes(app: OpenAPIHono) {
+	app.openapi(listUsersRoute, async (c) => {
+		const query = c.req.valid("query");
+		const params = new URL(c.req.url).searchParams;
 
-		// 1. Build WHERE clause from filters
-		const { whereClause, values } = buildWhereClause(params);
+		try {
+			// 1. Build WHERE clause from filters
+			const { whereClause, values } = buildWhereClause(params);
 
-		// 2. Validate sort column against whitelist
-		const sortColumn = SORTABLE_COLUMNS.includes(query.sortBy as any) ? query.sortBy : "created_at";
-		const sortDir = query.sortDesc === "true" ? "DESC" : "ASC";
+			// 2. Validate sort column against whitelist
+			const sortColumn = SORTABLE_COLUMNS.includes(query.sortBy as any) ? query.sortBy : "created_at";
+			const sortDir = query.sortDesc === "true" ? "DESC" : "ASC";
 
-		// 3. Run count + data queries (can be parallel for better latency)
-		const offset = query.page * query.pageSize;
+			// 3. Run count + data queries (can be parallel for better latency)
+			const offset = query.page * query.pageSize;
 
-		const [countResult, dataResult] = await Promise.all([
-			resourceClient.invoke(`SELECT COUNT(*) as count FROM users ${whereClause}`, values, "count-users"),
-			resourceClient.invoke(
-				`SELECT * FROM users ${whereClause} ORDER BY ${sortColumn} ${sortDir} LIMIT $${values.length + 1} OFFSET $${values.length + 2}`,
-				[...values, query.pageSize, offset],
-				"list-users",
-			),
-		]);
+			const [countResult, dataResult] = await Promise.all([
+				resourceClient.invoke<{ count: string }>(`SELECT COUNT(*) as count FROM users ${whereClause}`, values, "count-users"),
+				resourceClient.invoke<User>(
+					`SELECT * FROM users ${whereClause} ORDER BY ${sortColumn} ${sortDir} LIMIT $${values.length + 1} OFFSET $${values.length + 2}`,
+					[...values, query.pageSize, offset],
+					"list-users",
+				),
+			]);
 
-		if (!countResult.ok || !dataResult.ok) {
-			throw new Error("Database query failed");
+			if (!countResult.ok || !dataResult.ok) {
+				throw new Error("Database query failed");
+			}
+
+			const totalCount = Number(countResult.result.rows[0].count);
+
+			return c.json(
+				{
+					success: true as const,
+					items: dataResult.result.rows,
+					page: query.page,
+					totalPages: Math.ceil(totalCount / query.pageSize),
+					totalCount,
+				},
+				200,
+			);
+		} catch (error) {
+			console.error("Failed to fetch data:", error);
+			return c.json(
+				{ success: false as const, error: { code: "QUERY_FAILED", message: "Failed to fetch data" } },
+				500,
+			);
 		}
-
-		const totalCount = Number(countResult.result.rows[0].count);
-
-		return NextResponse.json({
-			success: true,
-			items: dataResult.result.rows,
-			page: query.page,
-			totalPages: Math.ceil(totalCount / query.pageSize),
-			totalCount,
-		});
-	} catch (error) {
-		console.error("Failed to fetch data:", error);
-		return NextResponse.json(
-			{ success: false, error: { code: "QUERY_FAILED", message: "Failed to fetch data" } },
-			{ status: 500 },
-		);
-	}
+	});
 }
 ```
+
+In an older Next.js app, the same handler is `export async function GET(request: NextRequest)` in `app/api/users/route.ts`, reading `request.nextUrl.searchParams` and answering with `NextResponse.json`.
 
 ### Building Postgres WHERE Clauses
 
@@ -1151,17 +1184,24 @@ SELECT reltuples::bigint AS estimate FROM pg_class WHERE relname = 'users';
 -- This is a catalog estimate, updated by ANALYZE. Only use when precision isn't critical.
 ```
 
-Best practice: run the COUNT and data query in parallel using `Promise.all` (shown in the route handler pattern above). This halves the perceived latency.
+Best practice: run the COUNT and data query in parallel using `Promise.all` (shown in the route pattern above). This halves the perceived latency.
 
-### Export Route Handler
+### Export Route
 
-Streaming CSV export endpoint. Applies the same filters/sort as the table but without pagination.
+Streaming CSV export endpoint. Applies the same filters/sort as the table but without pagination. Register it next to the list route; it answers CSV, so its response schema is a string.
 
 ```typescript
-import { NextResponse, type NextRequest } from "next/server";
+const exportUsersRoute = createRoute({
+	method: "get",
+	path: "/users/export",
+	responses: {
+		200: { description: "Every matching user as CSV", content: { "text/csv": { schema: z.string() } } },
+		500: { description: "The export failed", content: { "application/json": { schema: errorSchema } } },
+	},
+});
 
-export async function GET(request: NextRequest) {
-	const params = request.nextUrl.searchParams;
+app.openapi(exportUsersRoute, async (c) => {
+	const params = new URL(c.req.url).searchParams;
 
 	try {
 		const { whereClause, values } = buildWhereClause(params);
@@ -1186,20 +1226,15 @@ export async function GET(request: NextRequest) {
 		];
 		const csv = csvRows.join("\n");
 
-		return new NextResponse(csv, {
-			headers: {
-				"Content-Type": "text/csv",
-				"Content-Disposition": 'attachment; filename="users-export.csv"',
-			},
+		return c.body(csv, 200, {
+			"Content-Type": "text/csv",
+			"Content-Disposition": 'attachment; filename="users-export.csv"',
 		});
 	} catch (error) {
 		console.error("Export failed:", error);
-		return NextResponse.json(
-			{ success: false, error: { code: "EXPORT_FAILED", message: "Export failed" } },
-			{ status: 500 },
-		);
+		return c.json({ success: false as const, error: { code: "EXPORT_FAILED", message: "Export failed" } }, 500);
 	}
-}
+});
 ```
 
 Frontend usage with `<DataTableExport>`:

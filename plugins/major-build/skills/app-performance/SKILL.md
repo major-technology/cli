@@ -13,7 +13,7 @@ Work in the app's mounted sandbox (load `app-builder` to mount it). Below, `sand
 
 These facts decide which fixes work:
 
-- **One small pod per app.** Every deployed app runs as exactly one Node process. A new app gets 0.1 CPU and 128 MiB of memory. Autoscaling doubles a limit after CPU stays above 85% of it for five minutes, or after an out-of-memory kill, so short bursts never trigger it.
+- **One small pod per app backend.** The frontend is static files served by a shared server, so the app's own pod only runs the backend (`/api`; the whole app in an older Next.js app) as one Node process. A new app gets 0.1 CPU and 128 MiB of memory. Autoscaling doubles a limit after CPU stays above 85% of it for five minutes, or after an out-of-memory kill, so short bursts never trigger it.
 - **Every browser request is authenticated first**, including each static asset, and nothing is served from a CDN. Fewer and smaller requests matter more here than on a typical host.
 - **Every resource call is a network round trip** from the app out to Major, which authorizes it, runs it against the data source, and records it. That fixed cost is paid per call on top of the query itself, so 200 fast queries are slower than one query returning 200 rows.
 - **Major opens at most 8 connections per database.** More than 8 concurrent queries to one database wait in line.
@@ -28,7 +28,7 @@ Ask which page or action is slow if the user has not said. Then collect all thre
 
 **Compute.** `mcp__plugin_major_major__get_app_scaling` with the `applicationId` returns the current CPU and memory limits, whether autoscaling and scale-to-zero are on, recent scaling events (`cpu_high`, `oom`), and usage against the limits.
 
-**The slow route itself.** Time it in the preview: `curl -s -o /dev/null -w '%{time_total}\n' http://localhost:3000/<path>`. Run it three times and ignore the first, which includes compilation. The preview runs in development mode on a much larger machine, so compare runs with each other, never with production. To see where a route spends its time, wrap its steps in `console.time` / `console.timeEnd`, read them with `major app logs --preview`, and remove them before committing.
+**The slow route itself.** Time the backend route the slow screen calls in the preview: `curl -s -o /dev/null -w '%{time_total}\n' http://localhost:3002/api/<path>` (the dev backend listens on 3002; in an older Next.js app, `http://localhost:3000/<path>`). Run it three times and ignore the first, which can be cold. The preview runs in development mode on a much larger machine, so compare runs with each other, never with production. To see where a route spends its time, wrap its steps in `console.time` / `console.timeEnd`, read them with `major app logs --preview`, and remove them before committing.
 
 ## 2. Diagnose
 
@@ -63,9 +63,9 @@ Match what you measured to one of these. Rank by `totalMs`: an operation the use
 
 **Rendering.**
 
-- Fetch in Server Components and wrap slow sections in `<Suspense>`, so the page shell shows at once and slow data streams in.
-- Do not start a fetch from a `useEffect` that waits on another fetch. Load the data on the server in one pass.
-- Load heavy client-only libraries (charts, editors, maps) with `next/dynamic`.
+- Render the page shell at once and show a loading state per section, so one slow call does not blank the screen.
+- Do not chain fetches, where one `useEffect` waits on another. Give each screen one `/api` route that loads its data in one pass on the backend.
+- Load heavy libraries (charts, editors, maps) with `React.lazy` and a dynamic `import()`, so they stay out of the first bundle.
 - Send the browser only what it renders. A table holds one page of rows, not the whole result.
 
 **Long work.** Anything that takes more than a few seconds for good reason (exports, syncs, AI calls) should not block a page load. Move it into a workflow (load `workflow-builder`) and show its status.
@@ -87,12 +87,12 @@ Then choose the cache by lifetime. [references/caching.md](references/caching.md
 
 | Acceptable staleness | Cache |
 | --- | --- |
-| None, but the same call repeats within one request | React `cache()` |
+| None, but the same call repeats within one request | Load once per request |
 | Seconds to an hour | In-process cache with a time limit |
 | An hour or more, or the source takes many seconds | Snapshot table refreshed on a schedule |
 | The user's own browser, a few seconds to minutes | `Cache-Control: private` on a GET route |
 
-Next.js's own data caches (`unstable_cache`, `"use cache"`, a page-level `revalidate`) do not work around resource calls: the generated clients read the request headers on every call, which Next.js forbids inside a cached function and which makes every such page dynamic. Use the caches above instead.
+In an older Next.js app, Next.js's own data caches (`unstable_cache`, `"use cache"`, a page-level `revalidate`) do not work around resource calls; see the reference.
 
 Whenever cached data can be more than a minute old, show its age on the screen.
 
@@ -100,7 +100,7 @@ Whenever cached data can be more than a minute old, show its age on the screen.
 
 More CPU or memory helps only when the pod itself is the limit. It does nothing for a slow query: that time is spent waiting on the data source.
 
-Resize when `get_app_scaling` shows CPU regularly near its limit, `cpu_high` or `oom` events, or when the work is truly CPU-bound (rendering large pages, generating files, parsing big payloads) and step 3 has already moved what it could into SQL.
+Resize when `get_app_scaling` shows CPU regularly near its limit, `cpu_high` or `oom` events, or when the work is truly CPU-bound (generating files, parsing big payloads, server-rendering large pages in a Next.js app) and step 3 has already moved what it could into SQL.
 
 `mcp__plugin_major_major__set_app_scaling` takes the `applicationId` and any of `cpuLimit`, `memoryLimit`, `autoscalingEnabled`, `scaleToZero`.
 

@@ -40,38 +40,58 @@ If webhooks are not enabled, instruct the user to enable them from the **Major d
 
 ## Implementing Webhook Endpoints
 
-Create your webhook routes under the `/api/webhook/` path. Only routes matching this pattern will bypass authentication when webhook access is enabled.
+Create your webhook routes under the `/api/webhook/` path. Only routes matching this pattern will bypass authentication when webhook access is enabled. The backend's app already has `.basePath("/api")`, so a route at `/webhook/stripe` serves `/api/webhook/stripe`.
 
 ```typescript
-// app/api/webhook/stripe/route.ts
-import { NextRequest, NextResponse } from "next/server";
+// backend/src/routes/webhooks.ts
+import { createRoute, z, type OpenAPIHono } from "@hono/zod-openapi";
 import Stripe from "stripe";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
-export async function POST(request: NextRequest) {
-	const body = await request.text();
-	const signature = request.headers.get("stripe-signature")!;
+// No request body schema: the signature check needs the raw body, so nothing may parse it first.
+const stripeWebhookRoute = createRoute({
+	method: "post",
+	path: "/webhook/stripe",
+	responses: {
+		200: {
+			description: "The event was verified and handled",
+			content: { "application/json": { schema: z.object({ received: z.boolean() }) } },
+		},
+		400: {
+			description: "The signature did not verify",
+			content: { "application/json": { schema: z.object({ error: z.string() }) } },
+		},
+	},
+});
 
-	// CRITICAL: Verify the webhook signature at the application layer
-	let event: Stripe.Event;
-	try {
-		event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
-	} catch (err) {
-		return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
-	}
+export function registerWebhookRoutes(app: OpenAPIHono) {
+	app.openapi(stripeWebhookRoute, async (c) => {
+		const body = await c.req.text();
+		const signature = c.req.header("stripe-signature") ?? "";
 
-	// Handle the verified event
-	switch (event.type) {
-		case "checkout.session.completed":
-			// Process the event
-			break;
-	}
+		// CRITICAL: Verify the webhook signature at the application layer
+		let event: Stripe.Event;
+		try {
+			event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
+		} catch {
+			return c.json({ error: "Invalid signature" }, 400);
+		}
 
-	return NextResponse.json({ received: true });
+		// Handle the verified event
+		switch (event.type) {
+			case "checkout.session.completed":
+				// Process the event
+				break;
+		}
+
+		return c.json({ received: true }, 200);
+	});
 }
 ```
+
+Register it in `backend/src/app.ts` (`registerWebhookRoutes(app);`) and install `stripe` in the backend (`pnpm --filter ./backend add stripe`). In an older Next.js app, the same handler goes in `app/api/webhook/stripe/route.ts` as `export async function POST(request: Request)`, reading the body with `await request.text()`.
 
 ---
 

@@ -7,12 +7,12 @@
 **Three ways to interact with Stripe:**
 
 1. **MCP tools** (direct, no code needed): Tools follow the pattern `mcp__resources__<resourcetype>_<toolname>`. Use `mcp__resources__list_resources` to discover available resources and their IDs.
-2. **Generated TypeScript clients** (for app code): Call `mcp__plugin_major_major__sandbox_add-resource-client` with the app's `slug` and a `resourceId` to generate a typed client. Clients are created in `/clients/` (Next.js) or `/src/clients/` (Vite).
-3. **Official Stripe SDK via the HTTP proxy** (Next.js apps): Pass `createProxyFetch` into `Stripe.createFetchHttpClient(...)`. See the **Stripe SDK via the HTTP proxy** section below — preferred when you want full Stripe SDK ergonomics (typed methods, autocomplete, automatic pagination).
+2. **Generated TypeScript clients** (for app code): Call `mcp__plugin_major_major__sandbox_add-resource-client` with the app's `slug` and a `resourceId` to generate a typed client. Clients are created in `backend/src/clients/` (`/clients/` in an older Next.js app).
+3. **Official Stripe SDK via the HTTP proxy** (app backend code): Pass `createProxyFetch` into `Stripe.createFetchHttpClient(...)`. See the **Stripe SDK via the HTTP proxy** section below — preferred when you want full Stripe SDK ergonomics (typed methods, autocomplete, automatic pagination).
 
-**CRITICAL: Do NOT guess client method names or signatures.** The TypeScript clients in `@major-tech/resource-client` have strongly typed inputs and outputs. ALWAYS read the actual client source code in the generated `/clients/` directory (or the package itself) to verify available methods and their exact signatures before writing any client code.
+**CRITICAL: Do NOT guess client method names or signatures.** The TypeScript clients in `@major-tech/resource-client` have strongly typed inputs and outputs. ALWAYS read the actual client source code in the generated clients directory (`backend/src/clients/`) or the package itself to verify available methods and their exact signatures before writing any client code.
 
-**Framework note**: Next.js = resource clients must be used in server-side code only (Server Components, Server Actions, API Routes). Vite = call directly from frontend.
+**Framework note**: use resource clients in backend code only (`backend/src/`), never in the frontend; the frontend calls your own `/api` route. In an older Next.js app: server-side code only (Server Components, Server Actions, Route Handlers).
 
 **Error handling**: Always check `response.ok` before accessing `response.json`.
 
@@ -213,24 +213,26 @@ The `body` option supports multiple types:
 
 ## Stripe SDK via the HTTP proxy
 
-For Next.js apps you can also use the official `stripe` npm package and route every call through the Major HTTP proxy. The proxy injects the secret key, so you never touch credentials in app code. See [using-http-proxy](http-proxy.md) for the proxy reference.
+In app backend code you can also use the official `stripe` npm package and route every call through the Major HTTP proxy. The proxy injects the secret key, so you never touch credentials in app code. See [using-http-proxy](http-proxy.md) for the proxy reference.
 
 **Setup:**
 
 ```bash
-pnpm add stripe @major-tech/resource-client
+pnpm --filter ./backend add stripe @major-tech/resource-client
 ```
 
-**Usage (Server Components, Route Handlers, Server Actions):**
+**Usage (backend code):**
 
 ```typescript
 import Stripe from "stripe";
-import { createProxyFetch } from "@major-tech/resource-client/next";
+import { createProxyFetch } from "@major-tech/resource-client";
+import { tryGetContext } from "hono/context-storage";
 
 const proxyFetch = createProxyFetch({
   baseUrl: process.env.MAJOR_API_BASE_URL!,
   resourceId: process.env.STRIPE_RESOURCE_ID!,
   majorJwtToken: process.env.MAJOR_JWT_TOKEN!,
+  getUserJwt: () => tryGetContext()?.req.header("x-major-user-jwt"),
 });
 
 const stripe = new Stripe("sk_unused_proxy_injects_real_key", {
@@ -251,7 +253,7 @@ const intent = await stripe.paymentIntents.create({
 - `MAJOR_API_BASE_URL` and `MAJOR_JWT_TOKEN` are platform-managed env vars — assume they're set, don't ask the user to provide them. `STRIPE_RESOURCE_ID` is the UUID of the connected Stripe resource.
 - The placeholder `"sk_unused_..."` constructor key is never sent — the proxy strips `Authorization` and injects the real secret key.
 - Do NOT set the `Authorization` header anywhere. The proxy will strip it.
-- This only works server-side (Server Components, Route Handlers, Server Actions). The `/next` subpath uses `next/headers`, which is not available in client components.
+- This only works in backend code; the app JWT must never reach the browser.
 - Use a static `STRIPE_RESOURCE_ID` string literal.
 - API version pinning still works — pass `apiVersion: "2026-03-25.preview"` in the Stripe constructor or `Stripe-Version` per-request via the SDK's standard mechanisms.
 

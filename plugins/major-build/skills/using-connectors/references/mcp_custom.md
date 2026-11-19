@@ -9,11 +9,11 @@ A custom MCP connector points at an external remote MCP server you bring. Its to
 **Two ways to interact with a custom MCP connector:**
 
 1. **In-session MCP tools** (direct, no code needed): the connector is mounted as its own MCP server, so its tools are callable during the build as `mcp__<slug>__<toolName>`. Use `mcp__resources__list_resources` to find the connector and its `resourceId`. Call these tools to discover what the upstream server exposes and to test behavior.
-2. **Generic MCP client** (for app code): import `createMcpClient` from `@major-tech/resource-client/next` and call `.callTool()`. There is **no per-resource generation step** — it's one client reused for any MCP connector; you just pass the `resourceId`.
+2. **Generic MCP client** (for app code): import `createMcpClient` from `@major-tech/resource-client` (`@major-tech/resource-client/next` in an older Next.js app) and call `.callTool()`. There is **no per-resource generation step** — it's one client reused for any MCP connector; you just pass the `resourceId`.
 
 **CRITICAL: Do NOT guess tool names or argument shapes.** They are defined by the upstream MCP server, not by Major or by the client — `callTool(name, args)` is a single generic method with no per-tool typed methods. Discover the real tool names and arg shapes from the in-session `mcp__<slug>__*` tools before wiring them into app code.
 
-**Server-side only**: the app JWT must never reach the browser, so call `createMcpClient` from Next server code (Server Components, Server Actions, Route Handlers).
+**Backend only**: the app JWT must never reach the browser, so call `createMcpClient` from backend code. Pass `getUserJwt` as shown so per-user connectors act as the signed-in user; the `/next` entry of an older Next.js app supplies it itself.
 
 **App context required**: `callTool()` needs the app's `baseUrl` / `applicationId` / JWT, which are injected into the deployed app's environment. In a coding session, reach the connector through the `mcp__<slug>__*` tools instead.
 
@@ -28,7 +28,8 @@ There is no static tool list. The connector's upstream tools are mounted as `mcp
 ## TypeScript Client
 
 ```typescript
-import { createMcpClient } from "@major-tech/resource-client/next";
+import { createMcpClient } from "@major-tech/resource-client";
+import { tryGetContext } from "hono/context-storage";
 
 // Config comes from the deployed app's injected env; resourceId is the connector.
 const mcp = createMcpClient({
@@ -36,6 +37,7 @@ const mcp = createMcpClient({
 	applicationId: process.env.APPLICATION_ID!,
 	resourceId: "<connector resourceId>",
 	majorJwtToken: process.env.MAJOR_JWT_TOKEN!,
+	getUserJwt: () => tryGetContext()?.req.header("x-major-user-jwt"),
 });
 
 // callTool<T>(tool, args?) — `tool` is the upstream MCP tool name; `args` is
