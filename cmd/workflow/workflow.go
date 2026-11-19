@@ -1,8 +1,6 @@
 package workflow
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
@@ -11,7 +9,6 @@ import (
 
 	"github.com/charmbracelet/huh"
 	"github.com/major-technology/cli/clients/api"
-	"github.com/major-technology/cli/clients/transfer"
 	"github.com/major-technology/cli/clients/workspace"
 	"github.com/major-technology/cli/cmd/target"
 	"github.com/major-technology/cli/singletons"
@@ -21,17 +18,17 @@ import (
 
 var Cmd = &cobra.Command{Use: "workflow", Short: "Manage file-based workflows"}
 
-// workflowTarget is the workflow kind: a <workflowId>.jsonc definition, the
-// same name the workflow pod uses, moved as text, and every other workspace
-// file moved beside it as one archive. Validate and publish are the shared
-// text-bundle ones.
+// workflowTarget is the workflow kind: the whole workspace moved as one zip,
+// the <workflowId>.jsonc definition (the same name the workflow pod uses)
+// beside every other file.
 type workflowTarget struct{ target.BundleTarget }
 
 var bundle = workflowTarget{target.BundleTarget{
-	Kind:    "workflow",
-	APIPath: "workflows",
-	Files:   definitionFiles,
-	Pack:    target.PackText,
+	Kind: "workflow",
+	// The v2 routes move the workspace zip; /workflows moves the definition alone.
+	APIPath:          "v2/workflows",
+	Files:            workflowFiles,
+	ValidateByUpload: true,
 }}
 
 // NestedDirs makes each folder under functions/ a workspace of its own:
@@ -42,29 +39,15 @@ func (workflowTarget) NestedDirs() map[string]string {
 
 func definitionName(id string) string { return id + ".jsonc" }
 
-func definitionFiles(id string) target.FileSet {
-	name := definitionName(id)
-	return target.FileSet{
-		Owns: func(rel string) bool { return rel == name },
-		Check: func(rels []string) error {
-			if len(rels) != 1 || rels[0] != name {
-				return fmt.Errorf("workflow workspace requires %s", name)
-			}
-			return nil
-		},
-		Single: name,
-	}
-}
-
 var skippedNames = map[string]bool{".DS_Store": true, "Thumbs.db": true}
 
-// archiveFiles is everything in the workspace but the definition: the nested
+// workflowFiles is the definition and everything beside it: the nested
 // workspaces' sources and their .major/config.json, without build output.
-func archiveFiles(id string) target.FileSet {
+func workflowFiles(id string) target.FileSet {
 	name := definitionName(id)
 	return target.FileSet{
 		Owns: func(rel string) bool {
-			if rel == name || skippedNames[path.Base(rel)] {
+			if skippedNames[path.Base(rel)] {
 				return false
 			}
 			segments := strings.Split(path.Dir(rel), "/")
@@ -82,85 +65,16 @@ func archiveFiles(id string) target.FileSet {
 			}
 			return true
 		},
-		Check:         func([]string) error { return nil },
+		Check: func(rels []string) error {
+			for _, rel := range rels {
+				if rel == name {
+					return nil
+				}
+			}
+			return fmt.Errorf("workflow workspace requires %s", name)
+		},
 		NestedConfigs: true,
 	}
-}
-
-// Pull writes the definition and replaces the rest of the workspace with the
-// version's archive. A version saved without an archive leaves other files alone.
-func (t workflowTarget) Pull(ctx *target.TargetContext) (any, error) {
-	id := ctx.Config.Target.ID()
-	resp, err := ctx.API.PullWorkflow(id)
-	if err != nil {
-		return nil, err
-	}
-	definition, err := transfer.Download(resp.DownloadURL)
-	if err != nil {
-		return nil, err
-	}
-	if resp.ArchiveDownloadURL != nil {
-		archive, err := transfer.Download(*resp.ArchiveDownloadURL)
-		if err != nil {
-			return nil, err
-		}
-		if err := target.Unpack(ctx.Root, archive, t.Kind, archiveFiles(id)); err != nil {
-			return nil, err
-		}
-	}
-	if err := target.WriteFile(ctx.Root, definitionName(id), definition); err != nil {
-		return nil, err
-	}
-	ctx.Config.Target.PushedHash = ""
-	if err := target.RecordVersion(ctx, resp.Version); err != nil {
-		return nil, err
-	}
-	resp.DownloadURL = ""
-	return target.VersionResult(resp.TargetVersion, "Pulled"), nil
-}
-
-// Push saves the definition and the archive as one new version. Nested
-// workspaces have already been pushed by the time it runs.
-func (t workflowTarget) Push(ctx *target.TargetContext) (any, error) {
-	id := ctx.Config.Target.ID()
-	definition, err := target.ReadFile(ctx.Root, definitionName(id))
-	if err != nil {
-		return nil, err
-	}
-	archive, err := target.PackFiles(ctx.Root, archiveFiles(id))
-	if err != nil {
-		return nil, err
-	}
-	hasher := sha256.New()
-	hasher.Write(definition)
-	hasher.Write([]byte{0})
-	hasher.Write(archive)
-	hash := hex.EncodeToString(hasher.Sum(nil))
-	if ctx.Config.Target.Version > 0 && ctx.Config.Target.PushedHash == hash {
-		return target.VersionResult(api.TargetVersion{Version: ctx.Config.Target.Version}, "Unchanged"), nil
-	}
-	upload, err := ctx.API.WorkflowUploadURL(id)
-	if err != nil {
-		return nil, err
-	}
-	if err := transfer.Upload(upload.UploadURL, "text/plain", definition); err != nil {
-		return nil, err
-	}
-	// An API that stores no archive offers no URL for one.
-	if upload.ArchiveURL != "" {
-		if err := transfer.Upload(upload.ArchiveURL, "application/zip", archive); err != nil {
-			return nil, err
-		}
-	}
-	pushed, err := ctx.API.PushWorkflow(id, upload.UploadKey, upload.ArchiveKey)
-	if err != nil {
-		return nil, err
-	}
-	ctx.Config.Target.PushedHash = hash
-	if err := target.RecordVersion(ctx, pushed.Version); err != nil {
-		return nil, err
-	}
-	return target.VersionResult(*pushed, "Saved"), nil
 }
 
 func init() {

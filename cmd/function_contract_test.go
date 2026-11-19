@@ -109,7 +109,7 @@ func TestFunctionPullKeepsSourcesAndDropsTheBuiltBundle(t *testing.T) {
 	}
 }
 
-// workflowServer fakes a workflow and its functions: the /workflows and
+// workflowServer fakes a workflow and its functions: the /v2/workflows and
 // /functions routes and their presigned URLs, recording requests in order.
 type workflowServer struct {
 	t       *testing.T
@@ -155,11 +155,7 @@ func (s *workflowServer) serve(w http.ResponseWriter, r *http.Request) {
 		s.mu.Unlock()
 		return
 	}
-	switch r.URL.Path {
-	case "/s3/get/definition":
-		_, _ = w.Write([]byte(`{"label":"Pulled"}`))
-		return
-	case "/s3/get/archive":
+	if r.URL.Path == "/s3/get/archive" {
 		_, _ = w.Write(s.archive)
 		return
 	}
@@ -175,22 +171,16 @@ func (s *workflowServer) serve(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, `{"error":{"internal_code":3003,"error_string":"denied","status_code":403,"message":"denied"}}`)
 		return
 	}
-	workflow := "workflows/" + bundleWorkflowID + "/"
+	workflow := "v2/workflows/" + bundleWorkflowID + "/"
 	function := "functions/" + bundleFunctionID + "/"
 	var out map[string]any
 	switch call {
 	case "functions":
 		out = map[string]any{"functionId": bundleFunctionID, "slug": body["slug"], "version": nil}
 	case workflow + "pull":
-		out = map[string]any{"workflowId": bundleWorkflowID, "label": "Weekly", "version": 4, "downloadUrl": s.url + "/s3/get/definition"}
-		if s.archive != nil {
-			out["functionsDownloadUrl"] = s.url + "/s3/get/archive"
-		}
+		out = map[string]any{"workflowId": bundleWorkflowID, "label": "Weekly", "version": 4, "downloadUrl": s.url + "/s3/get/archive"}
 	case workflow + "push-upload-url":
-		out = map[string]any{
-			"uploadUrl": s.url + "/s3/put/definition", "uploadKey": "definition-key",
-			"functionsUploadUrl": s.url + "/s3/put/archive", "functionsUploadKey": "archive-key",
-		}
+		out = map[string]any{"uploadUrl": s.url + "/s3/put/archive", "uploadKey": "archive-key"}
 	case workflow + "push", workflow + "publish":
 		out = map[string]any{"workflowId": bundleWorkflowID, "label": "Weekly", "version": 5}
 	case workflow + "validate", function + "validate":
@@ -228,7 +218,7 @@ func workflowWithFunction(t *testing.T) string {
 func TestWorkflowActionsRunOnEveryFunctionBeforeTheWorkflow(t *testing.T) {
 	server := newWorkflowServer(t)
 	workflowWithFunction(t)
-	workflow := "workflows/" + bundleWorkflowID + "/"
+	workflow := "v2/workflows/" + bundleWorkflowID + "/"
 	function := "functions/" + bundleFunctionID + "/"
 
 	for _, action := range []string{"validate", "push", "publish"} {
@@ -264,13 +254,10 @@ func TestWorkflowActionsRunOnEveryFunctionBeforeTheWorkflow(t *testing.T) {
 			t.Fatalf("%s: nested item: %v", action, item)
 		}
 	}
-	if server.bodies[workflow+"push"]["functionsUploadKey"] != "archive-key" {
-		t.Fatalf("workflow push body: %v", server.bodies[workflow+"push"])
+	if server.bodies[workflow+"push"]["uploadKey"] != "archive-key" || server.bodies[workflow+"validate"]["uploadKey"] != "archive-key" {
+		t.Fatalf("workflow push and validate bodies: %v %v", server.bodies[workflow+"push"], server.bodies[workflow+"validate"])
 	}
-	if string(server.uploads["definition"]) != `{"label":"Weekly"}` {
-		t.Fatalf("definition upload: %q", server.uploads["definition"])
-	}
-	want := []string{"functions/hello/.major/config.json", "functions/hello/function.json", "functions/hello/index.ts", "functions/hello/lib.ts"}
+	want := []string{bundleWorkflowID + ".jsonc", "functions/hello/.major/config.json", "functions/hello/function.json", "functions/hello/index.ts", "functions/hello/lib.ts"}
 	if got := zipNames(t, server.uploads["archive"]); !reflect.DeepEqual(got, want) {
 		t.Fatalf("workflow archive entries: %v, want %v", got, want)
 	}
@@ -284,7 +271,7 @@ func TestWorkflowPushStopsWhenAFunctionFails(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "functions/hello") || stdout != "" {
 		t.Fatalf("push: err=%v stdout=%q", err, stdout)
 	}
-	if calls := server.called("workflows/"); len(calls) != 0 {
+	if calls := server.called("v2/workflows/"); len(calls) != 0 {
 		t.Fatalf("the workflow was touched after a function failed: %v", calls)
 	}
 }
@@ -308,6 +295,7 @@ func TestWorkflowPullRestoresFunctionWorkspacesFromTheArchive(t *testing.T) {
 	server := newWorkflowServer(t)
 	nested, _ := json.Marshal(workspace.Config{OrganizationID: bundleOrgID, Target: workspace.Target{Kind: "function", FunctionID: bundleFunctionID}})
 	server.archive = zipBytes(t, map[string]string{
+		bundleWorkflowID + ".jsonc":          `{"label":"Pulled"}`,
 		"functions/hello/index.ts":           "pulled",
 		"functions/hello/function.json":      "{}",
 		"functions/hello/.major/config.json": string(nested),

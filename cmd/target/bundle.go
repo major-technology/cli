@@ -22,16 +22,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// PackFormat is how a bundle kind moves its files to and from the server.
-type PackFormat int
-
-const (
-	// PackZip moves every owned file in one zip archive.
-	PackZip PackFormat = iota
-	// PackText moves one owned file as raw text.
-	PackText
-)
-
 // FileSet decides which workspace files belong to a kind's bundle.
 type FileSet struct {
 	// Owns reports whether a slash-separated path under the root is bundle
@@ -40,8 +30,6 @@ type FileSet struct {
 	// Check is the bundle-level rule, run on the local files before an upload
 	// and on an archive before it replaces anything.
 	Check func(rels []string) error
-	// Single is the one file of a PackText kind.
-	Single string
 	// Ignore reports archive entries a pull drops without writing them, such as
 	// build output the server keeps beside the sources.
 	Ignore func(rel string) bool
@@ -58,7 +46,6 @@ type BundleTarget struct {
 	APIPath string
 	// Files returns the kind's file set for one target id.
 	Files func(id string) FileSet
-	Pack  PackFormat
 	// ValidateByUpload validates a zip by uploading it and sending its key,
 	// instead of sending the files inline.
 	ValidateByUpload bool
@@ -118,16 +105,7 @@ func (t BundleTarget) Pull(ctx *TargetContext) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	files := t.Files(id)
-	if t.Pack == PackText {
-		name, err := singleFile(files)
-		if err != nil {
-			return nil, err
-		}
-		if err := writeFileUnder(ctx.Root, name, data); err != nil {
-			return nil, err
-		}
-	} else if err := unpackBundle(ctx.Root, data, t.Kind, files); err != nil {
+	if err := unpackBundle(ctx.Root, data, t.Kind, t.Files(id)); err != nil {
 		return nil, err
 	}
 	resp.DownloadURL = ""
@@ -155,11 +133,7 @@ func (t BundleTarget) Push(ctx *TargetContext) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	notes := ctx.Notes
-	if t.Pack == PackText {
-		notes = ""
-	}
-	pushed, err := ctx.API.PushTarget(t.APIPath, id, key, notes)
+	pushed, err := ctx.API.PushTarget(t.APIPath, id, key, ctx.Notes)
 	if err != nil {
 		return nil, err
 	}
@@ -183,12 +157,6 @@ func (t BundleTarget) Validate(ctx *TargetContext) (any, error) {
 	id := ctx.Config.Target.ID()
 	var body map[string]any
 	switch {
-	case t.Pack == PackText:
-		data, _, err := t.pack(ctx.Root, id)
-		if err != nil {
-			return nil, err
-		}
-		body = map[string]any{"definitionText": string(data)}
 	case t.ValidateByUpload:
 		data, contentType, err := t.pack(ctx.Root, id)
 		if err != nil {
@@ -242,17 +210,6 @@ func (t BundleTarget) Publish(ctx *TargetContext) (any, error) {
 // pack reads the local bundle and returns the upload bytes and their content type.
 func (t BundleTarget) pack(root, id string) ([]byte, string, error) {
 	files := t.Files(id)
-	if t.Pack == PackText {
-		name, err := singleFile(files)
-		if err != nil {
-			return nil, "", err
-		}
-		data, err := readRegularFile(root, name)
-		if err != nil {
-			return nil, "", err
-		}
-		return data, "text/plain", nil
-	}
 	var built map[string][]byte
 	if t.Build != nil {
 		// The kind's file rules run first, so a missing source is reported as
@@ -270,11 +227,6 @@ func (t BundleTarget) pack(root, id string) ([]byte, string, error) {
 		return nil, "", err
 	}
 	return data, "application/zip", nil
-}
-
-// PackFiles zips the files the set owns under root.
-func PackFiles(root string, files FileSet) ([]byte, error) {
-	return zipOwned(root, files, nil)
 }
 
 // zipOwned zips the owned files with any extra entries, in path order so the
@@ -317,29 +269,6 @@ func (t BundleTarget) upload(ctx *TargetContext, id string, data []byte, content
 		return "", err
 	}
 	return upload.UploadKey, nil
-}
-
-// singleFile is the one file of a PackText kind.
-func singleFile(files FileSet) (string, error) {
-	if files.Single == "" {
-		return "", fmt.Errorf("text bundle kind has no single file")
-	}
-	return files.Single, nil
-}
-
-func readRegularFile(root, rel string) ([]byte, error) {
-	full := filepath.Join(root, filepath.FromSlash(rel))
-	info, err := os.Lstat(full)
-	if os.IsNotExist(err) {
-		return nil, fmt.Errorf("%s not found; run major pull first", rel)
-	}
-	if err != nil {
-		return nil, err
-	}
-	if !info.Mode().IsRegular() {
-		return nil, fmt.Errorf("%s must be a regular file", rel)
-	}
-	return os.ReadFile(full)
 }
 
 // walkOwned lists the owned paths under root, including non-regular ones, so
@@ -600,26 +529,4 @@ func capitalize(s string) string {
 		return s
 	}
 	return strings.ToUpper(s[:1]) + s[1:]
-}
-
-// The helpers below let a kind with its own transport (a workflow moves a
-// definition and an archive) reuse the shared file handling.
-
-// ReadFile reads one regular file under root.
-func ReadFile(root, rel string) ([]byte, error) { return readRegularFile(root, rel) }
-
-// WriteFile writes root/rel without following a symlink out of the workspace.
-func WriteFile(root, rel string, content []byte) error { return writeFileUnder(root, rel, content) }
-
-// Unpack replaces the files the set owns under root with the archive.
-func Unpack(root string, data []byte, kind string, files FileSet) error {
-	return unpackBundle(root, data, kind, files)
-}
-
-// RecordVersion persists the version a pull or push landed.
-func RecordVersion(ctx *TargetContext, version int) error { return recordVersion(ctx, version) }
-
-// VersionResult is the result of a pull ("Pulled") or push ("Saved", "Unchanged").
-func VersionResult(version api.TargetVersion, action string) any {
-	return versionResult{TargetVersion: version, action: action}
 }

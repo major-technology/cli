@@ -43,7 +43,6 @@ var bundle = functionTarget{target.BundleTarget{
 	Kind:             "function",
 	APIPath:          "functions",
 	Files:            func(string) target.FileSet { return functionFiles },
-	Pack:             target.PackZip,
 	ValidateByUpload: true,
 	Build:            buildBundle,
 }}

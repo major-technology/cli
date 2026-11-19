@@ -38,7 +38,6 @@ var Bundle = target.BundleTarget{
 			},
 		}
 	},
-	Pack:             target.PackZip,
 	ValidateByUpload: true,
 }
 

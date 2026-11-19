@@ -93,8 +93,7 @@ func (c *Client) TargetUploadURL(apiPath, id string) (*TargetUploadResponse, err
 	return &resp, err
 }
 
-// PushTarget saves an uploaded bundle. Notes are sent only when non-empty, so a
-// kind that stores none (workflows) never receives them.
+// PushTarget saves an uploaded bundle. Notes are sent only when non-empty.
 func (c *Client) PushTarget(apiPath, id, key, notes string) (*TargetVersion, error) {
 	body := map[string]string{"uploadKey": key}
 	if notes != "" {
@@ -106,7 +105,7 @@ func (c *Client) PushTarget(apiPath, id, key, notes string) (*TargetVersion, err
 }
 
 // ValidateTarget sends the kind's own validate body: {files} for agents,
-// {uploadKey} for skills, {definitionText} for workflows.
+// {uploadKey} for the kinds that validate by upload.
 func (c *Client) ValidateTarget(apiPath, id string, body map[string]any) (*TargetValidateResponse, error) {
 	var resp TargetValidateResponse
 	err := c.doRequest("POST", targetPath(apiPath, id, "validate"), body, &resp)
