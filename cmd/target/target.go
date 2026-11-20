@@ -52,7 +52,7 @@ func Register(kind string, t Target) {
 	registry[kind] = t
 }
 
-var errNoWorkspace = errors.New("no .major/config.json found; run major agent clone, major skill clone, major workflow clone, or major app clone (or major agent create, major skill create, major workflow create, or major app create)")
+var errNoWorkspace = errors.New("no .major/config.json found; run major agent clone, major skill clone, major workflow clone, major function clone, or major app clone (or major agent create, major skill create, major workflow create, major function create, or major app create)")
 
 func runTargetAction(cmd *cobra.Command, action string) error {
 	cwd, err := os.Getwd()
@@ -74,23 +74,26 @@ func runTargetAction(cmd *cobra.Command, action string) error {
 	if flag := cmd.Flags().Lookup("message"); flag != nil {
 		ctx.Notes, _ = cmd.Flags().GetString("message")
 	}
-	var result any
-	switch action {
-	case "pull":
-		result, err = target.Pull(ctx)
-	case "push":
-		result, err = target.Push(ctx)
-	case "validate":
-		result, err = target.Validate(ctx)
-	case "publish":
-		result, err = target.Publish(ctx)
-	default:
-		return fmt.Errorf("unknown target action %q", action)
-	}
+	result, err := runWithNested(ctx, target, action)
 	if err != nil {
 		return jsonFailure(cmd, err)
 	}
 	return Output(cmd, result)
+}
+
+func runAction(ctx *TargetContext, target Target, action string) (any, error) {
+	switch action {
+	case "pull":
+		return target.Pull(ctx)
+	case "push":
+		return target.Push(ctx)
+	case "validate":
+		return target.Validate(ctx)
+	case "publish":
+		return target.Publish(ctx)
+	default:
+		return nil, fmt.Errorf("unknown target action %q", action)
+	}
 }
 
 // failureResult is what --json prints when an action fails: the message, the

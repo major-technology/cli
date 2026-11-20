@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path"
 	"strings"
 
 	"github.com/charmbracelet/huh"
@@ -17,26 +18,62 @@ import (
 
 var Cmd = &cobra.Command{Use: "workflow", Short: "Manage file-based workflows"}
 
-// bundle is the workflow kind: one <workflowId>.jsonc definition, the same
-// name the workflow pod uses.
-var bundle = target.BundleTarget{
-	Kind:    "workflow",
-	APIPath: "workflows",
-	Files:   workflowFiles,
-	Pack:    target.PackText,
+// workflowTarget is the workflow kind: the whole workspace moved as one zip,
+// the <workflowId>.jsonc definition (the same name the workflow pod uses)
+// beside every other file.
+type workflowTarget struct{ target.BundleTarget }
+
+var bundle = workflowTarget{target.BundleTarget{
+	Kind: "workflow",
+	// The v2 routes move the workspace zip; /workflows moves the definition alone.
+	APIPath:          "v2/workflows",
+	Files:            workflowFiles,
+	ValidateByUpload: true,
+}}
+
+// NestedDirs makes each folder under functions/ a workspace of its own:
+// major push, validate, and publish run on all of them before the workflow.
+func (workflowTarget) NestedDirs() map[string]string {
+	return map[string]string{"functions": "function"}
 }
 
+func definitionName(id string) string { return id + ".jsonc" }
+
+var skippedNames = map[string]bool{".DS_Store": true, "Thumbs.db": true}
+
+// workflowFiles is the definition and everything beside it: the nested
+// workspaces' sources and their .major/config.json, without build output.
 func workflowFiles(id string) target.FileSet {
-	name := id + ".jsonc"
+	name := definitionName(id)
 	return target.FileSet{
-		Owns: func(rel string) bool { return rel == name },
-		Check: func(rels []string) error {
-			if len(rels) != 1 || rels[0] != name {
-				return fmt.Errorf("workflow workspace requires %s", name)
+		Owns: func(rel string) bool {
+			if skippedNames[path.Base(rel)] {
+				return false
 			}
-			return nil
+			segments := strings.Split(path.Dir(rel), "/")
+			for i, segment := range segments {
+				if segment == ".build" {
+					return false
+				}
+				if segment == workspace.ConfigDirName {
+					// Only a nested workspace's config file, never the root's.
+					return i > 0 && i == len(segments)-1 && path.Base(rel) == "config.json"
+				}
+				if target.SkippedDirs[segment] {
+					return false
+				}
+			}
+			return true
 		},
-		Single: name,
+		Check: func(rels []string) error {
+			for _, rel := range rels {
+				if rel == name {
+					return nil
+				}
+			}
+			return fmt.Errorf("workflow workspace requires %s", name)
+		},
+		NestedConfigs: true,
 	}
 }
 

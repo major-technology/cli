@@ -21,7 +21,6 @@ var bundle = target.BundleTarget{
 	Kind:             "skill",
 	APIPath:          "skills",
 	Files:            func(string) target.FileSet { return skillFiles },
-	Pack:             target.PackZip,
 	ValidateByUpload: true,
 }
 

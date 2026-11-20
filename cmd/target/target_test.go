@@ -117,7 +117,7 @@ func TestPackRejectsSymlinkedBundleFiles(t *testing.T) {
 	if err := os.Symlink("/etc/hosts", filepath.Join(root, "agent.jsonc")); err != nil {
 		t.Fatal(err)
 	}
-	target := BundleTarget{Kind: "agent", Files: func(string) FileSet { return testFiles }, Pack: PackZip}
+	target := BundleTarget{Kind: "agent", Files: func(string) FileSet { return testFiles }}
 	if _, _, err := target.pack(root, "id"); err == nil || !strings.Contains(err.Error(), "regular file") {
 		t.Fatalf("symlink accepted: %v", err)
 	}

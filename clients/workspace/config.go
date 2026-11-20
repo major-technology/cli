@@ -12,7 +12,9 @@ import (
 )
 
 const (
-	configDirName  = ".major"
+	// ConfigDirName is the directory that marks a workspace root.
+	ConfigDirName  = ".major"
+	configDirName  = ConfigDirName
 	configFileName = "config.json"
 	excludeRule    = "/.major/config.json"
 )
@@ -27,6 +29,7 @@ var kindIDField = map[string]string{
 	"agent":    "agentId",
 	"workflow": "workflowId",
 	"file":     "fileId",
+	"function": "functionId",
 }
 
 // ErrNotFound is returned when no .major/config.json exists before a Git or
@@ -40,6 +43,7 @@ type Target struct {
 	AgentID       string `json:"agentId,omitempty"`
 	WorkflowID    string `json:"workflowId,omitempty"`
 	FileID        string `json:"fileId,omitempty"`
+	FunctionID    string `json:"functionId,omitempty"`
 	// Version is the bundle version last pulled or pushed into this workspace.
 	Version int `json:"version,omitempty"`
 	// PushedHash is the hash of the bundle last pushed from this workspace. A push of
@@ -59,6 +63,7 @@ func (t Target) Validate() error {
 		"agent":    t.AgentID,
 		"workflow": t.WorkflowID,
 		"file":     t.FileID,
+		"function": t.FunctionID,
 	}
 
 	var present []string
@@ -68,7 +73,7 @@ func (t Target) Validate() error {
 		}
 	}
 	if len(present) != 1 {
-		return fmt.Errorf("target must have exactly one of applicationId, skillId, agentId, workflowId, or fileId")
+		return fmt.Errorf("target must have exactly one of applicationId, skillId, agentId, workflowId, fileId, or functionId")
 	}
 	if _, ok := kindIDField[t.Kind]; !ok {
 		return fmt.Errorf("unknown target kind %q", t.Kind)
@@ -94,6 +99,8 @@ func (t Target) ID() string {
 		return t.WorkflowID
 	case "file":
 		return t.FileID
+	case "function":
+		return t.FunctionID
 	default:
 		return ""
 	}
@@ -274,7 +281,7 @@ func encodeConfig(existing []byte, cfg Config) ([]byte, error) {
 }
 
 func invalidConfigError(path string, err error) error {
-	return fmt.Errorf("invalid workspace config %s: %w; repair .major/config.json with organizationId and exactly one app, skill, agent, workflow, or file target", path, err)
+	return fmt.Errorf("invalid workspace config %s: %w; repair .major/config.json with organizationId and exactly one app, skill, agent, workflow, file, or function target", path, err)
 }
 
 func isNotGitRepository(out []byte, err error) bool {

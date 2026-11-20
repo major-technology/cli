@@ -13,6 +13,7 @@ type TargetVersion struct {
 	SkillID     string  `json:"skillId,omitempty"`
 	WorkflowID  string  `json:"workflowId,omitempty"`
 	FileID      string  `json:"fileId,omitempty"`
+	FunctionID  string  `json:"functionId,omitempty"`
 	Name        string  `json:"name,omitempty"`
 	Slug        *string `json:"slug,omitempty"`
 	Label       string  `json:"label,omitempty"`
@@ -34,6 +35,8 @@ func (v TargetVersion) DisplayName() string {
 		return "skill " + v.SkillID
 	case v.FileID != "":
 		return "file " + v.FileID
+	case v.FunctionID != "":
+		return "function " + v.FunctionID
 	default:
 		return "bundle"
 	}
@@ -64,6 +67,8 @@ type TriggerFailure struct {
 type TargetPublishResponse struct {
 	VersionID       string           `json:"versionId,omitempty"`
 	WorkflowID      string           `json:"workflowId,omitempty"`
+	FunctionID      string           `json:"functionId,omitempty"`
+	Slug            string           `json:"slug,omitempty"`
 	Label           string           `json:"label,omitempty"`
 	Version         int              `json:"version"`
 	TriggerFailures []TriggerFailure `json:"triggerFailures,omitempty"`
@@ -88,8 +93,7 @@ func (c *Client) TargetUploadURL(apiPath, id string) (*TargetUploadResponse, err
 	return &resp, err
 }
 
-// PushTarget saves an uploaded bundle. Notes are sent only when non-empty, so a
-// kind that stores none (workflows) never receives them.
+// PushTarget saves an uploaded bundle. Notes are sent only when non-empty.
 func (c *Client) PushTarget(apiPath, id, key, notes string) (*TargetVersion, error) {
 	body := map[string]string{"uploadKey": key}
 	if notes != "" {
@@ -101,7 +105,7 @@ func (c *Client) PushTarget(apiPath, id, key, notes string) (*TargetVersion, err
 }
 
 // ValidateTarget sends the kind's own validate body: {files} for agents,
-// {uploadKey} for skills, {definitionText} for workflows.
+// {uploadKey} for the kinds that validate by upload.
 func (c *Client) ValidateTarget(apiPath, id string, body map[string]any) (*TargetValidateResponse, error) {
 	var resp TargetValidateResponse
 	err := c.doRequest("POST", targetPath(apiPath, id, "validate"), body, &resp)

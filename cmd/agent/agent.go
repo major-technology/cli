@@ -22,7 +22,6 @@ var bundle = target.BundleTarget{
 	Kind:    "agent",
 	APIPath: "agents",
 	Files:   func(string) target.FileSet { return agentFiles },
-	Pack:    target.PackZip,
 }
 
 var agentFiles = target.FileSet{

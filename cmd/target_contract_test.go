@@ -24,6 +24,7 @@ const (
 	bundleSkillID    = "44444444-4444-4444-8444-444444444444"
 	bundleWorkflowID = "55555555-5555-4555-8555-555555555555"
 	bundleFileID     = "77777777-7777-4777-8777-777777777777"
+	bundleFunctionID = "88888888-8888-4888-8888-888888888888"
 )
 
 // bundleServer fakes the /cli/<kind>s routes and the presigned S3 URLs for one
@@ -63,6 +64,8 @@ func (s *bundleServer) idFields(version int) map[string]any {
 		return map[string]any{"skillId": s.id, "slug": "brand-kit", "version": version}
 	case "files":
 		return map[string]any{"fileId": s.id, "version": version}
+	case "functions":
+		return map[string]any{"functionId": s.id, "slug": "hello", "version": version}
 	default:
 		return map[string]any{"workflowId": s.id, "label": "Weekly", "version": version}
 	}
@@ -118,7 +121,7 @@ func (s *bundleServer) serve(w http.ResponseWriter, r *http.Request) {
 			out = map[string]any{"valid": true, "errors": []any{}, "warnings": []any{}}
 		}
 	case "publish":
-		if s.apiPath == "workflows" {
+		if s.apiPath == "v2/workflows" {
 			out = map[string]any{"workflowId": s.id, "label": "Weekly", "version": 3, "triggerFailures": []any{
 				map[string]any{"triggerId": "t1", "connectorType": "linear", "events": []any{"issue.created"}, "error": "provider down"},
 			}}
@@ -234,16 +237,22 @@ func bundleKinds(t *testing.T) []bundleKind {
 			pull:   zipBytes(t, map[string]string{"SKILL.md": "pulled"}),
 		},
 		{
-			name: "workflow", apiPath: "workflows", id: bundleWorkflowID,
+			name: "workflow", apiPath: "v2/workflows", id: bundleWorkflowID,
 			target: workspace.Target{Kind: "workflow", WorkflowID: bundleWorkflowID},
 			files:  map[string]string{bundleWorkflowID + ".jsonc": `{"label":"Weekly"}`},
-			pull:   []byte(`{"label":"Pulled"}`),
+			pull:   zipBytes(t, map[string]string{bundleWorkflowID + ".jsonc": `{"label":"Pulled"}`}),
 		},
 		{
 			name: "file", apiPath: "files", id: bundleFileID,
 			target: workspace.Target{Kind: "file", FileID: bundleFileID},
 			files:  map[string]string{"preview.html": "<p>p</p>", "full.html": "<p>f</p>", "priority.json": "{}"},
 			pull:   zipBytes(t, map[string]string{"preview.html": "pulled"}),
+		},
+		{
+			name: "function", apiPath: "functions", id: bundleFunctionID,
+			target: workspace.Target{Kind: "function", FunctionID: bundleFunctionID},
+			files:  functionSources,
+			pull:   zipBytes(t, map[string]string{"index.ts": "pulled", "function.json": "{}", ".build/bundle.js": "built"}),
 		},
 	}
 }
@@ -373,29 +382,8 @@ func TestSkillValidateRejectsSymlinkBeforeUploading(t *testing.T) {
 	}
 }
 
-func TestWorkflowPushSendsRawTextWithoutNotes(t *testing.T) {
-	server := newBundleServer(t, "workflows", bundleWorkflowID, nil)
-	definition := `{"label":"Weekly"}`
-	bundleWorkspace(t, workspace.Target{Kind: "workflow", WorkflowID: bundleWorkflowID}, map[string]string{bundleWorkflowID + ".jsonc": definition})
-	if _, _, err := runTopLevel(t, "push", map[string]string{"message": "ignored"}); err != nil {
-		t.Fatal(err)
-	}
-	if len(server.uploads) != 1 || string(server.uploads[0]) != definition || server.uploadTypes[0] != "text/plain" {
-		t.Fatalf("uploads: %q types=%v", server.uploads, server.uploadTypes)
-	}
-	if _, sent := server.pushBody["notes"]; sent || server.pushBody["uploadKey"] != "upload-key" {
-		t.Fatalf("push body: %v", server.pushBody)
-	}
-	if _, _, err := runTopLevel(t, "validate", map[string]string{}); err != nil {
-		t.Fatal(err)
-	}
-	if server.validate["definitionText"] != definition {
-		t.Fatalf("validate body: %v", server.validate)
-	}
-}
-
 func TestWorkflowValidateFailureNamesThePath(t *testing.T) {
-	server := newBundleServer(t, "workflows", bundleWorkflowID, nil)
+	server := newBundleServer(t, "v2/workflows", bundleWorkflowID, nil)
 	server.invalid = true
 	bundleWorkspace(t, workspace.Target{Kind: "workflow", WorkflowID: bundleWorkflowID}, map[string]string{bundleWorkflowID + ".jsonc": "{}"})
 	stdout, _, err := runTopLevel(t, "validate", map[string]string{})
@@ -406,7 +394,7 @@ func TestWorkflowValidateFailureNamesThePath(t *testing.T) {
 
 // B5: workflow publish returns triggerFailures, and the CLI prints them.
 func TestWorkflowPublishPrintsTriggerFailures(t *testing.T) {
-	newBundleServer(t, "workflows", bundleWorkflowID, nil)
+	newBundleServer(t, "v2/workflows", bundleWorkflowID, nil)
 	bundleWorkspace(t, workspace.Target{Kind: "workflow", WorkflowID: bundleWorkflowID}, map[string]string{bundleWorkflowID + ".jsonc": "{}"})
 	stdout, _, err := runTopLevel(t, "publish", map[string]string{"yes": "true"})
 	if err != nil {

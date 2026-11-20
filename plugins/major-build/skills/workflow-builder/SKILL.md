@@ -1,11 +1,11 @@
 ---
 name: workflow-builder
-description: Create and manage Major workflows — JSONC graphs of agent calls, app calls, routers, loops, joins, waits, and human approvals fired by schedules, connector events, or authenticated webhooks — the definition format, node/edge/trigger reference, state expressions, and the sandbox-based edit/validate/save/publish lifecycle.
+description: Create and manage Major workflows — JSONC graphs of functions, agent calls, app calls, routers, loops, joins, waits, and human approvals fired by schedules, connector events, or authenticated webhooks — the definition format, node/edge/trigger reference, state expressions, and the sandbox-based edit/validate/save/publish lifecycle.
 ---
 
 # Building a Major workflow
 
-A _workflow_ is a graph of steps executed by Major's workflow engine: agents run with prompts, deployed apps get called over HTTP, routers branch on state, loops fan over collections, humans approve over Slack, and schedules, connector events, or authenticated webhooks start the graph. You author the definition as a JSONC file (JSON with comments) on the workflow's sandbox and edit it through the sandbox tools (the "Working with sandboxes" section of your system prompt covers addressing, provisioning, and sharing).
+A _workflow_ is a graph of steps executed by Major's workflow engine: the workflow's own TypeScript functions run compute, agents run with prompts, deployed apps get called over HTTP, routers branch on state, loops fan over collections, humans approve over Slack, and schedules, connector events, or authenticated webhooks start the graph. You author the definition as a JSONC file (JSON with comments) on the workflow's sandbox and edit it through the sandbox tools (the "Working with sandboxes" section of your system prompt covers addressing, provisioning, and sharing).
 
 Finding, creating, opening, and running workflows is on `mcp__plugin_major_major__*` (`list` and `create` with `target_type: "workflow"`, `start_sandbox`, `run_workflow`). File editing goes through the sandbox tools `mcp__plugin_major_major__sandbox_*` (`sandbox_read_file`, `sandbox_edit_file`, `sandbox_write_file`, `sandbox_bash`), each called with `target_type: "workflow"` and `target_id: "<workflowId>"` as the target. Sync and publishing are the `major` CLI, run through `sandbox_bash` in `/workspace/workflow`: `major pull`, `major push -m "<notes>"`, `major validate`, `major publish --yes`.
 
@@ -15,10 +15,10 @@ Inspect runs and connector events with the CLI, through `sandbox_bash` in `/work
 
 Each workflow's working copy lives on its own sandbox at `<workflowId>.jsonc` (workspace-relative). Two separate steps take it off the sandbox:
 
-- **Save** (`major push`) writes the file as a new immutable version. Nothing about the workflow's behaviour changes — saving is free. **The sandbox is torn down once it goes idle and comes back seeded from the last saved version, so anything unsaved is lost.**
-- **Publish** (`major publish --yes`) points the workflow at its latest saved version. This is the only thing that changes live trigger behavior: schedules begin firing, connector endpoints are reconciled, and webhook URLs are materialized.
+- **Save** (`major push`) saves every function under `functions/`, then writes the file and the rest of the workspace as a new immutable version. Nothing about the workflow's behaviour changes — saving is free. **The sandbox is torn down once it goes idle and comes back seeded from the last saved version, so anything unsaved is lost.**
+- **Publish** (`major publish --yes`) publishes every function under `functions/`, then points the workflow at its latest saved version. This is the only thing that changes live trigger behavior: schedules begin firing, connector endpoints are reconciled, and webhook URLs are materialized.
 
-So triggers sitting in a saved-but-unpublished draft are inert, and `run_workflow` runs the last **saved** version — you never have to publish to test.
+So triggers sitting in a saved-but-unpublished draft are inert, and `run_workflow` runs the last **saved** version, with each function's latest saved version — you never have to publish to test.
 
 Always use a `workflowId` returned by `list` or `create` (`target_type: "workflow"`) — never invent one. If this chat is pinned to a workflow, the "Working with this workflow" section of your system prompt carries the bound-chat rules (its id, recovery, discard) — those win.
 
@@ -48,6 +48,40 @@ Runtime semantics the schema can't express:
 - **join** (`mode: "all"`): releases once every inbound edge has arrived. Keep fan-out legs simple lines into the join — the validator rejects shapes it can't prove safe.
 - **human_approval**: point its single out-edge at a `router` that branches on `<node_id>.choice`, otherwise the decision can't affect the flow.
 - Prefer underscores over hyphens in ids — a hyphenated node id can't be referenced from `$expr`.
+
+## Choosing a step: function, agent, or app
+
+When a step needs compute — transforming or aggregating data, calling a resource or an external API, scoring, formatting, any deterministic logic — write a **function**. It is the default for code in a workflow.
+
+- **`function`**: TypeScript the workflow owns and versions with it. Use it for any computation the workflow needs, including reading or writing connected resources. Don't build or extend an app just to give a workflow somewhere to run code.
+- **`app_call`**: only when the compute belongs to an app — the user names an existing app endpoint to call, the logic already lives in a deployed app, or the step changes state an app owns (its data, its jobs) and the app should stay the one place that does it. If no such app exists, write a function instead.
+- **`agent_call`**: only for judgment a model has to make — reading unstructured text, deciding, drafting. Don't use an agent for work code can do deterministically.
+- **`router`/`$expr`**: simple branching or a one-line computed value doesn't need a function.
+
+### Writing a function
+
+A function is its own versioned thing inside the workflow: a self-contained folder `functions/<slug>/` next to the definition file. Create it with the CLI, never by hand — a bare folder has no function id and fails the workflow's `major push`:
+
+```bash
+major function create functions/<slug>   # <slug> matches ^[a-z][a-z0-9-]{0,62}$
+```
+
+The folder holds everything the function needs:
+
+- `index.ts` — `export default async function (input) { ... }`; JSON in, JSON out.
+- `function.json` — required. `{ "label", "description", "input_schema", "output_schema" }`, each field optional. A schema that's present is enforced on every call (bad input or output fails the node), so supply both.
+- `package.json` — the function's own npm dependencies; run `npm install` in the function folder before testing. `node_modules` isn't saved: a push bundles the function with its dependencies inlined.
+- `clients/` and `resources.json` — generated resource clients (below). Nothing is shared between functions or with the workflow root.
+
+```jsonc
+{ "id": "score_leads", "type": "function", "label": "Score leads", "config": { "function": "score-leads", "input": { "leads": { "$state": "fetch_leads.rows" } }, "max_retries": 2 } }
+```
+
+- `config.input` resolves like any node's input and is the function's argument. A thrown error or timeout is retried with backoff up to `max_retries` (0–10). Calls time out after 30s, so keep functions short; split long work across a `for_each`.
+- To use a resource, generate a typed client into the function with `sandbox_add-resource-client({resourceId, resourceName, resourceType, resourceDescription, functionSlug: "<slug>", target_type: "workflow", target_id: "<workflowId>"})` and use the import line it returns verbatim — never hand-write client or auth code. The function calls resources as the run's user (the publisher on a triggered run). It also has open outbound network access.
+- `major validate`, `major push`, and `major publish --yes` in the workflow root run on every function first, in parallel, then on the workflow; a function that doesn't build fails the command and names the file and line. Run the same commands inside `functions/<slug>/` to act on that one function alone.
+- **Published runs use each function's published version, not the one the workflow was saved with.** Publishing a function changes the live workflow at once, without republishing the workflow, and rolling the workflow back to an older version does not roll its functions back. Publish a function on its own only on the user's explicit go-ahead.
+- Renaming a folder does not rename the function: create a new one under the new name and move the code.
 
 ## Trigger input
 
@@ -83,6 +117,7 @@ Each node's output is stored under its node id; any later node's `config.input` 
 
 Node outputs by type:
 
+- `function` outputs its return value when that is an object; anything else, including `null` when it returns nothing, wraps as `{"body": ...}`.
 - `app_call` sends its resolved `config.input` as query params for GET/DELETE and as a JSON body for POST/PUT/PATCH; its output is the response body (non-object bodies wrap as `{"body": ...}`).
 - `agent_call` with an `output_schema` outputs exactly that shape; without one it outputs `{"result": "<final message text>"}`.
 - `pepper_call` outputs `{"messageId": "..."}`; nothing Pepper says comes back into the run.
@@ -104,7 +139,7 @@ Pepper is an organization member's always-on personal agent, which they chat wit
 
 ## Workflow
 
-1. Ask what the workflow should do, which agents/apps it touches (`list` with `target_type: "agent"` / `"app"` and `include_read_only: true` to discover ids), and the cadence. When an `app_call` needs endpoints or request/response shapes, load the `using-apps` skill.
+1. Ask what the workflow should do, which agents/apps it touches (`list` with `target_type: "agent"` / `"app"` and `include_read_only: true` to discover ids), and the cadence. Plan compute as functions unless it belongs to an app (see "Choosing a step"). When an `app_call` needs endpoints or request/response shapes, load the `using-apps` skill.
 2. `create({target_type: "workflow"})` (or `start_sandbox` for an existing one) — the builder panel opens so the user can see the graph.
 3. Draft the JSONC. Iterate with the sandbox file tools, `major validate` as you go, and `major push` at the end of every turn you edited in.
 4. Test with `run_workflow` (it runs what you last saved), then inspect with `major workflow run get <runId>`.
