@@ -148,12 +148,16 @@ Pepper is an organization member's always-on personal agent, which they chat wit
 
 To pause a live workflow, remove or comment out its trigger, save, and publish.
 
-## Approvals (Slack-only)
+## Approvals
 
-Two distinct approval surfaces, both needing a connected Slack resource. Check first: `mcp__plugin_major_major__execute_resource_tool` with `toolName: "mcp__resources__list_resources"` — if no Slack resource exists, Slack isn't connected; say so (it's provisioned by installing the Major Slack integration under Settings → Integrations) instead of asking them to pick a channel. To find a channel id, execute the Slack resource's `mcp__resources__slack_list_channels` the same way.
+A **`human_approval` node** is a first-class step: the run waits until a person picks one of `options` (or `on_timeout` fires). Use it whenever the user wants a person to sign off mid-flow. Pick `config.channel` by where the approver works:
 
-- A **`human_approval` node** is a first-class step: it posts `config.message` to `config.channel` (`{"type": "slack", "channel_id": ...}`) with `options` as buttons and the run waits for the click (or `on_timeout`). Use it whenever the user wants a person to sign off mid-flow.
-- An `agent_call`'s `approval_channel` (`{"type": "slack", "channel_id": ..., "channel_name": ...}`) routes that agent session's tool-approval requests to Slack; omitted/null keeps approvals in the app. Don't pitch Slack routing unprompted.
+- **Slack** (`{"type": "slack", "channel_id": ...}`): posts `config.message` with `options` as buttons.
+- **An app** (`{"type": "app", "app_id": ..., "path": ...}`): POSTs `{runId, executionId, workflowId, message, payload, options}` to that endpoint of the app, `config.payload` resolved like `app_call`'s input, with `app_call`'s `max_retries`/`retry_on`. The app shows the request and answers with `approvals.respond({ runId, executionId, choice })` from `@major-tech/workflows-client`. Use it when the approver works in an app the user names; no reminders.
+
+An `agent_call`'s `approval_channel` (`{"type": "slack", "channel_id": ..., "channel_name": ...}`) routes that agent session's tool-approval requests to Slack; omitted/null keeps approvals in the app. Don't pitch Slack routing unprompted.
+
+Both Slack surfaces need a connected Slack resource. Check first: `mcp__plugin_major_major__execute_resource_tool` with `toolName: "mcp__resources__list_resources"` — if no Slack resource exists, Slack isn't connected; say so (it's provisioned by installing the Major Slack integration under Settings → Integrations) instead of asking them to pick a channel. To find a channel id, execute the Slack resource's `mcp__resources__slack_list_channels` the same way.
 
 ## Style
 
