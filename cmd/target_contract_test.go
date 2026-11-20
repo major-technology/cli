@@ -239,8 +239,8 @@ func bundleKinds(t *testing.T) []bundleKind {
 		{
 			name: "workflow", apiPath: "v2/workflows", id: bundleWorkflowID,
 			target: workspace.Target{Kind: "workflow", WorkflowID: bundleWorkflowID},
-			files:  map[string]string{bundleWorkflowID + ".jsonc": `{"label":"Weekly"}`},
-			pull:   zipBytes(t, map[string]string{bundleWorkflowID + ".jsonc": `{"label":"Pulled"}`}),
+			files:  map[string]string{"workflow.jsonc": `{"label":"Weekly"}`},
+			pull:   zipBytes(t, map[string]string{"workflow.jsonc": `{"label":"Pulled"}`}),
 		},
 		{
 			name: "file", apiPath: "files", id: bundleFileID,
@@ -385,7 +385,7 @@ func TestSkillValidateRejectsSymlinkBeforeUploading(t *testing.T) {
 func TestWorkflowValidateFailureNamesThePath(t *testing.T) {
 	server := newBundleServer(t, "v2/workflows", bundleWorkflowID, nil)
 	server.invalid = true
-	bundleWorkspace(t, workspace.Target{Kind: "workflow", WorkflowID: bundleWorkflowID}, map[string]string{bundleWorkflowID + ".jsonc": "{}"})
+	bundleWorkspace(t, workspace.Target{Kind: "workflow", WorkflowID: bundleWorkflowID}, map[string]string{"workflow.jsonc": "{}"})
 	stdout, _, err := runTopLevel(t, "validate", map[string]string{})
 	if err == nil || !strings.Contains(err.Error(), "edges: cycle") || stdout != "" {
 		t.Fatalf("invalid workflow: err=%v stdout=%q", err, stdout)
@@ -395,7 +395,7 @@ func TestWorkflowValidateFailureNamesThePath(t *testing.T) {
 // B5: workflow publish returns triggerFailures, and the CLI prints them.
 func TestWorkflowPublishPrintsTriggerFailures(t *testing.T) {
 	newBundleServer(t, "v2/workflows", bundleWorkflowID, nil)
-	bundleWorkspace(t, workspace.Target{Kind: "workflow", WorkflowID: bundleWorkflowID}, map[string]string{bundleWorkflowID + ".jsonc": "{}"})
+	bundleWorkspace(t, workspace.Target{Kind: "workflow", WorkflowID: bundleWorkflowID}, map[string]string{"workflow.jsonc": "{}"})
 	stdout, _, err := runTopLevel(t, "publish", map[string]string{"yes": "true"})
 	if err != nil {
 		t.Fatal(err)

@@ -201,7 +201,7 @@ func (s *workflowServer) serve(w http.ResponseWriter, r *http.Request) {
 func workflowWithFunction(t *testing.T) string {
 	t.Helper()
 	files := map[string]string{
-		bundleWorkflowID + ".jsonc":                 `{"label":"Weekly"}`,
+		"workflow.jsonc": `{"label":"Weekly"}`,
 		"functions/hello/node_modules/dep/index.js": "dep",
 	}
 	for name, content := range functionSources {
@@ -257,7 +257,7 @@ func TestWorkflowActionsRunOnEveryFunctionBeforeTheWorkflow(t *testing.T) {
 	if server.bodies[workflow+"push"]["uploadKey"] != "archive-key" || server.bodies[workflow+"validate"]["uploadKey"] != "archive-key" {
 		t.Fatalf("workflow push and validate bodies: %v %v", server.bodies[workflow+"push"], server.bodies[workflow+"validate"])
 	}
-	want := []string{bundleWorkflowID + ".jsonc", "functions/hello/.major/config.json", "functions/hello/function.json", "functions/hello/index.ts", "functions/hello/lib.ts"}
+	want := []string{"functions/hello/.major/config.json", "functions/hello/function.json", "functions/hello/index.ts", "functions/hello/lib.ts", "workflow.jsonc"}
 	if got := zipNames(t, server.uploads["archive"]); !reflect.DeepEqual(got, want) {
 		t.Fatalf("workflow archive entries: %v, want %v", got, want)
 	}
@@ -279,8 +279,8 @@ func TestWorkflowPushStopsWhenAFunctionFails(t *testing.T) {
 func TestWorkflowPushRejectsAFunctionsFolderThatIsNotAWorkspace(t *testing.T) {
 	server := newWorkflowServer(t)
 	bundleWorkspace(t, workspace.Target{Kind: "workflow", WorkflowID: bundleWorkflowID}, map[string]string{
-		bundleWorkflowID + ".jsonc": "{}",
-		"functions/bare/index.ts":   "export default async function () {}\n",
+		"workflow.jsonc":          "{}",
+		"functions/bare/index.ts": "export default async function () {}\n",
 	})
 	stdout, _, err := runTopLevel(t, "push", map[string]string{})
 	if err == nil || !strings.Contains(err.Error(), "major function create functions/bare") || stdout != "" {
@@ -295,20 +295,20 @@ func TestWorkflowPullRestoresFunctionWorkspacesFromTheArchive(t *testing.T) {
 	server := newWorkflowServer(t)
 	nested, _ := json.Marshal(workspace.Config{OrganizationID: bundleOrgID, Target: workspace.Target{Kind: "function", FunctionID: bundleFunctionID}})
 	server.archive = zipBytes(t, map[string]string{
-		bundleWorkflowID + ".jsonc":          `{"label":"Pulled"}`,
+		"workflow.jsonc":                     `{"label":"Pulled"}`,
 		"functions/hello/index.ts":           "pulled",
 		"functions/hello/function.json":      "{}",
 		"functions/hello/.major/config.json": string(nested),
 	})
 	dir := bundleWorkspace(t, workspace.Target{Kind: "workflow", WorkflowID: bundleWorkflowID}, map[string]string{
-		bundleWorkflowID + ".jsonc":             "{}",
+		"workflow.jsonc":                        "{}",
 		"functions/removed/index.ts":            "stale",
 		"functions/hello/node_modules/dep/a.js": "kept",
 	})
 	if _, stderr, err := runTopLevel(t, "pull", map[string]string{}); err != nil {
 		t.Fatalf("pull: %v stderr=%q", err, stderr)
 	}
-	if definition, _ := os.ReadFile(filepath.Join(dir, bundleWorkflowID+".jsonc")); string(definition) != `{"label":"Pulled"}` {
+	if definition, _ := os.ReadFile(filepath.Join(dir, "workflow.jsonc")); string(definition) != `{"label":"Pulled"}` {
 		t.Fatalf("definition: %q", definition)
 	}
 	root, cfg, err := workspace.Locate(filepath.Join(dir, "functions", "hello"))
@@ -328,7 +328,7 @@ func TestWorkflowPullRestoresFunctionWorkspacesFromTheArchive(t *testing.T) {
 
 func TestFunctionCreateInAWorkflowMakesAPushableWorkspace(t *testing.T) {
 	server := newWorkflowServer(t)
-	dir := bundleWorkspace(t, workspace.Target{Kind: "workflow", WorkflowID: bundleWorkflowID}, map[string]string{bundleWorkflowID + ".jsonc": "{}"})
+	dir := bundleWorkspace(t, workspace.Target{Kind: "workflow", WorkflowID: bundleWorkflowID}, map[string]string{"workflow.jsonc": "{}"})
 
 	create, _, err := rootCmd.Find([]string{"function", "create"})
 	if err != nil {

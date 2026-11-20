@@ -13,7 +13,7 @@ Inspect runs and connector events with the CLI, through `sandbox_bash` in `/work
 
 ## The working file, saving, and publishing
 
-Each workflow's working copy lives on its own sandbox at `<workflowId>.jsonc` (workspace-relative). Two separate steps take it off the sandbox:
+Each workflow's working copy lives on its own sandbox at `workflow.jsonc` (workspace-relative). Two separate steps take it off the sandbox:
 
 - **Save** (`major push`) saves every function under `functions/`, then writes the file and the rest of the workspace as a new immutable version. Nothing about the workflow's behaviour changes — saving is free. **The sandbox is torn down once it goes idle and comes back seeded from the last saved version, so anything unsaved is lost.**
 - **Publish** (`major publish --yes`) publishes every function under `functions/`, then points the workflow at its latest saved version. This is the only thing that changes live trigger behavior: schedules begin firing, connector endpoints are reconciled, and webhook URLs are materialized.
