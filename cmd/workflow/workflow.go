@@ -19,7 +19,7 @@ import (
 var Cmd = &cobra.Command{Use: "workflow", Short: "Manage file-based workflows"}
 
 // workflowTarget is the workflow kind: the whole workspace moved as one zip,
-// the <workflowId>.jsonc definition (the same name the workflow pod uses)
+// the workflow.jsonc definition (the same name the workflow pod uses)
 // beside every other file.
 type workflowTarget struct{ target.BundleTarget }
 
@@ -37,14 +37,14 @@ func (workflowTarget) NestedDirs() map[string]string {
 	return map[string]string{"functions": "function"}
 }
 
-func definitionName(id string) string { return id + ".jsonc" }
+// definitionName is the definition's path in the workspace and its zip.
+const definitionName = "workflow.jsonc"
 
 var skippedNames = map[string]bool{".DS_Store": true, "Thumbs.db": true}
 
 // workflowFiles is the definition and everything beside it: the nested
 // workspaces' sources and their .major/config.json, without build output.
 func workflowFiles(id string) target.FileSet {
-	name := definitionName(id)
 	return target.FileSet{
 		Owns: func(rel string) bool {
 			if skippedNames[path.Base(rel)] {
@@ -67,11 +67,11 @@ func workflowFiles(id string) target.FileSet {
 		},
 		Check: func(rels []string) error {
 			for _, rel := range rels {
-				if rel == name {
+				if rel == definitionName {
 					return nil
 				}
 			}
-			return fmt.Errorf("workflow workspace requires %s", name)
+			return fmt.Errorf("workflow workspace requires %s", definitionName)
 		},
 		NestedConfigs: true,
 	}
