@@ -1,6 +1,6 @@
 ---
 name: workflow-builder
-description: Create and manage Major workflows — JSONC graphs of functions, agent calls, app calls, routers, loops, joins, waits, and human approvals fired by schedules, connector events, or authenticated webhooks — the definition format, node/edge/trigger reference, state expressions, and the sandbox-based edit/validate/save/publish lifecycle.
+description: Create and manage Major workflows — JSONC graphs of functions, Jev judgment steps, agent calls, app calls, routers, loops, joins, waits, and human approvals fired by schedules, connector events, or authenticated webhooks — the definition format, node/edge/trigger reference, state expressions, and the sandbox-based edit/validate/save/publish lifecycle.
 ---
 
 # Building a Major workflow
@@ -49,14 +49,29 @@ Runtime semantics the schema can't express:
 - **human_approval**: point its single out-edge at a `router` that branches on `<node_id>.choice`, otherwise the decision can't affect the flow.
 - Prefer underscores over hyphens in ids — a hyphenated node id can't be referenced from `$expr`.
 
-## Choosing a step: function, agent, or app
+## Choosing a step: the cheapest node that can do it
 
-When a step needs compute — transforming or aggregating data, calling a resource or an external API, scoring, formatting, any deterministic logic — write a **function**. It is the default for code in a workflow.
+An agent run costs about 100 times a judgment step, and a function costs almost nothing. Give each step to the first of these that can do it:
 
-- **`function`**: TypeScript the workflow owns and versions with it. Use it for any computation the workflow needs, including reading or writing connected resources. Don't build or extend an app just to give a workflow somewhere to run code.
+- **`router`/`$expr`**: simple branching or a one-line computed value.
+- **`function`**: TypeScript the workflow owns and versions with it, and the default for anything code can do: fetching (new issues, unread mail, the meetings that just ended, rows matching a query), filtering, aggregating, formatting, and writing to a connected resource or external API (apply a label, post a fixed message, update a record). Don't build or extend an app just to give a workflow somewhere to run code.
 - **`app_call`**: only when the compute belongs to an app — the user names an existing app endpoint to call, the logic already lives in a deployed app, or the step changes state an app owns (its data, its jobs) and the app should stay the one place that does it. If no such app exists, write a function instead.
-- **`agent_call`**: only for judgment a model has to make — reading unstructured text, deciding, drafting. Don't use an agent for work code can do deterministically.
-- **`router`/`$expr`**: simple branching or a one-line computed value doesn't need a function.
+- **`jev_noul` / `jev_choice` / `jev_score`**: a judgment about text the run already holds — yes/no questions ("does this email need a reply today?"), one label from a list, or a score. Each takes `text`, a template over run state, and sees nothing else: it can't fetch context or use anyone's memory, so put everything it needs in `text` and write explicit criteria. Route on its output with a `router`.
+- **`agent_call`**: only what needs reasoning across several steps, tools chosen as it goes, or drafting.
+
+**Gate every agent.** A run that turns out to have no work must end without starting one, so an agent is never the entry node of a triggered workflow unless every trigger genuinely needs its judgment:
+
+- When the run begins by checking for work, a function does the check and a `router` reaches the agent only when it found some, otherwise an `end` node. A function keeps nothing between runs: on a cron trigger, derive "new since the last run" from a time window as long as the schedule's interval.
+- When whether to act is a judgment about the trigger's content, a Jev node decides and the `router` reads it. When that judgment is all the agent would have done (classify then label, decide then notify), Jev decides and a function or `pepper_call` carries it out, with no agent at all.
+- Put what the function fetched and Jev decided into the agent's prompt, so the agent doesn't fetch or decide it again.
+- Don't add a gate that always passes: it only adds cost.
+
+```jsonc
+// Hourly: an agent files action items only when a meeting actually ended.
+{ "id": "ended_meetings", "type": "function", "label": "Meetings that just ended", "config": { "function": "ended-meetings", "input": {} } },
+{ "id": "any_ended", "type": "router", "label": "Any ended?", "config": { "branches": [{ "label": "Yes", "when": { "$expr": "count(ended_meetings.meetings) > 0" }, "to": ["file_actions"] }], "default": ["done"] } },
+{ "id": "file_actions", "type": "agent_call", "label": "File action items", "config": { "agent_id": "<agentId>", "prompt": "File the untracked action items from these meetings: {{json ended_meetings.meetings}}" } }
+```
 
 ### Writing a function
 
@@ -95,7 +110,7 @@ A connector event's `options.events` must be a non-empty, duplicate-free list. O
 
 ### Connector-event filters
 
-`config.options.filter` is an optional boolean CEL expression evaluated before input projection, using the same `event.id`, `event.type`, optional `event.occurred_at`, and `event.json` namespace. Inspect each selected event's `payloadSchema` with `major workflow events <connectorType> --event <type>`, put deterministic eligibility such as channel, subtype, or amount in the filter, and guard optional fields before reading them. Never start an agent for every event and tell it to do nothing for unwanted events.
+`config.options.filter` is an optional boolean CEL expression evaluated before input projection, using the same `event.id`, `event.type`, optional `event.occurred_at`, and `event.json` namespace. Inspect each selected event's `payloadSchema` with `major workflow events <connectorType> --event <type>`, put deterministic eligibility such as channel, subtype, or amount in the filter, and guard optional fields before reading them. Never start an agent for every event and tell it to do nothing for unwanted events; eligibility that needs a judgment about the content goes to a Jev node (see "Gate every agent").
 
 ```jsonc
 // Slack: top-level messages in one channel
@@ -121,6 +136,7 @@ Node outputs by type:
 - `app_call` sends its resolved `config.input` as query params for GET/DELETE and as a JSON body for POST/PUT/PATCH; its output is the response body (non-object bodies wrap as `{"body": ...}`).
 - `agent_call` with an `output_schema` outputs exactly that shape; without one it outputs `{"result": "<final message text>"}`.
 - `pepper_call` outputs `{"messageId": "..."}`; nothing Pepper says comes back into the run.
+- `jev_noul` outputs the yes-probability, 0 to 1, per question id (`<node_id>.<question_id>`; branch on `>= 0.5`). `jev_choice` outputs `{"choice", "confidence", "probabilities"}` and `jev_score` `{"score", "confidence", "probabilities"}`.
 - `human_approval` outputs `{"choice": "<options[].value>", "responded_by": "<user id>", "timed_out": true?}` (`responded_by` absent on timeout).
 - Inside a `for_each` body, `<for_each_id>.item` and `<for_each_id>.index` are the current iteration; after the exit edge, `<for_each_id>.results` holds the per-iteration results in item order (the output of each iteration's final node) unless `collect_results` is false.
 - `router`, `join`, and `wait` produce no state worth referencing.
@@ -139,7 +155,7 @@ Pepper is an organization member's always-on personal agent, which they chat wit
 
 ## Workflow
 
-1. Ask what the workflow should do, which agents/apps it touches (`list` with `target_type: "agent"` / `"app"` and `include_read_only: true` to discover ids), and the cadence. Plan compute as functions unless it belongs to an app (see "Choosing a step"). When an `app_call` needs endpoints or request/response shapes, load the `using-apps` skill.
+1. Ask what the workflow should do, which agents/apps it touches (`list` with `target_type: "agent"` / `"app"` and `include_read_only: true` to discover ids), and the cadence. Plan each step on the cheapest node that can do it, and gate every agent (see "Choosing a step"). When an `app_call` needs endpoints or request/response shapes, load the `using-apps` skill.
 2. `create({target_type: "workflow"})` (or `start_sandbox` for an existing one) — the builder panel opens so the user can see the graph.
 3. Draft the JSONC. Iterate with the sandbox file tools, `major validate` as you go, and `major push` at the end of every turn you edited in.
 4. Test with `run_workflow` (it runs what you last saved), then inspect with `major workflow run get <runId>`.
