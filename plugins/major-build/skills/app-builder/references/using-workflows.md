@@ -1,18 +1,7 @@
 # Starting Workflows from an App
 
-Generate the client with `sandbox_add-workflow-client` and use the import it returns, from backend code only.
+Generate the client with `sandbox_add-workflow-client` and call it from backend code:
 
-```typescript
-import { leadEnrichmentWorkflowClient } from "./clients"; // the import add-workflow-client returned
-
-const { runId } = await leadEnrichmentWorkflowClient.run({ input: { leadId } });
-const { run, document } = await leadEnrichmentWorkflowClient.getRun({ runId }); // poll until run.status !== "running"; output in document?.output
-```
-
-A `human_approval` with an `app` channel POSTs an `AppApprovalRequest` (`{ runId, executionId, message, payload, options }`) to the app's `path`. Store it, show the options, and answer from the user's click:
-
-```typescript
-await leadEnrichmentWorkflowClient.approvals.respond({ runId, executionId, choice: "approve" });
-```
-
-The first answer wins; a later one gets a 409.
+- `run({ input })` starts a run and returns `{ runId }`.
+- `getRun({ runId })` returns `{ run, document }`: poll `run.status`; the output is `document.output`.
+- A `human_approval` with an `app` channel POSTs `{ runId, executionId, message, payload, options }` to the app's `path`. Store it, then answer from the user's click with `approvals.respond({ runId, executionId, choice })`. The first answer wins.
