@@ -8,7 +8,7 @@ description: Create and configure a Major agent — a versioned two-file bundle 
 An _agent_ in Major is a saved AI configuration users can invoke. It is a **versioned two-file bundle** you author on the agent's own sandbox:
 
 ```
-agent.jsonc   name, description, model, skills, env keys, connectors + applications
+agent.jsonc   name, description, model, skills, env keys, connectors, applications + workflows
               (with their per-tool permission decisions nested inline)
 prompt.md     the system prompt — the file IS the prompt, no wrapper
 ```
@@ -86,6 +86,10 @@ Skills are reusable instruction bundles authored in the Skill Library; attached 
 ## Giving the agent a web browser
 
 To let the agent visit or interact with web pages, set `"browserSettings": { "enabled": true }` in `agent.jsonc`. Its sessions then get a hosted web browser through the `browser` tool. There is no browser connector to add. Leave it off unless the agent's job needs the web.
+
+## Letting the agent run workflows
+
+Add `{ "id": "<workflowId>" }` entries to `workflows` in `agent.jsonc` (find ids with `list`, `target_type: "workflow"`, `include_read_only: true`). The agent's chat sessions can then start those workflows' published versions with `run_workflow`; each run's result comes back later as a message in the same thread, so the agent shouldn't wait or poll. List only workflows the agent's job needs.
 
 ## Running on a schedule
 
