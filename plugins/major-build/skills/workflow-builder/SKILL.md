@@ -56,6 +56,7 @@ An agent run costs about 100 times a judgment step, and a function costs almost 
 - **`router`/`$expr`**: simple branching or a one-line computed value.
 - **`function`**: TypeScript the workflow owns and versions with it, and the default for anything code can do: fetching (new issues, unread mail, the meetings that just ended, rows matching a query), filtering, aggregating, formatting, and writing to a connected resource or external API (apply a label, post a fixed message, update a record). Don't build or extend an app just to give a workflow somewhere to run code.
 - **`app_call`**: only when the compute belongs to an app — the user names an existing app endpoint to call, the logic already lives in a deployed app, or the step changes state an app owns (its data, its jobs) and the app should stay the one place that does it. If no such app exists, write a function instead.
+- **`workflow_call`**: a step that is another workflow's whole job — call it instead of copying its nodes. It runs that workflow's published version (publish it first), as that workflow's deployer. Find ids with `list` (`target_type: "workflow"`, `include_read_only: true`).
 - **`jev_noul` / `jev_choice` / `jev_score`**: a judgment about text the run already holds — yes/no questions ("does this email need a reply today?"), one label from a list, or a score. Each takes `text`, a template over run state, and sees nothing else: it can't fetch context or use anyone's memory, so put everything it needs in `text` and write explicit criteria. Route on its output with a `router`.
 - **`agent_call`**: only what needs reasoning across several steps, tools chosen as it goes, or drafting.
 
@@ -135,6 +136,7 @@ Node outputs by type:
 - `function` outputs its return value when that is an object; anything else, including `null` when it returns nothing, wraps as `{"body": ...}`.
 - `app_call` sends its resolved `config.input` as query params for GET/DELETE and as a JSON body for POST/PUT/PATCH; its output is the response body (non-object bodies wrap as `{"body": ...}`).
 - `agent_call` with an `output_schema` outputs exactly that shape; without one it outputs `{"result": "<final message text>"}`.
+- `workflow_call` (`config: {"workflow_id", "input"}`, `input` resolved like `app_call`'s and checked against the called workflow's `input_schema`) outputs the called run's end output (non-object outputs wrap as `{"result": ...}`); a failed or canceled called run fails the node.
 - `pepper_call` outputs `{"messageId": "..."}`; nothing Pepper says comes back into the run.
 - `jev_noul` outputs the yes-probability, 0 to 1, per question id (`<node_id>.<question_id>`; branch on `>= 0.5`). `jev_choice` outputs `{"choice", "confidence", "probabilities"}` and `jev_score` `{"score", "confidence", "probabilities"}`.
 - `human_approval` outputs `{"choice": "<options[].value>", "responded_by": "<user id>", "timed_out": true?}` (`responded_by` absent on timeout).
