@@ -48,6 +48,7 @@ Find the connector's row below and read its reference file (in this skill's `ref
 | Google Drive | `googledrive` | [googledrive.md](references/googledrive.md) | Implements Google Drive file listing, reading, and management using generated clients and MCP tools. |
 | Google Search Console | `googlesearchconsole` | [googlesearchconsole.md](references/googlesearchconsole.md) | Implements Google Search Console data access for search analytics, sitemaps, sites, and URL inspection using generated clients and MCP tools. |
 | Google Sheets | `googlesheets` | [googlesheets.md](references/googlesheets.md) | Implements Google Sheets reading, writing, formatting, and batch operations using generated clients and MCP tools. |
+| Google Workspace Admin | `googleworkspaceadmin` | [googleworkspaceadmin.md](references/googleworkspaceadmin.md) | Implements Google Workspace user onboarding and offboarding (users, groups, licenses, data transfer, Gmail settings) using the HTTP proxy and MCP tools. |
 | GraphQL API | `graphql` | [graphql.md](references/graphql.md) | Executes GraphQL queries and mutations against a configured endpoint using generated clients and MCP tools. |
 | HubSpot | `hubspot` | [hubspot.md](references/hubspot.md) | Implements HubSpot CRM data access for contacts, companies, and deals using generated clients and MCP tools. |
 | AWS Lambda | `lambda` | [lambda.md](references/lambda.md) | Implements AWS Lambda function invocation and management using generated clients and MCP tools. |
